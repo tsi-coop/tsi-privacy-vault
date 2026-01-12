@@ -185,8 +185,8 @@ These steps describe how to install and run the TSI Aadhaar Vault Plus solution 
 
 ## User Guide
 
-For Admin Setup & API Endpoints, refer to the [User Guide](https://github.com/tsi-cooperative/tsi-aadhaar-vault-plus/blob/main/docs/_TSI%20Aadhaar%20Vault%20Plus%20-%20User%20Guide.pdf).
+For Admin Setup & API Endpoints, refer to the [User Guide](https://github.com/tsi-coop/tsi-privacy-vault/blob/main/docs/_TSI%20Aadhaar%20Vault%20Plus%20-%20User%20Guide.pdf).
 
 ## References
 
-[Aadhaar Vault](https://techadvisory.substack.com/p/solution-explainer-aadhaar-vault).
+[Aadhaar Vault](https://techadvisory.substack.com/p/solution-explainer-aadhaar-vault)
