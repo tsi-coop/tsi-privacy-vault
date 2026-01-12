@@ -71,7 +71,7 @@ Before you begin, ensure you have the following software installed on your devel
         6.  Define **Key administrators** (IAM users/roles who can manage this key).
         7.  Define **Key usage permissions** (IAM users/roles who can use this key for crypto operations).
         8.  Review and finish creation.
-    * **Obtain Key Identifier:** Note down the **Key ARN** or create a user-friendly **Alias ARN** (e.g., `alias/your-aadhaar-vault-key`). This will be used as `KMS_KEY_IDENTIFIER`.
+    * **Obtain Key Identifier:** Note down the **Key ARN** or create a user-friendly **Alias ARN** (e.g., `alias/your-privacy-vault-key`). This will be used as `KMS_KEY_IDENTIFIER`.
     * **IAM User/Role Permissions:** Ensure the IAM user whose `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` you use locally (or the IAM role your application uses in production) has the following permissions on your specific KMS key:
         * `kms:GenerateDataKey`
         * `kms:Encrypt`
@@ -79,12 +79,12 @@ Before you begin, ensure you have the following software installed on your devel
 
 ## Installation Steps (Docker)
 
-Follow these steps to get the TSI Aadhaar Vault Plus solution running on your local machine using Docker Compose:
+Follow these steps to get the TSI Privacy Vault solution running on your local machine using Docker Compose:
 
 1.  **Clone the Repository:**
     ```bash
-    git clone https://github.com/tsi-coop/tsi-aadhaar-vault-plus.git
-    cd tsi-aadhaar-vault-plus
+    git clone https://github.com/tsi-coop/tsi-privacy-vault.git
+    cd tsi-privacy-vault
     ```
 
 2.  **Create `.env` File:**
@@ -97,14 +97,14 @@ Follow these steps to get the TSI Aadhaar Vault Plus solution running on your lo
     * `TSI_LOOKUP_SALT`: A long, random, cryptographically secure string.
     * `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`: Your AWS credentials for local testing.
     * `AWS_REGION`: Your AWS region (e.g., `ap-south-1`).
-    * `AWS_KMS_KEY_IDENTIFIER`: The ARN or Alias ARN of your KMS Key (e.g., `alias/your-aadhaar-vault-key`).
+    * `AWS_KMS_KEY_IDENTIFIER`: The ARN or Alias ARN of your KMS Key (e.g., `alias/your-privacy-vault-key`).
 
 3.  **Build the Java WAR File:**
     Navigate to the project root and build your Java application.
     ```bash
     mvn clean package
     ```
-    This will create `target/tsi_aadhaar_vault_plus.war`.
+    This will create `target/tsi_privacy_vault.war`.
 
 4.  **Initialize PostgreSQL Database Schema:**
     The `postgres` Docker image only runs initialization scripts on its *first* startup when the data directory is empty. To ensure your schema is loaded:
@@ -127,12 +127,12 @@ Follow these steps to get the TSI Aadhaar Vault Plus solution running on your lo
 
 ## Installation Steps (without Docker)
 
-These steps describe how to install and run the TSI Aadhaar Vault Plus solution directly on a Linux/Windows server without using Docker.
+These steps describe how to install and run the TSI Privacy Vault solution directly on a Linux/Windows server without using Docker.
 
 1.   **Clone the Repository:**
      ```bash
-     git clone https://github.com/tsi-coop/tsi-aadhaar-vault-plus.git
-     cd tsi-aadhaar-vault-plus
+     git clone https://github.com/tsi-coop/tsi-privacy-vault.git
+     cd tsi-privacy-vault
      ```
 
 2.  **PostgreSQL Database Setup:**
@@ -149,37 +149,37 @@ These steps describe how to install and run the TSI Aadhaar Vault Plus solution 
     * Exit the postgres user: `exit`
     * **Initialize Schema:** Execute the `db/init.sql` script to create the necessary tables.
     ```bash
-    psql -U <<your-db-user-here>> -d <<your-db-name-here>> -h localhost -f /path/to/tsi-aadhaar-vault-plus/db/init.sql
+    psql -U <<your-db-user-here>> -d <<your-db-name-here>> -h localhost -f /path/to/tsi-privacy-vault/db/init.sql
     ```
 
 3.  **Build WAR:**
     ```bash
-    cd /path/to/tsi-aadhaar-vault-plus
+    cd /path/to/tsi-privacy-vault
     mvn clean package
     ```
-    This will generate `target/tsi_aadhaar_vault_plus.war`.
+    This will generate `target/tsi_privacy_vault.war`.
 
 4.  **Deploy Solution (linux):**
     ```bash
-    cd /path/to/tsi-aadhaar-vault-plus/server
+    cd /path/to/tsi-privacy-vault/server
     cp .example .env
     ```
     Now, **edit the newly created `.env` file** and fill in the placeholder values.
    
     ```bash
     ./set-base.sh #Sets the jetty base directory
-    ./serve.sh # Copies the target/tsi_aadhaar_vault_plus.war to %JETTY_BASE%/webapps/ROOT.wat. Starts the server in 8080
+    ./serve.sh # Copies the target/tsi_privacy_vault.war to %JETTY_BASE%/webapps/ROOT.wat. Starts the server in 8080
     ```
 5. **Deploy Solution (windows):**
    ```bash
-   cd /path/to/tsi-aadhaar-vault-plus/server
+   cd /path/to/tsi-privacy-vault/server
    copy .example .env
    ```
    Now, **edit the newly created `.env` file** and fill in the placeholder values.
    
    ```bash
    set-base.bat #Sets the jetty base directory
-   serve.bat # Copies the target/tsi_aadhaar_vault_plus.war to %JETTY_BASE%/webapps/ROOT.wat. Starts the server in 8080
+   serve.bat # Copies the target/tsi_privacy_vault.war to %JETTY_BASE%/webapps/ROOT.wat. Starts the server in 8080
    ```
 ####  **Security Note:** For production, **never hardcode AWS credentials or salts**. Use a secure secrets management solution like AWS Secrets Manager and retrieve them programmatically.
 

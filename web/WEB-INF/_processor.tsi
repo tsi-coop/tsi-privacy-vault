@@ -1,10 +1,10 @@
 # Client APIs
-/api/client/register=org.tsicoop.aadhaarvault.api.client.RegisterClient
-/api/client/vault=org.tsicoop.aadhaarvault.api.client.Vault
+/api/client/register=org.tsicoop.privacyvault.api.client.RegisterClient
+/api/client/vault=org.tsicoop.privacyvault.api.client.Vault
 
 # Admin Handlers
-/api/admin/register=org.tsicoop.aadhaarvault.api.admin.Register
-/api/admin/login=org.tsicoop.aadhaarvault.api.admin.Login
-/api/admin/clients=org.tsicoop.aadhaarvault.api.admin.Clients
-/api/admin/IDTypes=org.tsicoop.aadhaarvault.api.admin.IDTypes
-/api/admin/audit=org.tsicoop.aadhaarvault.api.admin.Audit
+/api/admin/register=org.tsicoop.privacyvault.api.admin.Register
+/api/admin/login=org.tsicoop.privacyvault.api.admin.Login
+/api/admin/clients=org.tsicoop.privacyvault.api.admin.Clients
+/api/admin/IDTypes=org.tsicoop.privacyvault.api.admin.IDTypes
+/api/admin/audit=org.tsicoop.privacyvault.api.admin.Audit

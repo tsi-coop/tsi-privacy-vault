@@ -2,7 +2,7 @@ services:
   # PostgreSQL Database Service
   postgres_db:
     image: postgres:15-alpine
-    container_name: tsi_aadhaar_vault_plus_postgres
+    container_name: tsi_privacy_vault_postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -21,7 +21,7 @@ services:
   # Java Jetty Web Application Service
   jetty_app:
     build: . # Build the image from the Dockerfile in the current directory
-    container_name: tsi_aadhaar_vault_plus_jetty
+    container_name: tsi_privacy_vault_jetty
     ports:
       - "8080:8080" # Map host port 8080 to container port 8080 (Jetty's default)
     environment:
@@ -33,7 +33,7 @@ services:
 
       # Global Salt for LookupHasher
       TSI_LOOKUP_SALT: ${TSI_LOOKUP_SALT}
-      TSI_AADHAR_VAULT_PLUS_ENV: ${TSI_AADHAR_VAULT_PLUS_ENV}
+      TSI_PRIVACY_VAULT_ENV: ${TSI_PRIVACY_VAULT_ENV}
 
       # AWS Credentials for KMS Service (ONLY FOR LOCAL TESTING, NOT FOR PRODUCTION)
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}

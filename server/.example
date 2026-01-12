@@ -6,8 +6,8 @@
 
 # --- Basic Configuration ---
 JAVA_HOME=
-TSI_AADHAR_VAULT_PLUS_ENV=local
-TSI_AADHAR_VAULT_PLUS_HOME=
+TSI_PRIVACY_VAULT_ENV=local
+TSI_PRIVACY_VAULT_PLUS_HOME=
 JETTY_HOME=
 JETTY_BASE=
 
@@ -22,7 +22,7 @@ POSTGRES_PASSWD=
 # A global, fixed, and secret salt used for deterministic hashing of ID numbers
 # for lookup and duplicate checking. This should be a long, random string.
 TSI_LOOKUP_SALT=
-TSI_AADHAR_VAULT_PLUS_ENV=local
+TSI_PRIVACY_VAULT_ENV=local
 
 # --- AWS KMS Configuration ---
 # Your AWS Access Key ID (e.g., AKIA...)

@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-title TSI Aadhaar Vault Plus
+title TSI Privacy Vault
 :: Check if .env file exists
 if not exist ".env" (
     echo Error: .env file not found. Please create it.
@@ -28,8 +28,8 @@ for /f "tokens=1* delims==" %%A in (.env) do (
 )
 
 set JAVA_HOME=%JAVA_HOME%
-set TSI_AADHAR_VAULT_PLUS_ENV=%TSI_AADHAR_VAULT_PLUS_ENV%
-set TSI_AADHAR_VAULT_PLUS_HOME=%TSI_AADHAR_VAULT_PLUS_HOME%
+set TSI_PRIVACY_VAULT_ENV=%TSI_PRIVACY_VAULT_ENV%
+set TSI_PRIVACY_VAULT_HOME=%TSI_PRIVACY_VAULT_HOME%
 set POSTGRES_HOST=%POSTGRES_HOST%
 set POSTGRES_DB=%POSTGRES_DB%
 set POSTGRES_USER=%POSTGRES_USER%
@@ -41,5 +41,5 @@ set AWS_SECRET_ACCESS_KEY=%AWS_SECRET_ACCESS_KEY%
 set AWS_REGION=%AWS_REGION%
 set AWS_KMS_KEY_IDENTIFIER=%AWS_KMS_KEY_IDENTIFIER%
 set TSI_LOOKUP_SALT=%TSI_LOOKUP_SALT%
-copy %TSI_AADHAR_VAULT_PLUS_HOME%\target\tsi_aadhaar_vault_plus.war %JETTY_BASE%\webapps\ROOT.war >NUL
+copy %TSI_PRIVACY_VAULT_HOME%\target\tsi_privacy_vault.war %JETTY_BASE%\webapps\ROOT.war >NUL
 java -jar %JETTY_HOME%/start.jar

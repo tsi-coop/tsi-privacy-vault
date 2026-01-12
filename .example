@@ -13,7 +13,7 @@ POSTGRES_PASSWD=
 
 # --- Application Configuration---
 TSI_LOOKUP_SALT= # A global, fixed, and secret salt used for deterministic hashing of ID numbers
-TSI_AADHAR_VAULT_PLUS_ENV=local
+TSI_PRIVACY_VAULT_ENV=local
 
 # --- AWS KMS Configuration ---
 # Your AWS Access Key ID (e.g., AKIA...)

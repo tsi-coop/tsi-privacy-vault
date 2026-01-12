@@ -7,7 +7,7 @@
 		metadata-complete = "false">
 <filter>
 	<filter-name>TSI_Aadhaar_Vault_Plus</filter-name>
-	<filter-class>org.tsicoop.aadhaarvault.framework.InterceptingFilter</filter-class>
+	<filter-class>org.tsicoop.privacyvault.framework.InterceptingFilter</filter-class>
 </filter>
 	
 <filter-mapping>
