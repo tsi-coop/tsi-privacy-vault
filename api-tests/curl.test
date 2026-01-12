@@ -22,9 +22,9 @@ curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhb
 # Register
 curl -X POST -H "Content-Type: application/json" -d @C:\work\tsi-aadhaar-vault-plus\api-tests\client\register_client.json http://localhost:8080/api/client/register
 # Store ID
-curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-087b93c0-fccf-4698-851d-76ccb2560cd2" -H "X-API-Secret:ext-64327d26-3995-48cd-b480-8c8c0a1b6490" -d @C:\work\tsi-aadhaar-vault-plus\api-tests\client\store_id.json http://localhost:8080/api/client/vault
+curl -X POST -H "Content-Type: application/json" -H "X-API-Key:4ffd432c-72db-47d9-aa21-47c89ad45055" -H "X-API-Secret:7d55c489-42a1-4112-9d8d-25049cf7420b48c43b8d713048f89ebc2b4ed8262efa" -d @C:\work\tsi-aadhaar-vault-plus\api-tests\client\store_id.json http://localhost:8080/api/client/vault
 # Fetch ID By Reference
-curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-05757707-9b35-4571-b53e-d6c57754a5b5" -H "X-API-Secret:ext-047fdee0-83cc-4e27-aca2-49ad738ba76b" -d @C:\work\tsi-aadhaar-vault-plus\api-tests\client\fetch_id_by_reference.json http://localhost:8080/api/client/vault
+curl -X POST -H "Content-Type: application/json" -H "X-API-Key:4ffd432c-72db-47d9-aa21-47c89ad45055" -H "X-API-Secret:7d55c489-42a1-4112-9d8d-25049cf7420b48c43b8d713048f89ebc2b4ed8262efa" -d @C:\work\tsi-aadhaar-vault-plus\api-tests\client\fetch_id_by_reference.json http://localhost:8080/api/client/vault
 # Fetch Reference By ID Value
-curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-05757707-9b35-4571-b53e-d6c57754a5b5" -H "X-API-Secret:ext-047fdee0-83cc-4e27-aca2-49ad738ba76b" -d @C:\work\tsi-aadhaar-vault-plus\api-tests\client\fetch_reference_by_id_value.json http://localhost:8080/api/client/vault
+curl -X POST -H "Content-Type: application/json" -H "X-API-Key:4ffd432c-72db-47d9-aa21-47c89ad45055" -H "X-API-Secret:7d55c489-42a1-4112-9d8d-25049cf7420b48c43b8d713048f89ebc2b4ed8262efa" -d @C:\work\tsi-aadhaar-vault-plus\api-tests\client\fetch_reference_by_id_value.json http://localhost:8080/api/client/vault
 
