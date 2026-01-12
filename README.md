@@ -1,10 +1,8 @@
-# TSI Aadhaar Vault Plus
+# TSI Privacy Vault
 
-A secure, and compliant solution for organizations to manage Aadhaar ID.
+An open-source digital safe that isolates personal data for effortless privacy compliance.
 
-The "Plus" in the solution's name signifies its expanded capability to securely vault other sensitive Indian identification numbers like Voter ID and ABHA ID, providing a unified and extensible framework for managing diverse sensitive identifiers.
-
-A high level design of the solution is captured [here](https://techadvisory.substack.com/p/solution-explainer-aadhaar-vault).
+Note: Today, we keep your Digital IDs safe. Tomorrow, we’re becoming a complete 'digital safe' for all the private info you handle—from customers and employees to partners.
 
 ## Prerequisites
 
@@ -189,3 +187,6 @@ These steps describe how to install and run the TSI Aadhaar Vault Plus solution 
 
 For Admin Setup & API Endpoints, refer to the [User Guide](https://github.com/tsi-cooperative/tsi-aadhaar-vault-plus/blob/main/docs/_TSI%20Aadhaar%20Vault%20Plus%20-%20User%20Guide.pdf).
 
+## References
+
+[Aadhaar Vault](https://techadvisory.substack.com/p/solution-explainer-aadhaar-vault).
