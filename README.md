@@ -2,7 +2,7 @@
 
 An open-source digital safe that isolates personal data for effortless privacy compliance.
 
-Note: Today, we keep your Digital IDs safe. Tomorrow, we’re becoming a complete 'digital safe' for all the private info you handle—from customers and employees to partners.
+Note: This project is under active development. Today, we keep your Digital IDs safe. Tomorrow, we’re becoming a complete 'digital safe' for all the private info you handle—from customers and employees to partners.
 
 ## Prerequisites
 
