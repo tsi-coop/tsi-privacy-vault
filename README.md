@@ -1,6 +1,6 @@
 # TSI Privacy Vault
 
-An open-source digital safe that isolates personal data for effortless privacy compliance.
+An open-source digital safe that isolates personal and sensitive data for effortless compliance.
 
 **Note**: This project is under active development. Today, we keep your Digital IDs safe. Tomorrow, we’re becoming a complete 'digital safe' for all the private & sensitive information you handle from customers, employees and partners.
 
