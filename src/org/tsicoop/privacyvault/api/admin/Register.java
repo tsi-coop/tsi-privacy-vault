@@ -1,18 +1,17 @@
 package org.tsicoop.privacyvault.api.admin;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.tsicoop.aadhaarvault.framework.*;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.tsicoop.privacyvault.framework.*;
-
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.tsicoop.privacyvault.framework.*;
+
 
 
 public class Register implements REST {
