@@ -44,8 +44,7 @@ public class Vault implements REST {
             String clientIp = req.getRemoteAddr();
 
             if (func == null) throw new Exception("Missing function code.");
-            System.out.println("func:"+func);
-
+          
             switch (func.toLowerCase()) {
                 case "store_data":
                     byte[] content = Base64.getDecoder().decode((String) input.get("content"));
@@ -75,7 +74,6 @@ public class Vault implements REST {
     }
 
     private JSONObject fetchReferenceByHash(String apiKey, JSONObject input) throws Exception {
-        System.out.println("Inside fetchReferenceByHash");
         Connection conn = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -199,15 +197,21 @@ public class Vault implements REST {
             
             String sqlReg = "INSERT INTO vault_registry (reference_key, entity_type, file_name, encrypted_content, encrypted_data_key, hashed_value_sha256) VALUES (?, ?, ?, ?, ?, ?)";
             psReg = conn.prepareStatement(sqlReg);
-            psReg.setObject(1, ref); psReg.setString(2, type); psReg.setString(3, name);
+            psReg.setObject(1, ref); 
+            psReg.setString(2, type);
+            psReg.setString(3, name);
             psReg.setString(4, Base64.getEncoder().encodeToString(data));
             psReg.setString(5, key); psReg.setString(6, hash);
             psReg.executeUpdate();
 
-            String sqlLog = "INSERT INTO bsa_forensic_logs (reference_key, device_make_model, system_status) VALUES (?, ?, ?)";
+            String sqlLog = "INSERT INTO bsa_forensic_logs (reference_key, device_make_model, system_status, device_mac_address, device_serial_number, hash_algorithm) VALUES (?, ?, ?, ?, ?, ?)";
             psLog = conn.prepareStatement(sqlLog);
-            psLog.setObject(1, ref); psLog.setString(2, (String) bsa.get("makeModel"));
+            psLog.setObject(1, ref); 
+            psLog.setString(2, (String) bsa.get("makeModel"));
             psLog.setString(3, (String) bsa.get("systemStatus"));
+            psLog.setString(4, (String) bsa.get("macAddress"));
+            psLog.setString(5, (String) bsa.get("serialNumber"));
+            psLog.setString(6, (String) bsa.get("hashAlgorithm"));
             psLog.executeUpdate();
 
             conn.commit();
@@ -246,9 +250,10 @@ public class Vault implements REST {
                 data = new JSONObject();
                 data.put("sha256_hash", rs.getString("hashed_value_sha256"));
                 data.put("machine_model", rs.getString("device_make_model"));
+                data.put("mac_address", rs.getString("device_mac_address"));
                 data.put("health_status", rs.getString("system_status"));
                 data.put("anchor_time", rs.getTimestamp("timestamp_ist").toString());
-                data.put("software_version", "TSI-Privacy-Vault-v2.0");
+                data.put("software_version", "TSI-Privacy-Vault");
             }
         } finally {
             pool.cleanup(rs, pstmt, conn);

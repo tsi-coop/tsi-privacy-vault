@@ -46,4 +46,6 @@ curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-65f71b9a-cb6b
 # Fetch File By Reference
 curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-65f71b9a-cb6b-455c-9e0b-ba653d66b290" -H "X-API-Secret:ext-1c8a9489-e2ce-45c9-bdca-eb4c03f240ee" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/fetch_file_by_reference.json http://localhost:8080/api/client/vault
 # Generate BSA Certificate
-curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-65f71b9a-cb6b-455c-9e0b-ba653d66b290" -H "X-API-Secret:ext-1c8a9489-e2ce-45c9-bdca-eb4c03f240ee" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/generate_bsa_certificate.json http://localhost:8080/api/client/vault --output bsa.pdf
+curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-65f71b9a-cb6b-455c-9e0b-ba653d66b290" -H "X-API-Secret:ext-1c8a9489-e2ce-45c9-bdca-eb4c03f240ee" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/generate_bsa_certificate.json http://localhost:8080/api/client/vault --output bsa5.pdf
+
+{"forensicStatus":"OPERATING_PROPERLY","referenceKey":"867a6aa0-0cf3-4510-aacc-527358ac239f"}
