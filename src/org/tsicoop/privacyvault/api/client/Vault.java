@@ -236,7 +236,7 @@ public class Vault implements REST {
         PoolDB pool = new PoolDB();
         try {
             String sql = "SELECT v.hashed_value_sha256, f.device_make_model, f.device_mac_address, " +
-                         "f.system_status, f.captured_at FROM vault_registry v " +
+                         "f.system_status, f.timestamp_ist FROM vault_registry v " +
                          "JOIN bsa_forensic_logs f ON v.reference_key = f.reference_key WHERE v.reference_key = ?";
             conn = pool.getConnection();
             pstmt = conn.prepareStatement(sql);
@@ -247,7 +247,7 @@ public class Vault implements REST {
                 data.put("sha256_hash", rs.getString("hashed_value_sha256"));
                 data.put("machine_model", rs.getString("device_make_model"));
                 data.put("health_status", rs.getString("system_status"));
-                data.put("anchor_time", rs.getTimestamp("captured_at").toString());
+                data.put("anchor_time", rs.getTimestamp("timestamp_ist").toString());
                 data.put("software_version", "TSI-Privacy-Vault-v2.0");
             }
         } finally {
