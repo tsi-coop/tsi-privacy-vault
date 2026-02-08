@@ -1,30 +1,82 @@
-TSI Aadhaar Vault Plus - v0.1
+TSI Privacy Vault - v0.1
 --------------------------------------------------------------------------------------------
 ##Admin
 # Register
-curl -X POST -H "Content-Type: application/json" -d @C:\work\tsi-aadhaar-vault-plus\api-tests\admin\register.json http://localhost:8080/api/admin/register
+curl -X POST -H "Content-Type: application/json" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/register.json http://localhost:8080/api/admin/register
 # Login
-curl -X POST -H "Content-Type: application/json" -d @C:\work\tsi-aadhaar-vault-plus\api-tests\admin\login.json http://localhost:8080/api/admin/login
+curl -X POST -H "Content-Type: application/json" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/login.json http://localhost:8080/api/admin/login >> login.log
+
+eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA1Mjc0NDAsImV4cCI6MTc3MTM5MTQ0MH0.DtgHhQwnBIac57p7_3V-Ht1Jmt0RXhkKKKNty9w-d30
+
+{
+  "apiKey":"ext-65f71b9a-cb6b-455c-9e0b-ba653d66b290",
+  "clientName":"MyWebAppClient5",
+  "apiSecret":"ext-1c8a9489-e2ce-45c9-bdca-eb4c03f240ee"
+  }
+
+  {
+    "forensicStatus":"OPERATING_PROPERLY",
+    "referenceKey":"3f4f3e1f-58f7-4e76-93f0-ad72bef19da0"
+  }
+
 # Gat All Clients
-curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NTI1MDA4OTQsImV4cCI6MTc1MzM2NDg5NH0.H2E11JTIGShGRm2KYtY3AjMpK7k_vVLWuoQtfkuhKBI" -d @C:\work\tsi-aadhaar-vault-plus\api-tests\admin\get_all_clients.json http://localhost:8080/api/admin/clients
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA1Mjc0NDAsImV4cCI6MTc3MTM5MTQ0MH0.DtgHhQwnBIac57p7_3V-Ht1Jmt0RXhkKKKNty9w-d30" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/get_all_clients.json http://localhost:8080/api/admin/clients
 # Get Client Detail
-curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NTI1MDA4OTQsImV4cCI6MTc1MzM2NDg5NH0.H2E11JTIGShGRm2KYtY3AjMpK7k_vVLWuoQtfkuhKBI" -d @C:\work\tsi-aadhaar-vault-plus\api-tests\admin\get_client_details.json http://localhost:8080/api/admin/clients
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA0NDI1MjcsImV4cCI6MTc3MTMwNjUyN30.OXu0r4mEN9FW30ZVnqo301ZBfuaDDouCrddSQJd5HMI" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/get_client_details.json http://localhost:8080/api/admin/clients
 # Update Client Status
-curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NTI1MDA4OTQsImV4cCI6MTc1MzM2NDg5NH0.H2E11JTIGShGRm2KYtY3AjMpK7k_vVLWuoQtfkuhKBI" -d @C:\work\tsi-aadhaar-vault-plus\api-tests\admin\update_client_status.json http://localhost:8080/api/admin/clients
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA0NDI1MjcsImV4cCI6MTc3MTMwNjUyN30.OXu0r4mEN9FW30ZVnqo301ZBfuaDDouCrddSQJd5HMI" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/update_client_status.json http://localhost:8080/api/admin/clients
 # Generate New Client Secret
-curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NTI1MDA4OTQsImV4cCI6MTc1MzM2NDg5NH0.H2E11JTIGShGRm2KYtY3AjMpK7k_vVLWuoQtfkuhKBI" -d @C:\work\tsi-aadhaar-vault-plus\api-tests\admin\generate_new_client_secret.json http://localhost:8080/api/admin/clients
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA0NzM1NjgsImV4cCI6MTc3MTMzNzU2OH0.3NduDpeyGwraWZ5qDAN9EhyCbgZXrBh-vPR-VBEKaPc" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/generate_new_client_secret.json http://localhost:8080/api/admin/clients
 # Update ID Type
-curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NTI1MDA4OTQsImV4cCI6MTc1MzM2NDg5NH0.H2E11JTIGShGRm2KYtY3AjMpK7k_vVLWuoQtfkuhKBI" -d @C:\work\tsi-aadhaar-vault-plus\api-tests\admin\update_id_type.json http://localhost:8080/api/admin/IDTypes
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA0NDI1MjcsImV4cCI6MTc3MTMwNjUyN30.OXu0r4mEN9FW30ZVnqo301ZBfuaDDouCrddSQJd5HMI" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/update_id_type.json http://localhost:8080/api/admin/IDTypes
 # Gat Audit Logs
-curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NTI1MDA4OTQsImV4cCI6MTc1MzM2NDg5NH0.H2E11JTIGShGRm2KYtY3AjMpK7k_vVLWuoQtfkuhKBI" -d @C:\work\tsi-aadhaar-vault-plus\api-tests\admin\get_audit_logs.json http://localhost:8080/api/admin/audit
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA0NDI1MjcsImV4cCI6MTc3MTMwNjUyN30.OXu0r4mEN9FW30ZVnqo301ZBfuaDDouCrddSQJd5HMI" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/get_audit_logs.json http://localhost:8080/api/admin/audit
 
 ##Client
 # Register
-curl -X POST -H "Content-Type: application/json" -d @C:\work\tsi-aadhaar-vault-plus\api-tests\client\register_client.json http://localhost:8080/api/client/register
+curl -X POST -H "Content-Type: application/json" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/register_client.json http://localhost:8080/api/client/register
 # Store ID
-curl -X POST -H "Content-Type: application/json" -H "X-API-Key:4ffd432c-72db-47d9-aa21-47c89ad45055" -H "X-API-Secret:7d55c489-42a1-4112-9d8d-25049cf7420b48c43b8d713048f89ebc2b4ed8262efa" -d @C:\work\tsi-aadhaar-vault-plus\api-tests\client\store_id.json http://localhost:8080/api/client/vault
+curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-65f71b9a-cb6b-455c-9e0b-ba653d66b290" -H "X-API-Secret:ext-1c8a9489-e2ce-45c9-bdca-eb4c03f240ee" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/store_id.json http://localhost:8080/api/client/vault
 # Fetch ID By Reference
-curl -X POST -H "Content-Type: application/json" -H "X-API-Key:4ffd432c-72db-47d9-aa21-47c89ad45055" -H "X-API-Secret:7d55c489-42a1-4112-9d8d-25049cf7420b48c43b8d713048f89ebc2b4ed8262efa" -d @C:\work\tsi-aadhaar-vault-plus\api-tests\client\fetch_id_by_reference.json http://localhost:8080/api/client/vault
+curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-65f71b9a-cb6b-455c-9e0b-ba653d66b290" -H "X-API-Secret:ext-1c8a9489-e2ce-45c9-bdca-eb4c03f240ee" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/fetch_id_by_reference.json http://localhost:8080/api/client/vault
 # Fetch Reference By ID Value
-curl -X POST -H "Content-Type: application/json" -H "X-API-Key:4ffd432c-72db-47d9-aa21-47c89ad45055" -H "X-API-Secret:7d55c489-42a1-4112-9d8d-25049cf7420b48c43b8d713048f89ebc2b4ed8262efa" -d @C:\work\tsi-aadhaar-vault-plus\api-tests\client\fetch_reference_by_id_value.json http://localhost:8080/api/client/vault
+curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-65f71b9a-cb6b-455c-9e0b-ba653d66b290" -H "X-API-Secret:ext-1c8a9489-e2ce-45c9-bdca-eb4c03f240ee" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/fetch_reference_by_id_value.json http://localhost:8080/api/client/vault
 
+## Client Authentication (Use your existing keys)
+# X-API-Key: 4ffd432c-72db-47d9-aa21-47c89ad45055
+# X-API-Secret: 7d55c489-42a1-4112-9d8d-25049cf7420b48c43b8d713048f89ebc2b4ed8262efa
+
+# 1. Unified Store (IDs and Files)
+# This replaces the old store_id with a forensic-ready store_data function
+curl -X POST http://localhost:8080/api/client/vault \
+     -H "Content-Type: application/json" \
+     -H "X-API-Key: 4ffd432c-72db-47d9-aa21-47c89ad45055" \
+     -H "X-API-Secret: 7d55c489-42a1-4112-9d8d-25049cf7420b48c43b8d713048f89ebc2b4ed8262efa" \
+     -d '{
+           "_func": "store_data",
+           "entityType": "FILE",
+           "entityName": "Aadhaar_Front.pdf",
+           "content": "JVBERi0xLjQKJ..." 
+         }'
+
+# 2. Fetch File By Reference
+# Retrieves and decrypts binary content stored in the vault
+curl -X POST http://localhost:8080/api/client/vault \
+     -H "Content-Type: application/json" \
+     -H "X-API-Key: 4ffd432c-72db-47d9-aa21-47c89ad45055" \
+     -H "X-API-Secret: 7d55c489-42a1-4112-9d8d-25049cf7420b48c43b8d713048f89ebc2b4ed8262efa" \
+     -d '{
+           "_func": "fetch_file_by_reference",
+           "reference-key": "YOUR-UUID-HERE"
+         }'
+
+# 3. Generate BSA 2023 Section 63 Certificate
+# Returns a PDF containing Part A (Machine Details) and Part B (Hash Fingerprint)
+curl -X POST http://localhost:8080/api/client/vault \
+     -H "Content-Type: application/json" \
+     -H "X-API-Key: 4ffd432c-72db-47d9-aa21-47c89ad45055" \
+     -H "X-API-Secret: 7d55c489-42a1-4112-9d8d-25049cf7420b48c43b8d713048f89ebc2b4ed8262efa" \
+     -d '{
+           "_func": "generate_bsa_certificate",
+           "reference-key": "YOUR-UUID-HERE"
+         }' --output BSA_Evidence_Cert.pdf

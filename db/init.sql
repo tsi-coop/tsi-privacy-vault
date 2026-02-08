@@ -1,5 +1,5 @@
 -- init.sql
--- SQL script for initializing the PostgreSQL database schema for TSI Aadhaar Vault Plus.
+-- SQL script for initializing the PostgreSQL database schema for TSI Privacy Vault.
 
 -- Create Table: api_user
 CREATE TABLE api_user (
@@ -7,7 +7,7 @@ CREATE TABLE api_user (
     api_secret VARCHAR(255) NOT NULL,
     client_name VARCHAR(255) NOT NULL UNIQUE,
     active BOOLEAN DEFAULT TRUE,
-    created_datetime TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_datetime TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create Table: id_type_master
@@ -26,22 +26,6 @@ INSERT INTO id_type_master (id_type_code, id_type_name, validation_regex, active
 ('ABHA_ID', 'ABHA ID', '^\\d{2}-\\d{4}-\\d{4}-\\d{4}$', TRUE)
 ON CONFLICT (id_type_code) DO NOTHING; -- Avoid errors if run multiple times
 
--- Create Table: id_vault
--- Note: encrypted_id_number and encrypted_data_key are TEXT for Base64 encoded binary data
--- hashed_id_number uses a deterministic hash (globally salted)
-CREATE TABLE id_vault (
-    reference_key UUID PRIMARY KEY,
-    id_type_code VARCHAR(50) NOT NULL REFERENCES id_type_master(id_type_code),
-    encrypted_id_number TEXT NOT NULL,
-    encrypted_data_key TEXT, -- Stores the Base64 encoded encrypted data key from KMS
-    hashed_id_number VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Unique index to prevent duplicate IDs for the same type (using deterministic hash)
-CREATE UNIQUE INDEX ux_id_type_hashed_id ON id_vault (id_type_code, hashed_id_number);
-
-
 -- Create Table: event_log
 CREATE TABLE event_log (
     log_id BIGSERIAL PRIMARY KEY,
@@ -49,7 +33,7 @@ CREATE TABLE event_log (
     operation_type VARCHAR(50) NOT NULL,
     id_type_code VARCHAR(50) REFERENCES id_type_master(id_type_code),
     reference_key UUID REFERENCES id_vault(reference_key),
-    log_datetime TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    log_datetime TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create Table: admin_user
@@ -60,6 +44,51 @@ CREATE TABLE admin_user (
     email VARCHAR(255) UNIQUE,
     role VARCHAR(50) NOT NULL DEFAULT 'AUDIT_VIEWER',
     active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    last_login_at TIMESTAMP WITHOUT TIME ZONE
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_login_at TIMESTAMP WITH TIME ZONE
+);
+
+-- 1. Master Table for ID and File Records
+CREATE TABLE vault_registry (
+    reference_key UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    entity_type VARCHAR(20) NOT NULL, -- 'ID' or 'FILE'
+    id_type_code VARCHAR(50),        -- Aadhaar, Voter, etc. (for IDs)
+    file_name TEXT,                  -- Original name (for Files)
+    encrypted_content TEXT NOT NULL, -- The "Locked Box" (Encrypted Data)
+    encrypted_data_key TEXT,         -- The "Locked Key" (Wrapped DEK)
+    hashed_value_sha256 CHAR(64) NOT NULL, -- MANDATORY for BSA Part B
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. BSA 2023 Forensic Metadata (The "Evidence Log")
+CREATE TABLE bsa_forensic_logs (
+    log_id BIGSERIAL PRIMARY KEY,
+    reference_key UUID REFERENCES vault_registry(reference_key),
+    
+    -- PART A: User/Machine Details
+    device_make_model VARCHAR(255),
+    device_serial_number VARCHAR(100),
+    device_mac_address VARCHAR(50),
+    device_imei_uid VARCHAR(100),    -- For mobile/tablet sources
+    system_status VARCHAR(50),       -- Must prove "Operating Properly"
+    system_health_snapshot JSONB,    -- RAM, CPU, Disk health at time of capture
+    
+    -- PART B: Expert/Chain of Custody
+    hash_algorithm VARCHAR(20) DEFAULT 'SHA256',
+    output_source_app VARCHAR(255),  -- e.g., "TSI Privacy Vault v1.2"
+    captured_by_user_id VARCHAR(100),
+    timestamp_ist TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, -- Time in IST 24-hr format
+    
+    -- Final Certificate Linkage
+    is_anchored BOOLEAN DEFAULT TRUE  -- Permanent record for evidence
+);
+
+-- 3. Audit Log for Access (Proves Lawful Control)
+CREATE TABLE vault_audit_trail (
+    audit_id BIGSERIAL PRIMARY KEY,
+    reference_key UUID REFERENCES vault_registry(reference_key),
+    action_type VARCHAR(20),         -- 'STORE', 'FETCH', 'PRINT'
+    api_key VARCHAR(100),            -- App or User ID
+    access_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ip_address VARCHAR(45)
 );

@@ -1,6 +1,9 @@
 # Use an official Jetty base image with Java 17
 FROM jetty:jdk17
 
+# Set timezone non-interactively
+ENV TZ=Asia/Kolkata
+
 # Set environment variables for Jetty/Application (optional, but good practice)
 ENV JETTY_BASE /var/lib/jetty
 ENV JETTY_HOME /usr/local/jetty
@@ -12,7 +15,7 @@ RUN java -jar "$JETTY_HOME/start.jar" --add-modules=http,jdbc,jndi,ee10-deploy
 USER jetty
 
 # Copy your WAR file into Jetty's webapps directory
-COPY target/tsi_aadhaar_vault_plus.war ${JETTY_BASE}/webapps/root.war
+COPY target/tsi_privacy_vault.war ${JETTY_BASE}/webapps/root.war
 
 # Expose the default Jetty HTTP port
 EXPOSE 8080

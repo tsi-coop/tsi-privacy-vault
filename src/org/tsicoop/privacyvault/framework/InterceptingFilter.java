@@ -66,7 +66,7 @@ public class InterceptingFilter implements Filter {
             }
 
             // Check
-            //System.out.println("servletPath:"+servletPath);
+            System.out.println("servletPath:"+servletPath);
              try {
                  if(servletPath.contains("api/admin")
                          && !servletPath.contains("api/admin/login")
@@ -75,14 +75,14 @@ public class InterceptingFilter implements Filter {
                  }else if(servletPath.contains("api/client")) {
                      validheader = true;
                  }
-                 //System.out.println(servletPath+" "+validheader);
+                 System.out.println(servletPath+" "+validheader);
                  if(!validheader) {
                      res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
                  }else{
                      InputProcessor.processInput(req, res);
                      operation = strTok.nextToken();
                      classname = apiRegistry.getProperty(servletPath.trim());
-                     //System.out.println("operation:" + operation + " classname:" + classname);
+                     System.out.println("operation:" + operation + " classname:" + classname);
                      if (classname == null || method == null) res.sendError(400);
 
                      //System.out.println("c:"+req.getParameter(Constants.NOTIF_PARAM));
@@ -90,7 +90,7 @@ public class InterceptingFilter implements Filter {
 
                      REST action = ((REST) Class.forName(classname).getConstructor().newInstance());
                      validrequest = action.validate(method, req, res);
-                     //System.out.println("validrequest:" + validrequest);
+                     System.out.println("validrequest:" + validrequest);
                      if (validrequest) {
                          if (method.equalsIgnoreCase("GET")) {
                              res.setContentType("application/json");
@@ -126,6 +126,6 @@ public class InterceptingFilter implements Filter {
         System.out.println("Loaded TSI App Config");
         JSONSchemaValidator.createInstance(filterConfig.getServletContext());
         System.out.println("Loaded TSI Schema Validator");
-        System.out.println("TSI Aadhaar Vault Plus Service started in "+System.getenv("TSI_AADHAR_VAULT_PLUS_ENV")+" environment");
+        System.out.println("TSI Privacy Vault started in "+System.getenv("TSI_PRIVACY_VAULT_ENV")+" environment");
     }
 }

@@ -133,6 +133,7 @@ public class InputProcessor {
             strTok = new StringTokenizer(authorization, " ");
             strTok.nextToken();
             token = strTok.nextToken();
+            System.out.println("token:"+token);
             if (JWTUtil.isTokenValid(token)) {
                 tokenDetails = new JSONObject();
                 tokenDetails.put("email",JWTUtil.getEmailFromToken(token));
@@ -143,7 +144,7 @@ public class InputProcessor {
         }catch (Exception e){
             e.printStackTrace();
         }
-        //System.out.println("tokenDetails:"+tokenDetails);
+        System.out.println("tokenDetails:"+tokenDetails);
         return tokenDetails;
     }
 

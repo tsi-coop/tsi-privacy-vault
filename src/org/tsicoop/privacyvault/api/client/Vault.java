@@ -44,6 +44,7 @@ public class Vault implements REST {
             String clientIp = req.getRemoteAddr();
 
             if (func == null) throw new Exception("Missing function code.");
+            System.out.println("func:"+func);
 
             switch (func.toLowerCase()) {
                 case "store_data":
@@ -52,18 +53,18 @@ public class Vault implements REST {
                     String entityType = (String) input.get("entityType");
                     OutputProcessor.send(res, 200, storeInVault(content, entityName, entityType, apiKey, clientIp));
                     break;
-
                 case "fetch_id_by_reference":
                 case "fetch_file_by_reference":
                     UUID refKey = UUID.fromString((String) input.get("reference-key"));
                     OutputProcessor.send(res, 200, fetchByReference(apiKey, refKey, clientIp));
                     break;
-
                 case "generate_bsa_certificate":
                     UUID certRef = UUID.fromString((String) input.get("reference-key"));
                     generateCertificateResponse(res, certRef);
                     break;
-
+                case "fetch_reference_by_id_value":
+                    OutputProcessor.send(res, 200, fetchReferenceByHash(apiKey, input));
+                    break;
                 default:
                     OutputProcessor.sendError(res, 404, "Function not found.");
             }
@@ -71,6 +72,48 @@ public class Vault implements REST {
             e.printStackTrace();
             OutputProcessor.sendError(res, 500, "Vault processing error: " + e.getMessage());
         }
+    }
+
+    private JSONObject fetchReferenceByHash(String apiKey, JSONObject input) throws Exception {
+        System.out.println("Inside fetchReferenceByHash");
+        Connection conn = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        PoolDB pool = new PoolDB();
+        JSONObject out = null;
+    
+        try {
+            String idValue = (String) input.get("idNumber");
+            if (idValue == null || idValue.isEmpty()) throw new Exception("Missing idNumber for lookup.");
+    
+            // 1. Calculate SHA-256 hash for forensic lookup
+            String lookupHash = ForensicEngine.calculateSHA256(idValue.getBytes("UTF-8"));
+            
+            // 2. Establish connection and prepare forensic query
+            conn = pool.getConnection();
+            String sql = "SELECT reference_key FROM vault_registry WHERE hashed_value_sha256 = ?";
+            ps = conn.prepareStatement(sql);
+            ps.setString(1, lookupHash);
+            
+            rs = ps.executeQuery();
+            if (rs.next()) {
+                out = new JSONObject();
+                out.put("reference-key", rs.getObject("reference_key").toString());
+                
+                // 3. Log lookup event for Chain of Custody
+                logEvent(apiKey, "LOOKUP", "ID", out.get("reference-key").toString(), "SUCCESS");
+            }
+        } catch (SQLException e) {
+            // Log the specific SQL error for forensic auditing
+            System.err.println("Database Lookup Error: " + e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            throw e;
+        } finally {
+            // 4. Guaranteed resource cleanup via PoolDB
+            pool.cleanup(rs, ps, conn);
+        }
+        return out;
     }
 
     private JSONObject storeInVault(byte[] content, String name, String type, String apiKey, String ip) throws Exception {

@@ -89,6 +89,7 @@ public class Clients implements REST {
         } finally {
             pool.cleanup(rs, pstmt, conn);
         }
+        System.out.println(outputArray);
         return outputArray;
     }
 
@@ -121,7 +122,7 @@ public class Clients implements REST {
         return output;
     }
 
-    private JSONObject generateNewClientSecret(String apiKey) throws Exception{
+    private JSONObject generateNewClientSecret(String apiKey){
         JSONObject output = new JSONObject();
         Connection conn = null;
         PreparedStatement pstmt = null;
@@ -139,7 +140,9 @@ public class Clients implements REST {
             pstmt.executeUpdate();
             output.put("apiKey", apiKey);
             output.put("apiSecret", newApiSecret);
-        } finally {
+        } catch(Exception e){
+            e.printStackTrace();
+        }finally {
             pool.cleanup(null, pstmt, conn);
         }
         return output;

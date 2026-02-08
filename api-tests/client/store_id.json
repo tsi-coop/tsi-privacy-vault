@@ -1,5 +1,6 @@
 {
-  "_func": "store_id",
-  "idType": "AADHAAR",
-  "idNumber": "123456789012"
+  "_func": "store_data",
+  "entityType": "ID",
+  "entityName": "Aadhaar_Number",
+  "content": "MTIzNCA1Njc4IDkwMTI=" 
 }

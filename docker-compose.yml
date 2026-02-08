@@ -17,6 +17,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 45s
 
   # Java Jetty Web Application Service
   jetty_app:
