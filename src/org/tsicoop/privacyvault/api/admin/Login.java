@@ -24,7 +24,7 @@ public class Login implements REST {
     @Override
     public void post(HttpServletRequest req, HttpServletResponse res) {
         JSONObject output = new JSONObject();
-        String username = null;
+        String email = null; // Changed from username
         String clientIp = req.getRemoteAddr();
         String userAgent = req.getHeader("User-Agent");
         String outcome = "DENIED";
@@ -32,22 +32,22 @@ public class Login implements REST {
 
         try {
             JSONObject input = InputProcessor.getInput(req);
-            username = (String) input.get("username");
+            email = (String) input.get("email"); // Now extracting email
             String password = (String) input.get("password");
 
             // Basic input validation
-            if (username == null || username.trim().isEmpty() ||
+            if (email == null || email.trim().isEmpty() ||
                     password == null || password.trim().isEmpty()) {
-                failureReason = "Missing required fields";
+                failureReason = "Missing required fields: email and password";
                 OutputProcessor.errorResponse(res, HttpServletResponse.SC_BAD_REQUEST, "Bad Request", failureReason, req.getRequestURI());
                 return;
             }
 
-            // 1. Get user details from DB and validate password
-            Optional<JSONObject> userDetailsOptional = getUserDetails(username);
+            // 1. Get user details from DB by Email and validate password
+            Optional<JSONObject> userDetailsOptional = getUserDetailsByEmail(email);
 
             if (userDetailsOptional.isEmpty()) {
-                failureReason = "Invalid username or password";
+                failureReason = "Invalid email or password";
                 OutputProcessor.errorResponse(res, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized", failureReason, req.getRequestURI());
                 return;
             }
@@ -55,6 +55,7 @@ public class Login implements REST {
             JSONObject userDetails = userDetailsOptional.get();
             String storedPasswordHash = (String) userDetails.get("passwordHash");
             boolean isActive = (boolean) userDetails.get("active");
+            String username = (String) userDetails.get("username");
 
             if (!isActive) {
                 failureReason = "User account is inactive";
@@ -63,21 +64,21 @@ public class Login implements REST {
             }
 
             if (!passwordHasher.checkPassword(password, storedPasswordHash)) {
-                failureReason = "Invalid username or password";
+                failureReason = "Invalid email or password";
                 OutputProcessor.errorResponse(res, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized", failureReason, req.getRequestURI());
                 return;
             }
 
             // 2. Success path
-            updateLastLogin(username);
-            String generatedToken = JWTUtil.generateToken((String)userDetails.get("email"), username, (String) userDetails.get("role"));
+            updateLastLogin(email);
+            String generatedToken = JWTUtil.generateToken(email, username, (String) userDetails.get("role"));
 
             output.put("_success", true);
             output.put("message", "Login successful");
             output.put("username", username);
             output.put("token", generatedToken);
             output.put("role", userDetails.get("role"));
-            output.put("email", userDetails.get("email"));
+            output.put("email", email);
             
             outcome = "SUCCESS";
             OutputProcessor.send(res, HttpServletResponse.SC_OK, output);
@@ -97,15 +98,15 @@ public class Login implements REST {
         }
 
         // --- POST-FINALLY FORENSIC LOGGING ---
-        if (username != null) {
-            logLoginEvent(username, clientIp, userAgent, outcome, failureReason);
+        if (email != null) {
+            logLoginEvent(email, clientIp, userAgent, outcome, failureReason);
         }
     }
 
     /**
-     * Records administrative login attempts to the event_log table.
+     * Records administrative login attempts using email as the identifier.
      */
-    private void logLoginEvent(String username, String ip, String ua, String outcome, String reason) {
+    private void logLoginEvent(String email, String ip, String ua, String outcome, String reason) {
         Connection conn = null;
         PreparedStatement ps = null;
         PoolDB pool = null;
@@ -115,7 +116,7 @@ public class Login implements REST {
             conn = pool.getConnection();
             String sql = "INSERT INTO event_log (api_key, operation_type, client_ip, user_agent, machine_id, outcome, failure_reason, log_datetime) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             ps = conn.prepareStatement(sql);
-            ps.setString(1, "ADMIN:" + username); // Distinguish from API keys
+            ps.setString(1, "ADMIN:" + email); 
             ps.setString(2, "ADMIN_LOGIN");
             ps.setString(3, ip);
             ps.setString(4, ua);
@@ -131,16 +132,19 @@ public class Login implements REST {
         }
     }
 
-    private Optional<JSONObject> getUserDetails(String username) throws SQLException {
+    /**
+     * Modified to query by email instead of username.
+     */
+    private Optional<JSONObject> getUserDetailsByEmail(String email) throws SQLException {
         Connection conn = null;
         PreparedStatement pstmt = null;
         ResultSet rs = null;
         PoolDB pool = new PoolDB();
-        String sql = "SELECT user_id, username, password_hash, email, role, active FROM admin_user WHERE username = ?";
+        String sql = "SELECT user_id, username, password_hash, email, role, active FROM admin_user WHERE email = ?";
         try {
             conn = pool.getConnection();
             pstmt = conn.prepareStatement(sql);
-            pstmt.setString(1, username);
+            pstmt.setString(1, email);
             rs = pstmt.executeQuery();
             if (rs.next()) {
                 JSONObject user = new JSONObject();
@@ -158,16 +162,16 @@ public class Login implements REST {
         return Optional.empty();
     }
 
-    private void updateLastLogin(String username) throws SQLException {
+    private void updateLastLogin(String email) throws SQLException {
         Connection conn = null;
         PreparedStatement pstmt = null;
         PoolDB pool = new PoolDB();
-        String sql = "UPDATE admin_user SET last_login_at = ? WHERE username = ?";
+        String sql = "UPDATE admin_user SET last_login_at = ? WHERE email = ?";
         try {
             conn = pool.getConnection();
             pstmt = conn.prepareStatement(sql);
             pstmt.setTimestamp(1, Timestamp.valueOf(LocalDateTime.now()));
-            pstmt.setString(2, username);
+            pstmt.setString(2, email);
             pstmt.executeUpdate();
         } finally {
             pool.cleanup(null, pstmt, conn);

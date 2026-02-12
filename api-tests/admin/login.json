@@ -1,5 +1,5 @@
 {
   "_func": "admin_login",
-  "username": "admin",
+  "email": "admin@tsicoop.org",
   "password": "admin@123"
 }
