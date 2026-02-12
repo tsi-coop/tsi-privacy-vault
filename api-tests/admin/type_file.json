@@ -1,0 +1,8 @@
+{
+    "_func": "update_entity",
+    "entityCode": "MEDICAL_SCAN",
+    "entityName": "Radiology Scan",
+    "flavor": "FILE",
+    "mimeTypes": "application/pdf,image/jpeg,image/png",
+    "active": true
+  }

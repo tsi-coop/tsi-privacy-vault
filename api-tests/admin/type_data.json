@@ -1,0 +1,8 @@
+{
+    "_func": "update_entity",
+    "entityCode": "FULL_NAME",
+    "entityName": "Customer Full Name",
+    "flavor": "DATA",
+    "validationRegex": "^[a-zA-Z\\s]{2,100}$",
+    "active": true
+  }

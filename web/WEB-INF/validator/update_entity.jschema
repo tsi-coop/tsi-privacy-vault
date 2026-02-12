@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Generated schema for Root",
+  "type": "object",
+  "properties": {
+    "_func": {
+      "type": "string"
+    },
+    "entityCode": {
+      "type": "string"
+    },
+    "entityName": {
+      "type": "string"
+    },
+    "flavor": {
+      "type": "string"
+    },
+    "validationRegex": {
+      "type": "string"
+    },
+    "active": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "_func",
+    "entityCode",
+    "entityName",
+    "flavor",
+    "active"
+  ]
+}

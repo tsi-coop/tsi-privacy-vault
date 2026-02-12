@@ -1,5 +1,5 @@
 {
   "_func": "fetch_reference_by_id_value",
-  "idType": "AADHAAR",
-  "idNumber": "1234 5678 9012"
+  "entityType": "ABHAID",
+  "content": "1234 5678 9012"
 }

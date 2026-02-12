@@ -1,4 +1,4 @@
 {
-  "_func": "register_client",
+  "_func": "register_new_client",
   "clientName": "MyWebAppClient5"
 }

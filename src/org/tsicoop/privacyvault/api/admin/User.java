@@ -8,16 +8,15 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.tsicoop.privacyvault.framework.*;
 
+public class User implements REST {
 
-
-public class Register implements REST {
-
-   private final ObjectMapper objectMapper = new ObjectMapper();
-    private final PasswordHasher passwordHasher = new PasswordHasher();
+   private final PasswordHasher passwordHasher = new PasswordHasher();
 
     @Override
     public void get(HttpServletRequest req, HttpServletResponse res) {
@@ -29,9 +28,17 @@ public class Register implements REST {
         JSONObject input = null;
         JSONObject output = null;
         JSONArray outputArray = null;
+
+        // Context for forensic logging
+        String clientIp = req.getRemoteAddr();
+        String userAgent = req.getHeader("User-Agent");
+        String username = null;
+        String outcome = "DENIED";
+        String failureReason = null;
+
         try {
             input = InputProcessor.getInput(req);
-            String username = (String) input.get("username");
+            username = (String) input.get("username");
             String password = (String) input.get("password");
             String email = (String) input.get("email");
             String role = (String) input.get("role");
@@ -40,15 +47,17 @@ public class Register implements REST {
             if (username == null || username.trim().isEmpty() ||
                     password == null || password.trim().isEmpty() ||
                     role == null || role.trim().isEmpty()) {
-                OutputProcessor.errorResponse(res, HttpServletResponse.SC_BAD_REQUEST, "Bad Request", "Missing required fields (username, password, role).", req.getRequestURI());
+                failureReason = "Missing required fields (username, password, role).";
+                OutputProcessor.errorResponse(res, HttpServletResponse.SC_BAD_REQUEST, "Bad Request", failureReason, req.getRequestURI());
                 return;
             }
 
             // --- Business Logic & DB Calls ---
             // 1. Check for duplicate username
             if (isUserPresent(username)) {
+                failureReason = "Username '" + username + "' is already taken.";
                 res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                OutputProcessor.errorResponse(res,HttpServletResponse.SC_BAD_REQUEST, "Bad Request", "Username '" + username + "' is already taken.", req.getRequestURI());
+                OutputProcessor.errorResponse(res,HttpServletResponse.SC_BAD_REQUEST, "Bad Request", failureReason, req.getRequestURI());
                 return;
             }
 
@@ -57,15 +66,52 @@ public class Register implements REST {
 
             // 3. Save to database directly using a method in this class
             output = saveAdminUser(input,hashedPassword);
+            outcome = "SUCCESS";
 
         } catch (Exception e) {
+            outcome = "ERROR";
+            failureReason = e.getMessage();
             e.printStackTrace();
             OutputProcessor.errorResponse(res,HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal Server Error", "An unexpected error occurred: " + e.getMessage(), req.getRequestURI());
+        } finally {
+            // Resource cleanup happens here before logging
         }
+
+        // --- POST-FINALLY FORENSIC LOGGING ---
+        if (username != null) {
+            logRegistrationEvent(username, clientIp, userAgent, outcome, failureReason);
+        }
+
         if(outputArray != null){
             OutputProcessor.send(res, HttpServletResponse.SC_OK, outputArray);
         }else {
             OutputProcessor.send(res, HttpServletResponse.SC_OK, output);
+        }
+    }
+
+    private void logRegistrationEvent(String username, String ip, String ua, String outcome, String reason) {
+        Connection conn = null;
+        PreparedStatement ps = null;
+        PoolDB pool = null;
+        String machineId = ForensicEngine.getMachineIdentifier();
+        try {
+            pool = new PoolDB();
+            conn = pool.getConnection();
+            String sql = "INSERT INTO event_log (api_key, operation_type, client_ip, user_agent, machine_id, outcome, failure_reason, log_datetime) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            ps = conn.prepareStatement(sql);
+            ps.setString(1, "ADMIN_REG:" + username);
+            ps.setString(2, "ADMIN_REGISTER");
+            ps.setString(3, ip);
+            ps.setString(4, ua);
+            ps.setString(5, machineId);
+            ps.setString(6, outcome);
+            ps.setString(7, reason);
+            ps.setTimestamp(8, Timestamp.valueOf(LocalDateTime.now()));
+            ps.executeUpdate();
+        } catch (Exception e) {
+            System.err.println("CRITICAL: Registration Audit Failed: " + e.getMessage());
+        } finally {
+            pool.cleanup(null, ps, conn);
         }
     }
 

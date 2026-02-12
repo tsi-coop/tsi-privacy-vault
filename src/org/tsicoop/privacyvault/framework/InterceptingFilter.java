@@ -70,7 +70,7 @@ public class InterceptingFilter implements Filter {
              try {
                  if(servletPath.contains("api/admin")
                          && !servletPath.contains("api/admin/login")
-                         && !servletPath.contains("api/admin/register")) {
+                         && !servletPath.contains("api/admin/setup")) {
                      validheader = InputProcessor.processAdminHeader(req, res);
                  }else if(servletPath.contains("api/client")) {
                      validheader = true;
@@ -85,9 +85,7 @@ public class InterceptingFilter implements Filter {
                      //System.out.println("operation:" + operation + " classname:" + classname);
                      if (classname == null || method == null) res.sendError(400);
 
-                     //System.out.println("c:"+req.getParameter(Constants.NOTIF_PARAM));
-                     // Check notification
-
+                   
                      REST action = ((REST) Class.forName(classname).getConstructor().newInstance());
                      validrequest = action.validate(method, req, res);
                      //System.out.println("validrequest:" + validrequest);

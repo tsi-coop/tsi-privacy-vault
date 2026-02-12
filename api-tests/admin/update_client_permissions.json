@@ -1,0 +1,7 @@
+{
+    "_func": "update_client_permissions",
+    "api_key": "ext-791bb544-3b85-415d-a303-b7bbf501ebd4",
+    "entity_code": "ABHAID",
+    "can_read": true,
+    "can_write": true
+  }

@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Generated schema for Root",
+  "type": "object",
+  "properties": {
+    "_func": {
+      "type": "string"
+    },
+    "api_key": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "_func",
+    "api_key"
+  ]
+}

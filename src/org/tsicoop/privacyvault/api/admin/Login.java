@@ -12,8 +12,6 @@ import java.util.Optional;
 import org.json.simple.JSONObject;
 import org.tsicoop.privacyvault.framework.*;
 
-
-
 public class Login implements REST {
 
     private final PasswordHasher passwordHasher = new PasswordHasher();
@@ -25,16 +23,23 @@ public class Login implements REST {
 
     @Override
     public void post(HttpServletRequest req, HttpServletResponse res) {
-        JSONObject output = null;
+        JSONObject output = new JSONObject();
+        String username = null;
+        String clientIp = req.getRemoteAddr();
+        String userAgent = req.getHeader("User-Agent");
+        String outcome = "DENIED";
+        String failureReason = null;
+
         try {
             JSONObject input = InputProcessor.getInput(req);
-            String username = (String) input.get("username");
+            username = (String) input.get("username");
             String password = (String) input.get("password");
 
             // Basic input validation
             if (username == null || username.trim().isEmpty() ||
                     password == null || password.trim().isEmpty()) {
-                OutputProcessor.errorResponse(res, HttpServletResponse.SC_BAD_REQUEST, "Bad Request", "Missing required fields (username, password).", req.getRequestURI());
+                failureReason = "Missing required fields";
+                OutputProcessor.errorResponse(res, HttpServletResponse.SC_BAD_REQUEST, "Bad Request", failureReason, req.getRequestURI());
                 return;
             }
 
@@ -42,8 +47,8 @@ public class Login implements REST {
             Optional<JSONObject> userDetailsOptional = getUserDetails(username);
 
             if (userDetailsOptional.isEmpty()) {
-                // User not found or inactive
-                OutputProcessor.errorResponse(res, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized", "Invalid username or password.", req.getRequestURI());
+                failureReason = "Invalid username or password";
+                OutputProcessor.errorResponse(res, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized", failureReason, req.getRequestURI());
                 return;
             }
 
@@ -52,38 +57,77 @@ public class Login implements REST {
             boolean isActive = (boolean) userDetails.get("active");
 
             if (!isActive) {
-                OutputProcessor.errorResponse(res, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized", "User account is inactive.", req.getRequestURI());
+                failureReason = "User account is inactive";
+                OutputProcessor.errorResponse(res, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized", failureReason, req.getRequestURI());
                 return;
             }
 
             if (!passwordHasher.checkPassword(password, storedPasswordHash)) {
-                // Password mismatch
-                OutputProcessor.errorResponse(res, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized", "Invalid username or password.", req.getRequestURI());
+                failureReason = "Invalid username or password";
+                OutputProcessor.errorResponse(res, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized", failureReason, req.getRequestURI());
                 return;
             }
 
-            // 2. If valid, update last login time and generate a token (conceptual)
+            // 2. Success path
             updateLastLogin(username);
+            String generatedToken = JWTUtil.generateToken((String)userDetails.get("email"), username, (String) userDetails.get("role"));
 
-            String generatedToken = JWTUtil.generateToken((String)userDetails.get("email"),username,(String) userDetails.get("role"));
-
-            // 3. Prepare success response
-            output = new JSONObject();
             output.put("_success", true);
             output.put("message", "Login successful");
             output.put("username", username);
             output.put("token", generatedToken);
             output.put("role", userDetails.get("role"));
             output.put("email", userDetails.get("email"));
-
+            
+            outcome = "SUCCESS";
             OutputProcessor.send(res, HttpServletResponse.SC_OK, output);
 
         } catch (SQLException e) {
-            e.printStackTrace(); // Log the stack trace
-            OutputProcessor.errorResponse(res, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database Error", "A database error occurred during login: " + e.getMessage(), req.getRequestURI());
-        } catch (Exception e) {
+            outcome = "ERROR";
+            failureReason = "Database Error: " + e.getMessage();
             e.printStackTrace();
-            OutputProcessor.errorResponse(res, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal Server Error", "An unexpected error occurred: " + e.getMessage(), req.getRequestURI());
+            OutputProcessor.errorResponse(res, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database Error", failureReason, req.getRequestURI());
+        } catch (Exception e) {
+            outcome = "ERROR";
+            failureReason = "Internal Error: " + e.getMessage();
+            e.printStackTrace();
+            OutputProcessor.errorResponse(res, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal Server Error", failureReason, req.getRequestURI());
+        } finally {
+            // Resource cleanup happens here before logging
+        }
+
+        // --- POST-FINALLY FORENSIC LOGGING ---
+        if (username != null) {
+            logLoginEvent(username, clientIp, userAgent, outcome, failureReason);
+        }
+    }
+
+    /**
+     * Records administrative login attempts to the event_log table.
+     */
+    private void logLoginEvent(String username, String ip, String ua, String outcome, String reason) {
+        Connection conn = null;
+        PreparedStatement ps = null;
+        PoolDB pool = null;
+        String machineId = org.tsicoop.privacyvault.framework.ForensicEngine.getMachineIdentifier();
+        try {
+            pool = new PoolDB();
+            conn = pool.getConnection();
+            String sql = "INSERT INTO event_log (api_key, operation_type, client_ip, user_agent, machine_id, outcome, failure_reason, log_datetime) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            ps = conn.prepareStatement(sql);
+            ps.setString(1, "ADMIN:" + username); // Distinguish from API keys
+            ps.setString(2, "ADMIN_LOGIN");
+            ps.setString(3, ip);
+            ps.setString(4, ua);
+            ps.setString(5, machineId);
+            ps.setString(6, outcome);
+            ps.setString(7, reason);
+            ps.setTimestamp(8, Timestamp.valueOf(LocalDateTime.now()));
+            ps.executeUpdate();
+        } catch (Exception e) {
+            System.err.println("CRITICAL: Login Audit Failed: " + e.getMessage());
+        } finally {
+            pool.cleanup(null, ps, conn);
         }
     }
 
@@ -126,25 +170,24 @@ public class Login implements REST {
             pstmt.setString(2, username);
             pstmt.executeUpdate();
         } finally {
-            pool.cleanup(null, pstmt, conn); // No ResultSet for update
+            pool.cleanup(null, pstmt, conn);
         }
     }
 
-
     @Override
     public void delete(HttpServletRequest req, HttpServletResponse res) {
-        OutputProcessor.errorResponse(res, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", "DELETE method not supported for this resource.", req.getRequestURI());
+        OutputProcessor.errorResponse(res, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", "DELETE method not supported.", req.getRequestURI());
     }
 
     @Override
     public void put(HttpServletRequest req, HttpServletResponse res) {
-        OutputProcessor.errorResponse(res, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", "PUT method not supported for this resource.", req.getRequestURI());
+        OutputProcessor.errorResponse(res, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", "PUT method not supported.", req.getRequestURI());
     }
 
     @Override
     public boolean validate(String method, HttpServletRequest req, HttpServletResponse res) {
         if (!"POST".equalsIgnoreCase(method)) {
-            OutputProcessor.errorResponse(res, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", method + " method not supported for admin login.", req.getRequestURI());
+            OutputProcessor.errorResponse(res, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", "Use POST for login.", req.getRequestURI());
             return false;
         }
         return InputProcessor.validate(req, res);

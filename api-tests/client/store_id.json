@@ -1,6 +1,6 @@
 {
   "_func": "store_data",
-  "entityType": "ID",
-  "entityName": "Aadhaar_Number",
+  "entityType": "ABHAID",
+  "entityName": "Abha ID",
   "content": "MTIzNCA1Njc4IDkwMTI=" 
 }

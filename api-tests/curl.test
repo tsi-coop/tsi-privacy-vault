@@ -1,51 +1,52 @@
 TSI Privacy Vault - v0.1
 --------------------------------------------------------------------------------------------
 ##Admin
-# Register
-curl -X POST -H "Content-Type: application/json" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/register.json http://localhost:8080/api/admin/register
+# Register Admin
+curl -X POST -H "Content-Type: application/json" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/register_admin.json http://localhost:8080/api/admin/setup
 # Login
 curl -X POST -H "Content-Type: application/json" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/login.json http://localhost:8080/api/admin/login >> login.log
 
-eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA1Mjc0NDAsImV4cCI6MTc3MTM5MTQ0MH0.DtgHhQwnBIac57p7_3V-Ht1Jmt0RXhkKKKNty9w-d30
+# Register New Client
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA3ODk0OTEsImV4cCI6MTc3MTY1MzQ5MX0.ljZfFO31T8su3IiR6zGG5hovp4Wt1fJNn8BafYua1U4" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/register_client.json http://localhost:8080/api/admin/clients
+# Generate New Secret
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA4MTgyNDEsImV4cCI6MTc3MTY4MjI0MX0.afFj4m8YSIqd9CNhkHeYt4i-vmAgcXw8tdLT_DxVUkM" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/generate_new_client_secret.json http://localhost:8080/api/admin/clients
+# Set Client Permissions
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA4ODk1NzksImV4cCI6MTc3MTc1MzU3OX0.bGU31KWS5cFNxCSrzG20qdYvwdcDxoRrdPIVbfKQ7Bw" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/update_client_permissions.json http://localhost:8080/api/admin/clients
+# Get Client Permissions
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA5MDA5ODIsImV4cCI6MTc3MTc2NDk4Mn0.PUdTgOl1fmdMcUrJrAYzYOKQ_kVjOGfyKqQtC4I7Kd8" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/get_client_permissions.json http://localhost:8080/api/admin/clients
+# Get All Clients
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA3ODk0OTEsImV4cCI6MTc3MTY1MzQ5MX0.ljZfFO31T8su3IiR6zGG5hovp4Wt1fJNn8BafYua1U4" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/get_all_clients.json http://localhost:8080/api/admin/clients
+# Get Client Detail
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA3ODk0OTEsImV4cCI6MTc3MTY1MzQ5MX0.ljZfFO31T8su3IiR6zGG5hovp4Wt1fJNn8BafYua1U4" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/get_client_details.json http://localhost:8080/api/admin/clients
+# Update Client Status
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA3ODk0OTEsImV4cCI6MTc3MTY1MzQ5MX0.ljZfFO31T8su3IiR6zGG5hovp4Wt1fJNn8BafYua1U4" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/update_client_status.json http://localhost:8080/api/admin/clients
+# Update Entity - ID
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA4MTIwMDksImV4cCI6MTc3MTY3NjAwOX0.ERDzCqrEnV5w9avjtxpKJ1NPG180aomPBhuXJkmx0LQ" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/type_id.json http://localhost:8080/api/admin/entity
+# Update Entity - DATA
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA4MTIwMDksImV4cCI6MTc3MTY3NjAwOX0.ERDzCqrEnV5w9avjtxpKJ1NPG180aomPBhuXJkmx0LQ" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/type_data.json http://localhost:8080/api/admin/entity
+# Update Entity - File
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA4MTIwMDksImV4cCI6MTc3MTY3NjAwOX0.ERDzCqrEnV5w9avjtxpKJ1NPG180aomPBhuXJkmx0LQ" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/type_file.json http://localhost:8080/api/admin/entity
+# Get Entities
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA4MTIwMDksImV4cCI6MTc3MTY3NjAwOX0.ERDzCqrEnV5w9avjtxpKJ1NPG180aomPBhuXJkmx0LQ" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/get_all_entities.json http://localhost:8080/api/admin/entity
+# Get Audit Logs
+curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA4MTQxMzQsImV4cCI6MTc3MTY3ODEzNH0.ER1O-pumqC2oYb-8_50BSm_P2-TMFpRKHmdqfwlS07Q" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/get_audit_logs.json http://localhost:8080/api/admin/audit
 
 {
-  "apiKey":"ext-65f71b9a-cb6b-455c-9e0b-ba653d66b290",
-  "clientName":"MyWebAppClient5",
-  "apiSecret":"ext-1c8a9489-e2ce-45c9-bdca-eb4c03f240ee"
-  }
-
-  {
-    "forensicStatus":"OPERATING_PROPERLY",
-    "referenceKey":"3f4f3e1f-58f7-4e76-93f0-ad72bef19da0"
-  }
-
-# Gat All Clients
-curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA1Mjc0NDAsImV4cCI6MTc3MTM5MTQ0MH0.DtgHhQwnBIac57p7_3V-Ht1Jmt0RXhkKKKNty9w-d30" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/get_all_clients.json http://localhost:8080/api/admin/clients
-# Get Client Detail
-curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA0NDI1MjcsImV4cCI6MTc3MTMwNjUyN30.OXu0r4mEN9FW30ZVnqo301ZBfuaDDouCrddSQJd5HMI" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/get_client_details.json http://localhost:8080/api/admin/clients
-# Update Client Status
-curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA0NDI1MjcsImV4cCI6MTc3MTMwNjUyN30.OXu0r4mEN9FW30ZVnqo301ZBfuaDDouCrddSQJd5HMI" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/update_client_status.json http://localhost:8080/api/admin/clients
-# Generate New Client Secret
-curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA0NzM1NjgsImV4cCI6MTc3MTMzNzU2OH0.3NduDpeyGwraWZ5qDAN9EhyCbgZXrBh-vPR-VBEKaPc" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/generate_new_client_secret.json http://localhost:8080/api/admin/clients
-# Update ID Type
-curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA0NDI1MjcsImV4cCI6MTc3MTMwNjUyN30.OXu0r4mEN9FW30ZVnqo301ZBfuaDDouCrddSQJd5HMI" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/update_id_type.json http://localhost:8080/api/admin/IDTypes
-# Gat Audit Logs
-curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA0NDI1MjcsImV4cCI6MTc3MTMwNjUyN30.OXu0r4mEN9FW30ZVnqo301ZBfuaDDouCrddSQJd5HMI" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/get_audit_logs.json http://localhost:8080/api/admin/audit
+  "apiKey":"ext-791bb544-3b85-415d-a303-b7bbf501ebd4",
+  "apiSecret":"8981eea7-08a5-49bb-8b8c-931a9f2398cc"
+}
 
 ##Client
-# Register
-curl -X POST -H "Content-Type: application/json" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/register_client.json http://localhost:8080/api/client/register
 # Store ID
-curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-65f71b9a-cb6b-455c-9e0b-ba653d66b290" -H "X-API-Secret:ext-1c8a9489-e2ce-45c9-bdca-eb4c03f240ee" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/store_id.json http://localhost:8080/api/client/vault
+curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-791bb544-3b85-415d-a303-b7bbf501ebd4" -H "X-API-Secret:8981eea7-08a5-49bb-8b8c-931a9f2398cc" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/store_id.json http://localhost:8080/api/client/vault
 # Fetch ID By Reference
-curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-65f71b9a-cb6b-455c-9e0b-ba653d66b290" -H "X-API-Secret:ext-1c8a9489-e2ce-45c9-bdca-eb4c03f240ee" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/fetch_id_by_reference.json http://localhost:8080/api/client/vault
+curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-791bb544-3b85-415d-a303-b7bbf501ebd4" -H "X-API-Secret:8981eea7-08a5-49bb-8b8c-931a9f2398cc" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/fetch_id_by_reference.json http://localhost:8080/api/client/vault
 # Fetch Reference By ID Value
-curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-65f71b9a-cb6b-455c-9e0b-ba653d66b290" -H "X-API-Secret:ext-1c8a9489-e2ce-45c9-bdca-eb4c03f240ee" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/fetch_reference_by_id_value.json http://localhost:8080/api/client/vault
+curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-791bb544-3b85-415d-a303-b7bbf501ebd4" -H "X-API-Secret:8981eea7-08a5-49bb-8b8c-931a9f2398cc" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/fetch_reference_by_id_value.json http://localhost:8080/api/client/vault
 # Store File
-curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-65f71b9a-cb6b-455c-9e0b-ba653d66b290" -H "X-API-Secret:ext-1c8a9489-e2ce-45c9-bdca-eb4c03f240ee" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/store_file.json http://localhost:8080/api/client/vault
+curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-791bb544-3b85-415d-a303-b7bbf501ebd4" -H "X-API-Secret:8981eea7-08a5-49bb-8b8c-931a9f2398cc" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/store_file.json http://localhost:8080/api/client/vault
 # Fetch File By Reference
-curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-65f71b9a-cb6b-455c-9e0b-ba653d66b290" -H "X-API-Secret:ext-1c8a9489-e2ce-45c9-bdca-eb4c03f240ee" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/fetch_file_by_reference.json http://localhost:8080/api/client/vault
+curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-791bb544-3b85-415d-a303-b7bbf501ebd4" -H "X-API-Secret:8981eea7-08a5-49bb-8b8c-931a9f2398cc" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/fetch_file_by_reference.json http://localhost:8080/api/client/vault
 # Generate BSA Certificate
-curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-65f71b9a-cb6b-455c-9e0b-ba653d66b290" -H "X-API-Secret:ext-1c8a9489-e2ce-45c9-bdca-eb4c03f240ee" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/generate_bsa_certificate.json http://localhost:8080/api/client/vault --output bsa5.pdf
+curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-791bb544-3b85-415d-a303-b7bbf501ebd4" -H "X-API-Secret:8981eea7-08a5-49bb-8b8c-931a9f2398cc" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/generate_bsa_certificate.json http://localhost:8080/api/client/vault --output bsa5.pdf
 
-{"forensicStatus":"OPERATING_PROPERLY","referenceKey":"867a6aa0-0cf3-4510-aacc-527358ac239f"}
