@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSI Privacy Vault - Audit Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --vault-primary: #0f172a;
+            --vault-accent: #6366f1;
+            --background: #f8fafc;
+        }
+        body { background-color: var(--background); font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; }
+        .sidebar { width: 260px; background-color: var(--vault-primary); color: white; position: fixed; height: 100vh; z-index: 50; }
+        .nav-link { display: flex; align-items: center; padding: 12px 24px; color: #94a3b8; font-size: 0.875rem; font-weight: 500; }
+        .nav-link:hover, .nav-link.active { background-color: #1e293b; color: white; border-right: 4px solid var(--vault-accent); }
+        .card { background: white; border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        @media (min-width: 1024px) { main { padding-left: 260px; } }
+        
+        /* Status Badges */
+        .badge { font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; }
+        .badge-success { background-color: #f0fdf4; color: #166534; border: 1px solid #dcfce7; }
+        .badge-error { background-color: #fef2f2; color: #991b1b; border: 1px solid #fee2e2; }
+    </style>
+</head>
+<body class="flex">
+
+<aside class="sidebar hidden lg:flex flex-col">
+    <div class="p-8">
+        <h2 class="text-lg font-black tracking-tighter uppercase leading-tight">TSI Privacy Vault</h2>
+        <p class="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">Secure Data Isolation</p>
+    </div>
+    <nav class="flex-1 mt-4">
+        <a href="dashboard.html" class="nav-link">📊 Dashboard</a>
+        <a href="entities.html" class="nav-link">🧬 Entities</a>
+        <a href="users.html" class="nav-link">👥 Users</a>
+        <a href="apikeys.html" class="nav-link">🔑 API Keys</a>
+        <a href="audit.html" class="nav-link active">📜 Audit</a>
+        <a href="reports.html" class="nav-link">📈 Reports</a>
+    </nav>
+</aside>
+
+<main class="flex-1 min-h-screen">
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-40">
+        <h1 class="text-sm font-bold text-slate-500 uppercase tracking-widest text-[10px]">Forensic Audit Trail</h1>
+        <div class="flex gap-3">
+            <button onclick="loadLogs()" class="bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition">
+                Refresh Stream
+            </button>
+            <button class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition">
+                Export CSV
+            </button>
+        </div>
+    </header>
+
+    <div class="p-8">
+        <div class="card p-6 mb-8 flex flex-wrap gap-4 items-end">
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-[10px] font-black text-slate-400 uppercase mb-2">Search by API Key / Ref</label>
+                <input type="text" id="audit-search" class="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g. ext-app-01 or UUID...">
+            </div>
+            <div class="w-48">
+                <label class="block text-[10px] font-black text-slate-400 uppercase mb-2">Operation Flavor</label>
+                <select id="flavor-filter" class="w-full border border-slate-200 rounded-lg p-2.5 text-sm bg-white outline-none">
+                    <option value="ALL">All Operations</option>
+                    <option value="FETCH">Data Retrieval</option>
+                    <option value="STORE">Data Storage</option>
+                    <option value="DELETE">Data Erasure</option>
+                    <option value="ADMIN">Administrative</option>
+                </select>
+            </div>
+            <div class="w-48">
+                <label class="block text-[10px] font-black text-slate-400 uppercase mb-2">Outcome</label>
+                <select id="outcome-filter" class="w-full border border-slate-200 rounded-lg p-2.5 text-sm bg-white outline-none">
+                    <option value="ALL">Any Outcome</option>
+                    <option value="SUCCESS">Success Only</option>
+                    <option value="DENIED">Denied / Unauthorized</option>
+                    <option value="ERROR">System Error</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="card overflow-hidden">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
+                        <th class="px-6 py-4">Timestamp (IST)</th>
+                        <th class="px-6 py-4">Actor (API Key)</th>
+                        <th class="px-6 py-4">Operation</th>
+                        <th class="px-6 py-4">Outcome</th>
+                        <th class="px-6 py-4">Forensic Anchor (Machine ID)</th>
+                    </tr>
+                </thead>
+                <tbody id="audit-table-body" class="text-sm divide-y divide-slate-100">
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-6 py-4">
+                            <p class="font-bold text-slate-700">2026-02-14</p>
+                            <p class="text-[10px] text-slate-400 font-mono">10:42:01.442</p>
+                        </td>
+                        <td class="px-6 py-4">
+                            <p class="font-mono text-xs font-bold text-slate-600">ext-bank-prod-01</p>
+                            <p class="text-[9px] text-slate-400 uppercase">Application Node</p>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 uppercase">FETCH_DATA</span>
+                            <p class="text-[9px] text-slate-400 mt-1 font-mono">Entity: ABHAID</p>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="badge badge-success">Success</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <p class="font-mono text-[10px] text-slate-500">MAC: 00-1A-2B-3C-4D-5E</p>
+                            <p class="text-[9px] text-slate-400 uppercase">Source Attested</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mt-6 flex justify-between items-center text-xs font-bold text-slate-400 uppercase tracking-widest">
+            <p>Showing <span class="text-slate-900">1 - 20</span> of <span class="text-slate-900">1,240</span> events</p>
+            <div class="flex gap-2">
+                <button class="px-3 py-1 border border-slate-200 rounded hover:bg-white transition">Prev</button>
+                <button class="px-3 py-1 bg-slate-900 text-white rounded shadow-sm">1</button>
+                <button class="px-3 py-1 border border-slate-200 rounded hover:bg-white transition">2</button>
+                <button class="px-3 py-1 border border-slate-200 rounded hover:bg-white transition">Next</button>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    // Integration logic aligned with Audit.java
+    const API_URL_AUDIT = '/api/admin/audit';
+    const AUTH_TOKEN = localStorage.getItem('vaultToken');
+
+    async function loadLogs() {
+        // Implementation for POST request to get_audit_logs endpoint
+    }
+
+    function handleLogout() { localStorage.clear(); window.location.href = "index.html"; }
+</script>
+</body>
+</html>

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSI Privacy Vault - Entity Master</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --vault-primary: #0f172a;
+            --vault-accent: #6366f1;
+            --background: #f8fafc;
+        }
+        body { background-color: var(--background); font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; }
+        .sidebar { width: 260px; background-color: var(--vault-primary); color: white; position: fixed; height: 100vh; z-index: 50; }
+        .nav-link { display: flex; align-items: center; padding: 12px 24px; color: #94a3b8; font-size: 0.875rem; font-weight: 500; }
+        .nav-link:hover, .nav-link.active { background-color: #1e293b; color: white; border-right: 4px solid var(--vault-accent); }
+        .card { background: white; border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        @media (min-width: 1024px) { main { padding-left: 260px; } }
+    </style>
+</head>
+<body class="flex">
+
+<aside class="sidebar hidden lg:flex flex-col">
+    <div class="p-8">
+        <h2 class="text-lg font-black tracking-tighter uppercase">TSI Privacy Vault</h2>
+        <p class="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">Secure Data Isolation</p>
+    </div>
+    <nav class="flex-1 mt-4">
+        <a href="dashboard.html" class="nav-link">📊 Dashboard</a>
+        <a href="entities.html" class="nav-link active">🧬 Entities</a>
+        <a href="users.html" class="nav-link">👥 Users</a>
+        <a href="apikeys.html" class="nav-link">🔑 API Keys</a>
+        <a href="audit.html" class="nav-link">📜 Audit</a>
+    </nav>
+</aside>
+
+<main class="flex-1 min-h-screen">
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-40">
+        <h1 class="text-sm font-bold text-slate-500 uppercase tracking-widest text-[10px]">Entity Master Management</h1>
+        <button onclick="openModal()" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition">
+            + Add New Entity
+        </button>
+    </header>
+
+    <div class="p-8">
+        <div class="card overflow-hidden">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
+                        <th class="px-6 py-4">Entity Code</th>
+                        <th class="px-6 py-4">Display Name</th>
+                        <th class="px-6 py-4">Flavor</th>
+                        <th class="px-6 py-4">Status</th>
+                        <th class="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="text-sm divide-y divide-slate-100">
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-6 py-4 font-mono text-xs font-bold text-slate-700">ABHAID</td>
+                        <td class="px-6 py-4 text-slate-600 font-medium">Ayushman Bharat Health ID</td>
+                        <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 uppercase">ID</span></td>
+                        <td class="px-6 py-4"><span class="text-xs font-bold text-green-600">Active</span></td>
+                        <td class="px-6 py-4 text-right"><button class="text-slate-400 hover:text-slate-900 text-xs font-bold uppercase">Edit</button></td>
+                    </tr>
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-6 py-4 font-mono text-xs font-bold text-slate-700">PAN_CARD</td>
+                        <td class="px-6 py-4 text-slate-600 font-medium">Permanent Account Number</td>
+                        <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 uppercase">DATA</span></td>
+                        <td class="px-6 py-4"><span class="text-xs font-bold text-green-600">Active</span></td>
+                        <td class="px-6 py-4 text-right"><button class="text-slate-400 hover:text-slate-900 text-xs font-bold uppercase">Edit</button></td>
+                    </tr>
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-6 py-4 font-mono text-xs font-bold text-slate-700">XRAY_IMAGE</td>
+                        <td class="px-6 py-4 text-slate-600 font-medium">Patient Diagnostic Scan</td>
+                        <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-600 uppercase">FILE</span></td>
+                        <td class="px-6 py-4"><span class="text-xs font-bold text-gray-400">Inactive</span></td>
+                        <td class="px-6 py-4 text-right"><button class="text-slate-400 hover:text-slate-900 text-xs font-bold uppercase">Edit</button></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<div id="entityModal" class="modal-overlay">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div class="p-6 bg-slate-900 text-white">
+            <h3 class="text-lg font-black uppercase tracking-tight">Register New Vault Entity</h3>
+            <p class="text-[10px] text-slate-400 uppercase font-bold tracking-widest mt-1">Define data flavor and validation rules</p>
+        </div>
+        <form class="p-8 space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">Entity Code</label>
+                    <input type="text" class="w-full border border-slate-200 rounded p-2 text-sm uppercase font-mono" placeholder="e.g. AADHAAR_UID">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">Entity Flavor</label>
+                    <select class="w-full border border-slate-200 rounded p-2 text-sm bg-white">
+                        <option value="ID">ID (Searchable String)</option>
+                        <option value="DATA">DATA (Plaintext/Object)</option>
+                        <option value="FILE">FILE (Binary Blob)</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">Display Name</label>
+                <input type="text" class="w-full border border-slate-200 rounded p-2 text-sm" placeholder="Friendly name for auditors">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">Validation Regex (Optional)</label>
+                <input type="text" class="w-full border border-slate-200 rounded p-2 text-sm font-mono" placeholder="^[0-9]{12}$">
+            </div>
+            <div id="fileFields" class="p-3 bg-slate-50 rounded border border-slate-100">
+                <label class="block text-[10px] font-black text-indigo-500 uppercase mb-1">Accepted MIME Types (For FILE flavor)</label>
+                <input type="text" class="w-full border border-slate-200 rounded p-2 text-sm" placeholder="image/jpeg, application/pdf">
+            </div>
+            <div class="flex justify-end gap-3 pt-4">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Cancel</button>
+                <button type="submit" class="bg-slate-900 text-white px-6 py-2 rounded font-bold text-xs uppercase tracking-widest">Save Entity</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openModal() { document.getElementById('entityModal').style.display = 'flex'; }
+    function closeModal() { document.getElementById('entityModal').style.display = 'none'; }
+</script>
+</body>
+</html>

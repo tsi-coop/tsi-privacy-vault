@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSI Privacy Vault - Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --vault-primary: #0f172a; /* Slate 900 */
+            --vault-accent: #6366f1;  /* Indigo 500 */
+            --background: #f8fafc;
+        }
+
+        body {
+            background-color: var(--background);
+            font-family: ui-sans-serif, system-ui, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        /* --- Sidebar Styling --- */
+        .sidebar {
+            width: 260px;
+            background-color: var(--vault-primary);
+            color: white;
+            position: fixed;
+            height: 100vh;
+            z-index: 50;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 24px;
+            color: #94a3b8; /* Slate 400 */
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background-color: #1e293b;
+            color: white;
+            border-right: 4px solid var(--vault-accent);
+        }
+
+        .card {
+            background: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+        }
+
+        .status-dot {
+            height: 8px;
+            width: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        @media (min-width: 1024px) {
+            main { padding-left: 260px; }
+        }
+    </style>
+</head>
+<body class="flex">
+
+<aside class="sidebar hidden lg:flex flex-col">
+    <div class="p-8">
+        <h2 class="text-lg font-black tracking-tighter uppercase leading-tight">TSI Privacy Vault</h2>
+        <p class="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">Secure Data Isolation</p>
+    </div>
+    
+    <nav class="flex-1 mt-4">
+        <a href="dashboard.html" class="nav-link active">
+            <span class="mr-3">📊</span> Dashboard
+        </a>
+        <a href="entities.html" class="nav-link">
+            <span class="mr-3">🧬</span> Entities
+        </a>
+        <a href="users.html" class="nav-link">
+            <span class="mr-3">👥</span> Users
+        </a>
+        <a href="apikeys.html" class="nav-link">
+            <span class="mr-3">🔑</span> API Keys
+        </a>
+        <a href="audit.html" class="nav-link">
+            <span class="mr-3">📜</span> Audit
+        </a>
+        <a href="reports.html" class="nav-link">
+            <span class="mr-3">📈</span> Reports
+        </a>
+    </nav>
+
+    <div class="p-6 border-t border-slate-800">
+        <div class="flex items-center gap-3">
+            <div class="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs">AD</div>
+            <div>
+                <p class="text-xs font-bold">Admin User</p>
+                <a href="index.html" class="text-[10px] text-red-400 font-bold uppercase hover:underline">Sign Out</a>
+            </div>
+        </div>
+    </div>
+</aside>
+
+<main class="flex-1 min-h-screen">
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-40">
+        <h1 class="text-sm font-bold text-slate-500 uppercase tracking-widest">Vault Overview</h1>
+        <div class="flex items-center gap-4">
+             <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">v1.2.4-stable</span>
+        </div>
+    </header>
+
+    <div class="p-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="card p-6">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Records</p>
+                <h3 class="text-3xl font-black text-slate-900">1.2M</h3>
+                <div class="mt-4 flex items-center text-[10px] text-green-600 font-bold">
+                    <span>↑ 12% vs last month</span>
+                </div>
+            </div>
+            <div class="card p-6">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Active API Keys</p>
+                <h3 class="text-3xl font-black text-slate-900">24</h3>
+                <div class="mt-4 flex items-center text-[10px] text-slate-500 font-bold">
+                    <span>3 keys rotated today</span>
+                </div>
+            </div>
+            <div class="card p-6">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Entity Flavors</p>
+                <h3 class="text-3xl font-black text-slate-900">18</h3>
+                <div class="mt-4 flex items-center text-[10px] text-indigo-600 font-bold">
+                    <span>ID: 8 | DATA: 6 | FILE: 4</span>
+                </div>
+            </div>
+            <div class="card p-6 bg-red-50 border-red-100">
+                <p class="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Auth Failures</p>
+                <h3 class="text-3xl font-black text-red-600">142</h3>
+                <div class="mt-4 flex items-center text-[10px] text-red-500 font-bold">
+                    <span>Requires Audit Review</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                <h2 class="font-black text-slate-800 uppercase tracking-tighter">Live Audit Stream</h2>
+                <a href="audit.html" class="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline">View Full Log</a>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            <th class="px-6 py-4">Timestamp (IST)</th>
+                            <th class="px-6 py-4">Actor ID</th>
+                            <th class="px-6 py-4">Operation</th>
+                            <th class="px-6 py-4">Status</th>
+                            <th class="px-6 py-4">Machine ID</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm">
+                        <tr class="border-b border-slate-50 hover:bg-slate-50 transition">
+                            <td class="px-6 py-4 font-mono text-[11px] text-slate-500">2026-02-13 19:42:01</td>
+                            <td class="px-6 py-4 font-bold text-slate-700">ext-app-prod-01</td>
+                            <td class="px-6 py-4"><span class="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase">Fetch_ID</span></td>
+                            <td class="px-6 py-4 flex items-center gap-2">
+                                <span class="status-dot bg-green-500"></span> <span class="text-xs font-bold text-green-700">SUCCESS</span>
+                            </td>
+                            <td class="px-6 py-4 font-mono text-[10px] text-slate-400">MAC: 00-1A-2B-3C...</td>
+                        </tr>
+                        <tr class="border-b border-slate-50 hover:bg-slate-50 transition">
+                            <td class="px-6 py-4 font-mono text-[11px] text-slate-500">2026-02-13 19:40:55</td>
+                            <td class="px-6 py-4 font-bold text-slate-700">ext-unknown-02</td>
+                            <td class="px-6 py-4"><span class="text-[10px] font-black text-slate-600 bg-slate-100 px-2 py-0.5 rounded uppercase">Store_File</span></td>
+                            <td class="px-6 py-4 flex items-center gap-2">
+                                <span class="status-dot bg-red-500"></span> <span class="text-xs font-bold text-red-700">DENIED</span>
+                            </td>
+                            <td class="px-6 py-4 font-mono text-[10px] text-slate-400">MAC: 00-1A-2B-3C...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+
+</body>
+</html>

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSI Privacy Vault - Sign In</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --vault-primary: #0f172a; /* Slate 900 */
+            --background: #f8fafc;
+        }
+
+        body {
+            background-color: var(--background);
+            background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+            background-size: 40px 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .vault-card {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+            border-top: 4px solid var(--vault-primary);
+        }
+
+        .animated-button {
+            background-color: var(--vault-primary);
+            color: white;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+
+        .animated-button:hover {
+            background-color: #1e293b;
+            transform: translateY(-1px);
+        }
+
+        /* Subtle shine effect on hover */
+        .animated-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -75%;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 100%);
+            transform: skewX(-20deg);
+        }
+
+        .animated-button:hover::before {
+            animation: shine 1.2s forwards;
+        }
+
+        @keyframes shine {
+            0% { left: -75%; }
+            100% { left: 125%; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="w-full max-w-md p-10 bg-white rounded-xl vault-card">
+    <div class="text-center mb-10">
+        <div class="inline-block p-3 bg-slate-100 rounded-full mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8-0v4h8z" />
+            </svg>
+        </div>
+        <h2 class="text-2xl font-black text-slate-900 tracking-tighter uppercase">TSI Privacy Vault</h2>
+        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-[0.15em] mt-1">Isolate Personal & Sensitive Data</p>
+    </div>
+
+    <form action="dashboard.html" method="GET" class="space-y-6">
+        <div>
+            <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Administrator Email</label>
+            <input type="email" id="email" name="email" required
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none transition-all text-sm"
+                placeholder="admin@tsicoop.org">
+        </div>
+
+        <div>
+            <div class="flex justify-between mb-2">
+                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest">Master Password</label>
+                <a href="#" class="text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase">Forgot?</a>
+            </div>
+            <input type="password" id="password" name="password" required
+                class="input-style w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none transition-all text-sm"
+                placeholder="••••••••••••">
+        </div>
+
+        <button type="submit" class="animated-button w-full py-4 rounded-lg font-bold text-xs uppercase tracking-widest shadow-md">
+            Sign In
+        </button>
+    </form>
+
+    <div class="mt-8 text-center">
+        <p class="text-[9px] font-medium text-slate-400 uppercase tracking-widest">
+            Protected by Hardware Attestation & AES-256
+        </p>
+    </div>
+</div>
+
+</body>
+</html>

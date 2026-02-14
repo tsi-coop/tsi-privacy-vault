@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSI Privacy Vault - API Keys</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --vault-primary: #0f172a;
+            --vault-accent: #6366f1;
+            --background: #f8fafc;
+        }
+        body { background-color: var(--background); font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; }
+        .sidebar { width: 260px; background-color: var(--vault-primary); color: white; position: fixed; height: 100vh; z-index: 50; }
+        .nav-link { display: flex; align-items: center; padding: 12px 24px; color: #94a3b8; font-size: 0.875rem; font-weight: 500; }
+        .nav-link:hover, .nav-link.active { background-color: #1e293b; color: white; border-right: 4px solid var(--vault-accent); }
+        .card { background: white; border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        @media (min-width: 1024px) { main { padding-left: 260px; } }
+        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    </style>
+</head>
+<body class="flex">
+
+<aside class="sidebar hidden lg:flex flex-col">
+    <div class="p-8">
+        <h2 class="text-lg font-black tracking-tighter uppercase leading-tight">TSI Privacy Vault</h2>
+        <p class="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">Secure Data Isolation</p>
+    </div>
+    <nav class="flex-1 mt-4">
+        <a href="dashboard.html" class="nav-link">📊 Dashboard</a>
+        <a href="entities.html" class="nav-link">🧬 Entities</a>
+        <a href="users.html" class="nav-link">👥 Users</a>
+        <a href="apikeys.html" class="nav-link active">🔑 API Keys</a>
+        <a href="audit.html" class="nav-link">📜 Audit</a>
+        <a href="reports.html" class="nav-link">📈 Reports</a>
+    </nav>
+</aside>
+
+<main class="flex-1 min-h-screen">
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-40">
+        <h1 class="text-sm font-bold text-slate-500 uppercase tracking-widest text-[10px]">Credential & Access Management</h1>
+        <button onclick="openModal()" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition">
+            + Generate New Key
+        </button>
+    </header>
+
+    <div class="p-8">
+        <div class="card overflow-hidden">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
+                        <th class="px-6 py-4">Key Alias / ID</th>
+                        <th class="px-6 py-4">Owner / Application</th>
+                        <th class="px-6 py-4">Permissions Scope</th>
+                        <th class="px-6 py-4">Status</th>
+                        <th class="px-6 py-4 text-right">Security Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="text-sm divide-y divide-slate-100">
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-6 py-4 font-mono text-xs font-bold text-slate-700">...8f7d-0752</td>
+                        <td class="px-6 py-4 text-slate-600 font-medium">Core Banking Ingress</td>
+                        <td class="px-6 py-4">
+                            <div class="flex flex-wrap gap-1">
+                                <span class="px-2 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600">ABHAID:R</span>
+                                <span class="px-2 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600">PAN_CARD:RW</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4"><span class="text-xs font-bold text-green-600">ACTIVE</span></td>
+                        <td class="px-6 py-4 text-right space-x-4">
+                            <button class="text-indigo-600 hover:text-indigo-900 text-xs font-bold uppercase">Permissions</button>
+                            <button class="text-red-400 hover:text-red-700 text-xs font-bold uppercase">Revoke</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<div id="keyModal" class="modal-overlay">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-xl overflow-hidden">
+        <div class="p-6 bg-slate-900 text-white">
+            <h3 class="text-lg font-black uppercase tracking-tight">Provision New API Key</h3>
+            <p class="text-[10px] text-slate-400 uppercase font-bold tracking-widest mt-1">Generate credentials for external system isolation</p>
+        </div>
+        <form class="p-8 space-y-5">
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">Key Description / Alias</label>
+                <input type="text" required class="w-full border border-slate-200 rounded p-2.5 text-sm" placeholder="e.g. Analytics Ingress Channel">
+            </div>
+
+            <div class="border border-slate-100 rounded-lg overflow-hidden">
+                <div class="bg-slate-50 px-4 py-2 border-b border-slate-100">
+                    <span class="text-[10px] font-black text-slate-500 uppercase">Entity Access Matrix (RBAC)</span>
+                </div>
+                <div class="p-4 max-h-48 overflow-y-auto space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-mono font-bold text-slate-700">ABHAID (ID)</span>
+                        <div class="flex gap-4">
+                            <label class="flex items-center text-[10px] font-bold text-slate-500 uppercase"><input type="checkbox" class="mr-1"> Read</label>
+                            <label class="flex items-center text-[10px] font-bold text-slate-500 uppercase"><input type="checkbox" class="mr-1"> Write</label>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-mono font-bold text-slate-700">XRAY_SCAN (FILE)</span>
+                        <div class="flex gap-4">
+                            <label class="flex items-center text-[10px] font-bold text-slate-500 uppercase"><input type="checkbox" class="mr-1"> Read</label>
+                            <label class="flex items-center text-[10px] font-bold text-slate-500 uppercase"><input type="checkbox" class="mr-1"> Write</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="keyDisplay" class="hidden p-4 bg-indigo-50 border border-indigo-100 rounded-lg">
+                <label class="block text-[10px] font-black text-indigo-500 uppercase mb-2">Secret Generated (Copy Now)</label>
+                <div class="mono text-xs font-bold text-slate-900 break-all bg-white p-2 border border-indigo-200 rounded">
+                    vault_sk_live_512k...
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Discard</button>
+                <button type="submit" class="bg-slate-900 text-white px-6 py-2 rounded font-bold text-xs uppercase tracking-widest">Generate Key</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openModal() { document.getElementById('keyModal').style.display = 'flex'; }
+    function closeModal() { document.getElementById('keyModal').style.display = 'none'; }
+</script>
+</body>
+</html>
