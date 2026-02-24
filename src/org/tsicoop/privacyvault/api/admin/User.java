@@ -78,7 +78,7 @@ public class User implements REST {
         }
 
         // --- POST-FINALLY FORENSIC LOGGING ---
-        if (username != null) {
+        if ( outcome == "SUCCESS") {
             logRegistrationEvent(username, clientIp, userAgent, outcome, failureReason);
         }
 
@@ -97,7 +97,7 @@ public class User implements REST {
         try {
             pool = new PoolDB();
             conn = pool.getConnection();
-            String sql = "INSERT INTO event_log (api_key, operation_type, client_ip, user_agent, machine_id, outcome, failure_reason, log_datetime) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO event_log (who, operation_type, client_ip, user_agent, machine_id, outcome, failure_reason, log_datetime) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             ps = conn.prepareStatement(sql);
             ps.setString(1, "ADMIN_REG:" + username);
             ps.setString(2, "ADMIN_REGISTER");

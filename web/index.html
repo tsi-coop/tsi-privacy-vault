@@ -40,7 +40,6 @@
             transform: translateY(-1px);
         }
 
-        /* Subtle shine effect on hover */
         .animated-button::before {
             content: '';
             position: absolute;
@@ -48,7 +47,7 @@
             left: -75%;
             width: 50%;
             height: 100%;
-            background: linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 100%);
+            background: linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 100%);
             transform: skewX(-20deg);
         }
 
@@ -75,7 +74,7 @@
         <p class="text-[10px] text-slate-400 font-bold uppercase tracking-[0.15em] mt-1">Isolate Personal & Sensitive Data</p>
     </div>
 
-    <form action="dashboard.html" method="GET" class="space-y-6">
+    <form onsubmit="handleLogin(event)" class="space-y-6">
         <div>
             <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Administrator Email</label>
             <input type="email" id="email" name="email" required
@@ -89,13 +88,15 @@
                 <a href="#" class="text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase">Forgot?</a>
             </div>
             <input type="password" id="password" name="password" required
-                class="input-style w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none transition-all text-sm"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none transition-all text-sm"
                 placeholder="••••••••••••">
         </div>
 
-        <button type="submit" class="animated-button w-full py-4 rounded-lg font-bold text-xs uppercase tracking-widest shadow-md">
+        <button type="submit" id="login-btn" class="animated-button w-full py-4 rounded-lg font-bold text-xs uppercase tracking-widest shadow-md">
             Sign In
         </button>
+
+        <p id="error-msg" class="text-[10px] font-bold text-red-500 uppercase text-center hidden"></p>
     </form>
 
     <div class="mt-8 text-center">
@@ -104,6 +105,54 @@
         </p>
     </div>
 </div>
+
+<script>
+async function handleLogin(event) {
+    event.preventDefault();
+    
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const btn = document.getElementById('login-btn');
+    const errorEl = document.getElementById('error-msg');
+
+    // UI state: Disable button during processing
+    btn.disabled = true;
+    btn.innerText = "Attesting...";
+    errorEl.classList.add('hidden');
+
+    try {
+        // Aligned with Login.java POST endpoint
+        const response = await fetch('api/admin/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data._success) {
+            // Persist security context for session
+            localStorage.setItem('vaultToken', data.token);
+            localStorage.setItem('adminEmail', data.email);
+            localStorage.setItem('adminRole', data.role);
+            localStorage.setItem('username', data.username);
+
+            window.location.href = 'dashboard.html';
+        } else {
+            // Display failure reason from backend
+            errorEl.innerText = data.message || "Authentication Denied";
+            errorEl.classList.remove('hidden');
+            btn.disabled = false;
+            btn.innerText = "Sign In";
+        }
+    } catch (err) {
+        errorEl.innerText = "Vault unreachable: Network Error";
+        errorEl.classList.remove('hidden');
+        btn.disabled = false;
+        btn.innerText = "Sign In";
+    }
+}
+</script>
 
 </body>
 </html>

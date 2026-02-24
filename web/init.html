@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSI Privacy Vault - Initial Setup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --vault-primary: #0f172a; /* Slate 900 */
+            --vault-accent: #6366f1;  /* Indigo 500 */
+            --background: #f8fafc;
+        }
+
+        body {
+            background-color: var(--background);
+            background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+            background-size: 40px 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .vault-card {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+            border-top: 4px solid var(--vault-primary);
+        }
+
+        .animated-button {
+            background-color: var(--vault-primary);
+            color: white;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+
+        .animated-button:hover {
+            background-color: #1e293b;
+            transform: translateY(-1px);
+        }
+
+        .animated-button:hover::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -75%;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 100%);
+            transform: skewX(-20deg);
+            animation: shine 1.2s forwards;
+        }
+
+        @keyframes shine {
+            0% { left: -75%; }
+            100% { left: 125%; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="w-full max-w-md p-10 bg-white rounded-xl vault-card">
+    <div class="text-center mb-8">
+        <div class="inline-block p-3 bg-slate-100 rounded-full mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+        </div>
+        <h2 class="text-2xl font-black text-slate-900 tracking-tighter uppercase">Vault Initialization</h2>
+        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-[0.15em] mt-1">Configure Master Administrator Identity</p>
+    </div>
+
+    <p id="setup-message" class="text-[10px] font-black uppercase text-center mb-6 hidden"></p>
+
+    <form id="setup-form" class="space-y-5">
+        <div>
+            <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Primary Email (Login ID)</label>
+            <input type="email" id="email" required placeholder="admin@tsicoop.org"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none transition-all text-sm">
+        </div>
+
+        <div>
+            <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Display Name</label>
+            <input type="text" id="name" required placeholder="System Lead"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none transition-all text-sm">
+        </div>
+
+        <div>
+            <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Master Password</label>
+            <input type="password" id="password" required minlength="12" placeholder="••••••••••••"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none transition-all text-sm">
+        </div>
+
+        <div>
+            <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Confirm Password</label>
+            <input type="password" id="password-confirm" required minlength="12" placeholder="••••••••••••"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none transition-all text-sm">
+        </div>
+
+        <button type="submit" id="setup-btn" class="animated-button w-full py-4 rounded-lg font-bold text-xs uppercase tracking-widest shadow-md">
+            Finalize Vault Security
+        </button>
+    </form>
+
+    <div class="mt-8 text-center hidden" id="success-link">
+        <a href="index.html" class="text-xs font-black text-indigo-600 uppercase tracking-widest hover:underline">Proceed to Sign In</a>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const API_SETUP_URL = '/api/admin/setup'; // Calls the administrative user service
+        
+        const form = document.getElementById('setup-form');
+        const messageArea = document.getElementById('setup-message');
+        const setupBtn = document.getElementById('setup-btn');
+        const successLink = document.getElementById('success-link');
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const name = document.getElementById('name').value;
+            const password = document.getElementById('password').value;
+            const confirm = document.getElementById('password-confirm').value;
+
+            // Basic validation
+            if (password !== confirm) {
+                messageArea.textContent = "Error: Passwords do not match";
+                messageArea.className = "text-[10px] font-black uppercase text-center mb-6 text-red-500";
+                messageArea.classList.remove('hidden');
+                return;
+            }
+
+            setupBtn.disabled = true;
+            setupBtn.textContent = 'Committing to Registry...';
+
+            try {
+                // Aligned with backend User service logic
+                const payload = {
+                    "_func": "create_user",
+                    "email": email,
+                    "username": name,
+                    "password": password,
+                    "role": "SYSTEM_ADMIN",
+                    "active": true
+                };
+
+                const response = await fetch(API_SETUP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data._created === true) {
+                    messageArea.textContent = "Success: Vault Administrator Registered";
+                    messageArea.className = "text-[10px] font-black uppercase text-center mb-6 text-green-600";
+                    messageArea.classList.remove('hidden');
+                    form.classList.add('hidden');
+                    successLink.classList.remove('hidden');
+                } else {
+                    throw new Error(data.message || "Setup Rejection");
+                }
+            } catch (err) {
+                messageArea.textContent = `Setup Error: ${err.message}`;
+                messageArea.className = "text-[10px] font-black uppercase text-center mb-6 text-red-500";
+                messageArea.classList.remove('hidden');
+                setupBtn.disabled = false;
+                setupBtn.textContent = 'Finalize Vault Security';
+            }
+        });
+    });
+</script>
+</body>
+</html>

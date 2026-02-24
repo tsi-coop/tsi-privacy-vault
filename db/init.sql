@@ -100,7 +100,7 @@ CREATE TABLE event_log (
     -- Unique Identifier for the log entry
     log_id BIGSERIAL PRIMARY KEY,    
     -- The "Who": Application or User Identity
-    api_key VARCHAR(255) REFERENCES api_user(api_key),    
+    who VARCHAR(255),    
     -- The "What": Action performed (e.g., STORE, FETCH, LOOKUP, DELETE)
     operation_type VARCHAR(50) NOT NULL,    
     -- The "Flavor": Links to the blueprint (ID/DATA/FILE)
