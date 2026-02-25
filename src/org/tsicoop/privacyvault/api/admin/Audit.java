@@ -6,7 +6,7 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.tsicoop.privacyvault.framework.InputProcessor;
 import org.tsicoop.privacyvault.framework.OutputProcessor;
-import org.tsicoop.privacyvault.framework.REST;
+import org.tsicoop.privacyvault.framework.Action;
 import org.tsicoop.privacyvault.framework.PoolDB;
 
 import java.sql.Connection;
@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Audit implements REST {
+public class Audit implements Action {
 
     private static final String FUNCTION = "_func";
     private static final String GET_AUDIT_LOGS = "get_audit_logs";

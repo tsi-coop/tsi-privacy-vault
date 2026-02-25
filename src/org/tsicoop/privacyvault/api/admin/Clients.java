@@ -13,7 +13,7 @@ import java.util.UUID;
  * Unified API Management with Post-Transaction Forensic Logging.
  * Consolidates Admin logic and records all lifecycle events to event_log.
  */
-public class Clients implements REST {
+public class Clients implements Action {
 
     private static final String FUNCTION = "_func";
 

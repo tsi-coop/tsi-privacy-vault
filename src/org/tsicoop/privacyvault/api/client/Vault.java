@@ -10,7 +10,7 @@ import java.util.UUID;
 import org.json.simple.JSONObject;
 import org.tsicoop.privacyvault.framework.*;
 
-public class Vault implements REST {
+public class Vault implements Action {
 
     private final KmsProvider kms; 
     private final BSACertificateGenerator certGenerator = new BSACertificateGenerator();

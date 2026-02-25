@@ -14,7 +14,7 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.tsicoop.privacyvault.framework.*;
 
-public class User implements REST {
+public class User implements Action {
 
    private final PasswordHasher passwordHasher = new PasswordHasher();
 

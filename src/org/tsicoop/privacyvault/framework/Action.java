@@ -5,7 +5,7 @@ import org.json.simple.JSONObject;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-public interface REST {
+public interface Action {
 
     String NONE = "none";
     String CSV_OUTPUT = "csv";

@@ -8,7 +8,7 @@ import org.tsicoop.privacyvault.framework.*;
 import java.sql.*;
 import java.time.LocalDateTime;
 
-public class VaultEntityMaster implements REST {
+public class Entity implements Action {
 
     private static final String FUNCTION = "_func";
     private static final String GET_ALL_ENTITIES = "get_all_entities";

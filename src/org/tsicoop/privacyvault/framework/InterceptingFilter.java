@@ -86,7 +86,7 @@ public class InterceptingFilter implements Filter {
                      if (classname == null || method == null) res.sendError(400);
 
                    
-                     REST action = ((REST) Class.forName(classname).getConstructor().newInstance());
+                     Action action = ((Action) Class.forName(classname).getConstructor().newInstance());
                      validrequest = action.validate(method, req, res);
                      //System.out.println("validrequest:" + validrequest);
                      if (validrequest) {

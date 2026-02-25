@@ -20,7 +20,6 @@
             min-height: 100vh;
         }
 
-        /* --- Sidebar Styling --- */
         .sidebar {
             width: 260px;
             background-color: var(--vault-primary);
@@ -74,32 +73,20 @@
     </div>
     
     <nav class="flex-1 mt-4">
-        <a href="dashboard.html" class="nav-link active">
-            <span class="mr-3">📊</span> Dashboard
-        </a>
-        <a href="entities.html" class="nav-link">
-            <span class="mr-3">🧬</span> Entities
-        </a>
-        <a href="users.html" class="nav-link">
-            <span class="mr-3">👥</span> Users
-        </a>
-        <a href="apikeys.html" class="nav-link">
-            <span class="mr-3">🔑</span> API Keys
-        </a>
-        <a href="audit.html" class="nav-link">
-            <span class="mr-3">📜</span> Audit
-        </a>
-        <a href="reports.html" class="nav-link">
-            <span class="mr-3">📈</span> Reports
-        </a>
+        <a href="dashboard.html" class="nav-link active">📊 Dashboard</a>
+        <a href="entities.html" class="nav-link">🧬 Entities</a>
+        <a href="users.html" class="nav-link">👥 Users</a>
+        <a href="apikeys.html" class="nav-link">🔑 API Keys</a>
+        <a href="audit.html" class="nav-link">📜 Audit</a>
+        <a href="reports.html" class="nav-link">📈 Reports</a>
     </nav>
 
     <div class="p-6 border-t border-slate-800">
         <div class="flex items-center gap-3">
-            <div class="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs">AD</div>
+            <div class="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs" id="user-initials">AD</div>
             <div>
-                <p class="text-xs font-bold">Admin User</p>
-                <a href="index.html" class="text-[10px] text-red-400 font-bold uppercase hover:underline">Sign Out</a>
+                <p class="text-xs font-bold" id="display-name">Admin User</p>
+                <a href="#" onclick="handleLogout()" class="text-[10px] text-red-400 font-bold uppercase hover:underline">Sign Out</a>
             </div>
         </div>
     </div>
@@ -108,40 +95,25 @@
 <main class="flex-1 min-h-screen">
     <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-40">
         <h1 class="text-sm font-bold text-slate-500 uppercase tracking-widest">Vault Overview</h1>
-        <div class="flex items-center gap-4">
-             <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">v1.2.4-stable</span>
-        </div>
-    </header>
+        </header>
 
     <div class="p-8">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div class="card p-6">
                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Records</p>
-                <h3 class="text-3xl font-black text-slate-900">1.2M</h3>
-                <div class="mt-4 flex items-center text-[10px] text-green-600 font-bold">
-                    <span>↑ 12% vs last month</span>
-                </div>
+                <h3 class="text-3xl font-black text-slate-900" id="stat-records">...</h3>
             </div>
             <div class="card p-6">
                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Active API Keys</p>
-                <h3 class="text-3xl font-black text-slate-900">24</h3>
-                <div class="mt-4 flex items-center text-[10px] text-slate-500 font-bold">
-                    <span>3 keys rotated today</span>
-                </div>
+                <h3 class="text-3xl font-black text-slate-900" id="stat-keys">...</h3>
             </div>
             <div class="card p-6">
                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Entity Flavors</p>
-                <h3 class="text-3xl font-black text-slate-900">18</h3>
-                <div class="mt-4 flex items-center text-[10px] text-indigo-600 font-bold">
-                    <span>ID: 8 | DATA: 6 | FILE: 4</span>
-                </div>
+                <h3 class="text-3xl font-black text-slate-900" id="stat-flavors">...</h3>
             </div>
             <div class="card p-6 bg-red-50 border-red-100">
                 <p class="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Auth Failures</p>
-                <h3 class="text-3xl font-black text-red-600">142</h3>
-                <div class="mt-4 flex items-center text-[10px] text-red-500 font-bold">
-                    <span>Requires Audit Review</span>
-                </div>
+                <h3 class="text-3xl font-black text-red-600" id="stat-failures">...</h3>
             </div>
         </div>
 
@@ -155,37 +127,94 @@
                     <thead>
                         <tr class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                             <th class="px-6 py-4">Timestamp (IST)</th>
-                            <th class="px-6 py-4">Actor ID</th>
+                            <th class="px-6 py-4">Actor</th>
                             <th class="px-6 py-4">Operation</th>
                             <th class="px-6 py-4">Status</th>
                             <th class="px-6 py-4">Machine ID</th>
                         </tr>
                     </thead>
-                    <tbody class="text-sm">
-                        <tr class="border-b border-slate-50 hover:bg-slate-50 transition">
-                            <td class="px-6 py-4 font-mono text-[11px] text-slate-500">2026-02-13 19:42:01</td>
-                            <td class="px-6 py-4 font-bold text-slate-700">ext-app-prod-01</td>
-                            <td class="px-6 py-4"><span class="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase">Fetch_ID</span></td>
-                            <td class="px-6 py-4 flex items-center gap-2">
-                                <span class="status-dot bg-green-500"></span> <span class="text-xs font-bold text-green-700">SUCCESS</span>
-                            </td>
-                            <td class="px-6 py-4 font-mono text-[10px] text-slate-400">MAC: 00-1A-2B-3C...</td>
-                        </tr>
-                        <tr class="border-b border-slate-50 hover:bg-slate-50 transition">
-                            <td class="px-6 py-4 font-mono text-[11px] text-slate-500">2026-02-13 19:40:55</td>
-                            <td class="px-6 py-4 font-bold text-slate-700">ext-unknown-02</td>
-                            <td class="px-6 py-4"><span class="text-[10px] font-black text-slate-600 bg-slate-100 px-2 py-0.5 rounded uppercase">Store_File</span></td>
-                            <td class="px-6 py-4 flex items-center gap-2">
-                                <span class="status-dot bg-red-500"></span> <span class="text-xs font-bold text-red-700">DENIED</span>
-                            </td>
-                            <td class="px-6 py-4 font-mono text-[10px] text-slate-400">MAC: 00-1A-2B-3C...</td>
-                        </tr>
+                    <tbody id="audit-table-body" class="text-sm">
+                        <tr><td colspan="5" class="p-10 text-center text-slate-400 italic">Initializing forensic tunnel...</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 </main>
+
+<script>
+    const TOKEN = localStorage.getItem('vaultToken');
+    const USERNAME = localStorage.getItem('username') || 'Admin';
+
+    // Session Guard: Redirect if not logged in
+    if (!TOKEN) window.location.href = 'index.html';
+
+    document.getElementById('display-name').textContent = USERNAME;
+    document.getElementById('user-initials').textContent = USERNAME.substring(0, 2).toUpperCase();
+
+    async function loadDashboardData() {
+        try {
+            // Integration with Audit and Stats service
+            const response = await fetch('api/admin/dashboard', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${TOKEN}`
+                },
+                body: JSON.stringify({ "_func": "get_dashboard_stats" })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                // Update Metrics
+                document.getElementById('stat-records').textContent = data.total_records.toLocaleString();
+                document.getElementById('stat-keys').textContent = data.active_keys;
+                document.getElementById('stat-flavors').textContent = data.entity_flavors;
+                document.getElementById('stat-failures').textContent = data.auth_failures;
+
+                // Render Live Audit Stream
+                renderAuditTable(data.recent_logs);
+            }
+        } catch (err) {
+            console.error("Failed to load vault stats", err);
+        }
+    }
+
+    function renderAuditTable(logs) {
+        const tbody = document.getElementById('audit-table-body');
+        if (!logs || logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="p-10 text-center">No recent activity detected.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = logs.map(log => {
+            const statusColor = log.outcome === 'SUCCESS' ? 'bg-green-500' : 'bg-red-500';
+            const opColor = log.outcome === 'SUCCESS' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-600 bg-slate-100';
+            
+            return `
+                <tr class="border-b border-slate-50 hover:bg-slate-50 transition">
+                    <td class="px-6 py-4 font-mono text-[11px] text-slate-500">${log.timestamp}</td>
+                    <td class="px-6 py-4 font-bold text-slate-700">${log.who}</td>
+                    <td class="px-6 py-4"><span class="text-[10px] font-black ${opColor} px-2 py-0.5 rounded uppercase">${log.operation_type}</span></td>
+                    <td class="px-6 py-4 flex items-center gap-2">
+                        <span class="status-dot ${statusColor}"></span> <span class="text-xs font-bold text-slate-700">${log.outcome}</span>
+                    </td>
+                    <td class="px-6 py-4 font-mono text-[10px] text-slate-400">${log.machine_id}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function handleLogout() {
+        localStorage.clear();
+        window.location.href = 'index.html';
+    }
+
+    // Auto-refresh every 30 seconds
+    window.onload = loadDashboardData;
+    setInterval(loadDashboardData, 30000);
+</script>
 
 </body>
 </html>

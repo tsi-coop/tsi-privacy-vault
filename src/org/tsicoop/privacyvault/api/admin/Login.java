@@ -12,7 +12,7 @@ import java.util.Optional;
 import org.json.simple.JSONObject;
 import org.tsicoop.privacyvault.framework.*;
 
-public class Login implements REST {
+public class Login implements Action {
 
     private final PasswordHasher passwordHasher = new PasswordHasher();
 
