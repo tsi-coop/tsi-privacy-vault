@@ -33,7 +33,18 @@
         <a href="users.html" class="nav-link">👥 Users</a>
         <a href="apikeys.html" class="nav-link">🔑 API Keys</a>
         <a href="audit.html" class="nav-link">📜 Audit</a>
+        <a href="reports.html" class="nav-link">📈 Reports</a>
     </nav>
+    
+    <div class="p-6 border-t border-slate-800">
+        <div class="flex items-center gap-3">
+            <div class="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs" id="user-initials">AD</div>
+            <div>
+                <p class="text-xs font-bold" id="display-name">Admin User</p>
+                <a href="#" onclick="handleLogout()" class="text-[10px] text-red-400 font-bold uppercase hover:underline">Sign Out</a>
+            </div>
+        </div>
+    </div>
 </aside>
 
 <main class="flex-1 min-h-screen">
@@ -56,28 +67,8 @@
                         <th class="px-6 py-4 text-right">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="text-sm divide-y divide-slate-100">
-                    <tr class="hover:bg-slate-50 transition">
-                        <td class="px-6 py-4 font-mono text-xs font-bold text-slate-700">ABHAID</td>
-                        <td class="px-6 py-4 text-slate-600 font-medium">Ayushman Bharat Health ID</td>
-                        <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 uppercase">ID</span></td>
-                        <td class="px-6 py-4"><span class="text-xs font-bold text-green-600">Active</span></td>
-                        <td class="px-6 py-4 text-right"><button class="text-slate-400 hover:text-slate-900 text-xs font-bold uppercase">Edit</button></td>
-                    </tr>
-                    <tr class="hover:bg-slate-50 transition">
-                        <td class="px-6 py-4 font-mono text-xs font-bold text-slate-700">PAN_CARD</td>
-                        <td class="px-6 py-4 text-slate-600 font-medium">Permanent Account Number</td>
-                        <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 uppercase">DATA</span></td>
-                        <td class="px-6 py-4"><span class="text-xs font-bold text-green-600">Active</span></td>
-                        <td class="px-6 py-4 text-right"><button class="text-slate-400 hover:text-slate-900 text-xs font-bold uppercase">Edit</button></td>
-                    </tr>
-                    <tr class="hover:bg-slate-50 transition">
-                        <td class="px-6 py-4 font-mono text-xs font-bold text-slate-700">XRAY_IMAGE</td>
-                        <td class="px-6 py-4 text-slate-600 font-medium">Patient Diagnostic Scan</td>
-                        <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-600 uppercase">FILE</span></td>
-                        <td class="px-6 py-4"><span class="text-xs font-bold text-gray-400">Inactive</span></td>
-                        <td class="px-6 py-4 text-right"><button class="text-slate-400 hover:text-slate-900 text-xs font-bold uppercase">Edit</button></td>
-                    </tr>
+                <tbody id="entity-table-body" class="text-sm divide-y divide-slate-100">
+                    <tr><td colspan="5" class="px-6 py-10 text-center text-slate-400 italic">Synchronizing Vault Master...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -87,18 +78,19 @@
 <div id="entityModal" class="modal-overlay">
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
         <div class="p-6 bg-slate-900 text-white">
-            <h3 class="text-lg font-black uppercase tracking-tight">Register New Vault Entity</h3>
+            <h3 class="text-lg font-black uppercase tracking-tight" id="modal-title">Register New Vault Entity</h3>
             <p class="text-[10px] text-slate-400 uppercase font-bold tracking-widest mt-1">Define data flavor and validation rules</p>
         </div>
-        <form class="p-8 space-y-4">
+        <form id="entity-form" class="p-8 space-y-4">
+            <input type="hidden" id="is-edit" value="false">
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">Entity Code</label>
-                    <input type="text" class="w-full border border-slate-200 rounded p-2 text-sm uppercase font-mono" placeholder="e.g. AADHAAR_UID">
+                    <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Entity Code</label>
+                    <input type="text" id="entity_code" name="entity_code" required class="w-full border border-slate-200 rounded p-2 text-sm uppercase font-mono outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
                 <div>
-                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">Entity Flavor</label>
-                    <select class="w-full border border-slate-200 rounded p-2 text-sm bg-white">
+                    <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Entity Flavor</label>
+                    <select id="flavor" name="flavor" required class="w-full border border-slate-200 rounded p-2 text-sm bg-white outline-none focus:ring-2 focus:ring-indigo-500">
                         <option value="ID">ID (Searchable String)</option>
                         <option value="DATA">DATA (Plaintext/Object)</option>
                         <option value="FILE">FILE (Binary Blob)</option>
@@ -106,28 +98,107 @@
                 </div>
             </div>
             <div>
-                <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">Display Name</label>
-                <input type="text" class="w-full border border-slate-200 rounded p-2 text-sm" placeholder="Friendly name for auditors">
+                <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Display Name</label>
+                <input type="text" id="entity_name" name="entity_name" required class="w-full border border-slate-200 rounded p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
             <div>
-                <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">Validation Regex (Optional)</label>
-                <input type="text" class="w-full border border-slate-200 rounded p-2 text-sm font-mono" placeholder="^[0-9]{12}$">
+                <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Validation Regex (Optional)</label>
+                <input type="text" id="validation_regex" name="validation_regex" class="w-full border border-slate-200 rounded p-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
             <div id="fileFields" class="p-3 bg-slate-50 rounded border border-slate-100">
-                <label class="block text-[10px] font-black text-indigo-500 uppercase mb-1">Accepted MIME Types (For FILE flavor)</label>
-                <input type="text" class="w-full border border-slate-200 rounded p-2 text-sm" placeholder="image/jpeg, application/pdf">
+                <label class="block text-[10px] font-black text-indigo-500 uppercase mb-1">Accepted MIME Types</label>
+                <input type="text" id="mime_types" name="mime_types" class="w-full border border-slate-200 rounded p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="image/jpeg, application/pdf">
             </div>
             <div class="flex justify-end gap-3 pt-4">
                 <button type="button" onclick="closeModal()" class="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Cancel</button>
-                <button type="submit" class="bg-slate-900 text-white px-6 py-2 rounded font-bold text-xs uppercase tracking-widest">Save Entity</button>
+                <button type="submit" id="save-btn" class="bg-slate-900 text-white px-6 py-2 rounded font-bold text-xs uppercase tracking-widest shadow-lg hover:bg-slate-800 transition">Save Entity</button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
-    function openModal() { document.getElementById('entityModal').style.display = 'flex'; }
+    const API_URL = 'api/admin/entity';
+    const TOKEN = localStorage.getItem('vaultToken');
+    const USERNAME = localStorage.getItem('username') || 'Admin';
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('display-name').textContent = USERNAME;
+        document.getElementById('user-initials').textContent = USERNAME.substring(0, 2).toUpperCase();
+        fetchEntities();
+    });
+
+    async function fetchEntities() {
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+                body: JSON.stringify({ "_func": "get_all_entities" }) //
+            });
+            const data = await response.json();
+            const tbody = document.getElementById('entity-table-body');
+            if (response.ok) {
+                const entities = data.entities || data;
+                tbody.innerHTML = entities.map(entity => `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-6 py-4 font-mono text-xs font-bold text-slate-700">${entity.entity_code}</td>
+                        <td class="px-6 py-4 text-slate-600 font-medium">${entity.entity_name}</td>
+                        <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 uppercase">${entity.flavor}</span></td>
+                        <td class="px-6 py-4"><span class="text-xs font-bold ${entity.active ? 'text-green-600' : 'text-gray-400'}">${entity.active ? 'Active' : 'Inactive'}</span></td>
+                        <td class="px-6 py-4 text-right">
+                            <button onclick='loadEdit("${entity.entity_code}", "${entity.entity_name}", "${entity.flavor}", "${entity.validation_regex || ''}", "${entity.mime_types || ''}")' class="text-indigo-600 hover:underline text-xs font-bold uppercase">Edit</button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        } catch (err) { console.error(err); }
+    }
+
+    document.getElementById('entity-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const isEdit = document.getElementById('is-edit').value === "true";
+        const payload = {
+            // Function updated to use update_entity specifically for existing records
+            "_func": isEdit ? "update_entity" : "create_entity",
+            "active": true,
+            "entity_code": document.getElementById('entity_code').value,
+            "entity_name": document.getElementById('entity_name').value,
+            "flavor": document.getElementById('flavor').value,
+            "validation_regex": document.getElementById('validation_regex').value,
+            "mime_types": document.getElementById('mime_types').value
+        };
+
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) { closeModal(); fetchEntities(); }
+    };
+
+    function loadEdit(code, name, flavor, regex, mime) {
+        document.getElementById('is-edit').value = "true";
+        document.getElementById('modal-title').textContent = "Update Vault Entity";
+        document.getElementById('entity_code').value = code;
+        document.getElementById('entity_code').readOnly = true; // Protect primary key during update
+        document.getElementById('entity_name').value = name;
+        document.getElementById('flavor').value = flavor;
+        document.getElementById('validation_regex').value = regex;
+        document.getElementById('mime_types').value = mime;
+        document.getElementById('entityModal').style.display = 'flex';
+    }
+
+    function openModal() {
+        document.getElementById('entity-form').reset();
+        document.getElementById('is-edit').value = "false";
+        document.getElementById('entity_code').readOnly = false;
+        document.getElementById('modal-title').textContent = "Register New Vault Entity";
+        document.getElementById('entityModal').style.display = 'flex';
+    }
+
     function closeModal() { document.getElementById('entityModal').style.display = 'none'; }
+    function handleLogout() { localStorage.clear(); window.location.href = "index.html"; }
 </script>
 </body>
 </html>
