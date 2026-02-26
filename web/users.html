@@ -24,7 +24,7 @@
 
 <aside class="sidebar hidden lg:flex flex-col">
     <div class="p-8">
-        <h2 class="text-lg font-black tracking-tighter uppercase leading-tight">TSI Privacy Vault</h2>
+        <h2 class="text-lg font-black tracking-tighter uppercase">TSI Privacy Vault</h2>
         <p class="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">Secure Data Isolation</p>
     </div>
     <nav class="flex-1 mt-4">
@@ -35,12 +35,13 @@
         <a href="audit.html" class="nav-link">📜 Audit</a>
         <a href="reports.html" class="nav-link">📈 Reports</a>
     </nav>
+    
     <div class="p-6 border-t border-slate-800">
-        <div class="flex items-center gap-3 text-white">
-            <div class="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs">AD</div>
+        <div class="flex items-center gap-3">
+            <div class="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs" id="user-initials">AD</div>
             <div>
-                <p class="text-xs font-bold">Admin User</p>
-                <a href="index.html" class="text-[10px] text-red-400 font-bold uppercase hover:underline">Sign Out</a>
+                <p class="text-xs font-bold" id="display-name">Admin User</p>
+                <a href="#" onclick="handleLogout()" class="text-[10px] text-red-400 font-bold uppercase hover:underline">Sign Out</a>
             </div>
         </div>
     </div>
@@ -48,9 +49,9 @@
 
 <main class="flex-1 min-h-screen">
     <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-40">
-        <h1 class="text-sm font-bold text-slate-500 uppercase tracking-widest text-[10px]">Administrative User Management</h1>
+        <h1 class="text-sm font-bold text-slate-500 uppercase tracking-widest text-[10px]">User Access Management</h1>
         <button onclick="openModal()" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition">
-            + Create User
+            + Create Vault User
         </button>
     </header>
 
@@ -59,28 +60,14 @@
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
-                        <th class="px-6 py-4">Admin Identity (Email)</th>
-                        <th class="px-6 py-4">Privilege Role</th>
-                        <th class="px-6 py-4">Last Active</th>
+                        <th class="px-6 py-4">User Identity</th>
+                        <th class="px-6 py-4">Role</th>
                         <th class="px-6 py-4">Status</th>
                         <th class="px-6 py-4 text-right">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="text-sm divide-y divide-slate-100">
-                    <tr class="hover:bg-slate-50 transition">
-                        <td class="px-6 py-4 font-bold text-slate-700">super.admin@tsicoop.org</td>
-                        <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 uppercase">SYSTEM_ADMIN</span></td>
-                        <td class="px-6 py-4 text-slate-500 font-mono text-xs">2026-02-14 09:12:44</td>
-                        <td class="px-6 py-4"><span class="text-xs font-bold text-green-600">Active</span></td>
-                        <td class="px-6 py-4 text-right"><button class="text-slate-400 hover:text-slate-900 text-xs font-bold uppercase">Edit</button></td>
-                    </tr>
-                    <tr class="hover:bg-slate-50 transition">
-                        <td class="px-6 py-4 font-bold text-slate-700">audit.viewer@tsicoop.org</td>
-                        <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 uppercase">AUDIT_VIEWER</span></td>
-                        <td class="px-6 py-4 text-slate-500 font-mono text-xs">2026-02-13 18:22:10</td>
-                        <td class="px-6 py-4"><span class="text-xs font-bold text-green-600">Active</span></td>
-                        <td class="px-6 py-4 text-right"><button class="text-slate-400 hover:text-slate-900 text-xs font-bold uppercase">Edit</button></td>
-                    </tr>
+                <tbody id="user-table-body" class="text-sm divide-y divide-slate-100">
+                    <tr><td colspan="4" class="px-6 py-10 text-center text-slate-400 italic">Syncing administrative directory...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -90,42 +77,147 @@
 <div id="userModal" class="modal-overlay">
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
         <div class="p-6 bg-slate-900 text-white">
-            <h3 class="text-lg font-black uppercase tracking-tight">Create New Vault User</h3>
-            <p class="text-[10px] text-slate-400 uppercase font-bold tracking-widest mt-1">Assign administrative privileges and credentials</p>
+            <h3 class="text-lg font-black uppercase tracking-tight" id="modal-title">Create Vault User</h3>
+            <p class="text-[10px] text-slate-400 uppercase font-bold tracking-widest mt-1">Assign system permissions and identity</p>
         </div>
-        <form class="p-8 space-y-4">
+        <form id="user-form" class="p-8 space-y-4">
+            <input type="hidden" id="is-edit" value="false">
             <div>
-                <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">Email Identity</label>
-                <input type="email" required class="w-full border border-slate-200 rounded p-2.5 text-sm" placeholder="admin@tsicoop.org">
+                <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Email Address</label>
+                <input type="email" id="email" name="email" required class="w-full border border-slate-200 rounded p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Full Name</label>
+                <input type="text" id="username" name="username" required class="w-full border border-slate-200 rounded p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div id="password-group">
+                <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Password</label>
+                <input type="password" id="password" name="password" minlength="12" class="w-full border border-slate-200 rounded p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">Privilege Level</label>
-                    <select class="w-full border border-slate-200 rounded p-2.5 text-sm bg-white">
-                        <option value="SYSTEM_ADMIN">System Admin</option>
-                        <option value="AUDIT_VIEWER">Audit Viewer</option>
+                    <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Access Role</label>
+                    <select id="role" name="role" required class="w-full border border-slate-200 rounded p-2 text-sm bg-white outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="SYSTEM_ADMIN">System Administrator</option>
+                        <option value="AUDITOR">Compliance Auditor</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">Master Password</label>
-                    <input type="password" required class="w-full border border-slate-200 rounded p-2.5 text-sm" placeholder="••••••••••••">
+                    <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Account Status</label>
+                    <select id="active" name="active" required class="w-full border border-slate-200 rounded p-2 text-sm bg-white outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="true">Active</option>
+                        <option value="false">Disabled</option>
+                    </select>
                 </div>
             </div>
-            <div class="p-4 bg-amber-50 rounded border border-amber-100 mt-4">
-                <p class="text-[10px] font-bold text-amber-700 uppercase leading-relaxed">
-                    Warning: User actions are logged forensics. Assigning SYSTEM_ADMIN grants full control over data flavors and API rotation.
-                </p>
-            </div>
-            <div class="flex justify-end gap-3 pt-6">
-                <button type="button" onclick="closeModal()" class="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Discard</button>
-                <button type="submit" class="bg-slate-900 text-white px-6 py-2 rounded font-bold text-xs uppercase tracking-widest">Commit User</button>
+            <div class="flex justify-end gap-3 pt-4">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Cancel</button>
+                <button type="submit" id="save-btn" class="bg-slate-900 text-white px-6 py-2 rounded font-bold text-xs uppercase tracking-widest shadow-lg">Commit User</button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
-    function openModal() { document.getElementById('userModal').style.display = 'flex'; }
+    const API_URL = 'api/admin/user';
+    const TOKEN = localStorage.getItem('vaultToken');
+    const CURRENT_USER = localStorage.getItem('username') || 'Admin';
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('display-name').textContent = CURRENT_USER;
+        document.getElementById('user-initials').textContent = CURRENT_USER.substring(0, 2).toUpperCase();
+        fetchUsers();
+    });
+
+    async function fetchUsers() {
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+                body: JSON.stringify({ "_func": "list_users" }) // Aligned with User.java
+            });
+            const data = await response.json();
+            const tbody = document.getElementById('user-table-body');
+            
+            if (response.ok) {
+                const users = data.users || [];
+                tbody.innerHTML = users.map(user => `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-6 py-4">
+                            <div class="font-bold text-slate-700">${user.username}</div>
+                            <div class="text-[10px] font-mono text-slate-400">${user.email}</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${user.role === 'SYSTEM_ADMIN' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'} uppercase">
+                                ${user.role}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="text-xs font-bold ${user.active ? 'text-green-600' : 'text-gray-400'}">
+                                ${user.active ? 'Active' : 'Disabled'}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <button onclick='loadEdit(${JSON.stringify(user)})' class="text-indigo-600 hover:underline text-xs font-bold uppercase">Modify</button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        } catch (err) { console.error("Directory Sync Failed", err); }
+    }
+
+    document.getElementById('user-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const isEdit = document.getElementById('is-edit').value === "true";
+        const payload = {
+            "_func": isEdit ? "update_user" : "create_user", //
+            "email": document.getElementById('email').value,
+            "username": document.getElementById('username').value,
+            "role": document.getElementById('role').value,
+            "active": document.getElementById('active').value === "true"
+        };
+
+        if (document.getElementById('password').value) {
+            payload.password = document.getElementById('password').value;
+        }
+
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+        if (response.ok && (result._created || result._updated || result._success)) {
+            closeModal();
+            fetchUsers();
+        } else {
+            alert(result.message || "Operation failed");
+        }
+    };
+
+    function loadEdit(user) {
+        document.getElementById('is-edit').value = "true";
+        document.getElementById('modal-title').textContent = "Modify Vault User";
+        document.getElementById('email').value = user.email;
+        document.getElementById('email').readOnly = true;
+        document.getElementById('username').value = user.username;
+        document.getElementById('role').value = user.role;
+        document.getElementById('active').value = user.active.toString();
+        document.getElementById('password').value = ""; // Leave blank if not changing
+        document.getElementById('password-group').querySelector('label').textContent = "New Password (Leave blank to keep current)";
+        document.getElementById('userModal').style.display = 'flex';
+    }
+
+    function openModal() {
+        document.getElementById('user-form').reset();
+        document.getElementById('is-edit').value = "false";
+        document.getElementById('email').readOnly = false;
+        document.getElementById('password-group').querySelector('label').textContent = "Password";
+        document.getElementById('modal-title').textContent = "Create Vault User";
+        document.getElementById('userModal').style.display = 'flex';
+    }
+
     function closeModal() { document.getElementById('userModal').style.display = 'none'; }
     function handleLogout() { localStorage.clear(); window.location.href = "index.html"; }
 </script>

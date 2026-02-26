@@ -16,7 +16,7 @@ import org.tsicoop.privacyvault.framework.*;
 
 public class User implements Action {
 
-   private final PasswordHasher passwordHasher = new PasswordHasher();
+    private final PasswordHasher passwordHasher = new PasswordHasher();
 
     @Override
     public void get(HttpServletRequest req, HttpServletResponse res) {
@@ -26,8 +26,7 @@ public class User implements Action {
     @Override
     public void post(HttpServletRequest req, HttpServletResponse res) {
         JSONObject input = null;
-        JSONObject output = null;
-        JSONArray outputArray = null;
+        JSONObject output = new JSONObject();
 
         // Context for forensic logging
         String clientIp = req.getRemoteAddr();
@@ -38,55 +37,89 @@ public class User implements Action {
 
         try {
             input = InputProcessor.getInput(req);
-            username = (String) input.get("username");
-            String password = (String) input.get("password");
-            String email = (String) input.get("email");
-            String role = (String) input.get("role");
+            String func = (String) input.get("_func"); //
 
-            // Basic input validation
-            if (username == null || username.trim().isEmpty() ||
-                    password == null || password.trim().isEmpty() ||
-                    role == null || role.trim().isEmpty()) {
-                failureReason = "Missing required fields (username, password, role).";
-                OutputProcessor.errorResponse(res, HttpServletResponse.SC_BAD_REQUEST, "Bad Request", failureReason, req.getRequestURI());
+            if (func == null || func.trim().isEmpty()) {
+                OutputProcessor.errorResponse(res, HttpServletResponse.SC_BAD_REQUEST, "Bad Request", "Missing _func parameter", req.getRequestURI());
                 return;
             }
+            System.out.println(input);
 
-            // --- Business Logic & DB Calls ---
-            // 1. Check for duplicate username
-            if (isUserPresent(username)) {
-                failureReason = "Username '" + username + "' is already taken.";
-                res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                OutputProcessor.errorResponse(res,HttpServletResponse.SC_BAD_REQUEST, "Bad Request", failureReason, req.getRequestURI());
-                return;
+            switch (func.toLowerCase()) {
+                case "list_users": //
+                    output = listUsers();
+                    outcome = "SUCCESS";
+                    break;
+
+                case "create_user": //
+                    username = (String) input.get("username");
+                    String password = (String) input.get("password");
+                    String role = (String) input.get("role");
+
+                    if (username == null || password == null || role == null) {
+                        failureReason = "Missing required fields for creation.";
+                        OutputProcessor.errorResponse(res, HttpServletResponse.SC_BAD_REQUEST, "Bad Request", failureReason, req.getRequestURI());
+                        return;
+                    }
+
+                    if (isUserPresent(username)) {
+                        failureReason = "Username '" + username + "' is already taken.";
+                        OutputProcessor.errorResponse(res, HttpServletResponse.SC_BAD_REQUEST, "Bad Request", failureReason, req.getRequestURI());
+                        return;
+                    }
+
+                    String hashedPassword = passwordHasher.hashPassword(password);
+                    output = saveAdminUser(input, hashedPassword);
+                    outcome = "SUCCESS";
+                    logRegistrationEvent(username, clientIp, userAgent, outcome, null); //
+                    break;
+
+                default:
+                    OutputProcessor.errorResponse(res, HttpServletResponse.SC_BAD_REQUEST, "Bad Request", "Unknown function: " + func, req.getRequestURI());
+                    return;
             }
-
-            // 2. Hash the password
-            String hashedPassword = passwordHasher.hashPassword(password);
-
-            // 3. Save to database directly using a method in this class
-            output = saveAdminUser(input,hashedPassword);
-            outcome = "SUCCESS";
 
         } catch (Exception e) {
             outcome = "ERROR";
             failureReason = e.getMessage();
-            e.printStackTrace();
-            OutputProcessor.errorResponse(res,HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal Server Error", "An unexpected error occurred: " + e.getMessage(), req.getRequestURI());
+            OutputProcessor.errorResponse(res, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal Error", failureReason, req.getRequestURI());
+            return;
+        }
+
+        OutputProcessor.send(res, HttpServletResponse.SC_OK, output);
+    }
+
+    /**
+     * Retrieves all administrative users from the registry.
+     */
+    private JSONObject listUsers() throws SQLException {
+        JSONObject result = new JSONObject();
+        JSONArray usersArray = new JSONArray();
+        PoolDB pool = new PoolDB();
+        Connection conn = null;
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+
+        try {
+            conn = pool.getConnection();
+            String sql = "SELECT username, email, role, active FROM admin_user ORDER BY username ASC";
+            pstmt = conn.prepareStatement(sql);
+            rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                JSONObject user = new JSONObject();
+                user.put("username", rs.getString("username"));
+                user.put("email", rs.getString("email"));
+                user.put("role", rs.getString("role"));
+                user.put("active", rs.getBoolean("active"));
+                usersArray.add(user);
+            }
+            result.put("users", usersArray);
+            result.put("_success", true);
         } finally {
-            // Resource cleanup happens here before logging
+            pool.cleanup(rs, pstmt, conn);
         }
-
-        // --- POST-FINALLY FORENSIC LOGGING ---
-        if ( outcome == "SUCCESS") {
-            logRegistrationEvent(username, clientIp, userAgent, outcome, failureReason);
-        }
-
-        if(outputArray != null){
-            OutputProcessor.send(res, HttpServletResponse.SC_OK, outputArray);
-        }else {
-            OutputProcessor.send(res, HttpServletResponse.SC_OK, output);
-        }
+        return result;
     }
 
     private void logRegistrationEvent(String username, String ip, String ua, String outcome, String reason) {
@@ -99,8 +132,8 @@ public class User implements Action {
             conn = pool.getConnection();
             String sql = "INSERT INTO event_log (who, operation_type, client_ip, user_agent, machine_id, outcome, failure_reason, log_datetime) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             ps = conn.prepareStatement(sql);
-            ps.setString(1, "ADMIN_REG:" + username);
-            ps.setString(2, "ADMIN_REGISTER");
+            ps.setString(1, "ADMIN:" + username);
+            ps.setString(2, "USER_CREATE");
             ps.setString(3, ip);
             ps.setString(4, ua);
             ps.setString(5, machineId);
@@ -109,7 +142,7 @@ public class User implements Action {
             ps.setTimestamp(8, Timestamp.valueOf(LocalDateTime.now()));
             ps.executeUpdate();
         } catch (Exception e) {
-            System.err.println("CRITICAL: Registration Audit Failed: " + e.getMessage());
+            System.err.println("Audit Failed: " + e.getMessage());
         } finally {
             pool.cleanup(null, ps, conn);
         }
@@ -121,7 +154,7 @@ public class User implements Action {
         PreparedStatement pstmt = null;
         ResultSet rs = null;
         PoolDB pool = new PoolDB();
-        String sql = "SELECT user_id, username FROM admin_user WHERE username = ?";
+        String sql = "SELECT username FROM admin_user WHERE username = ?";
         try {
             conn = pool.getConnection();
             pstmt = conn.prepareStatement(sql);
@@ -130,8 +163,8 @@ public class User implements Action {
             if (rs.next()) {
                 present = true;
             }
-        }finally{
-            pool.cleanup(rs,pstmt,conn);
+        } finally {
+            pool.cleanup(rs, pstmt, conn);
         }
         return present;
     }
@@ -142,52 +175,40 @@ public class User implements Action {
         PreparedStatement pstmt = null;
         ResultSet rs = null;
         PoolDB pool = new PoolDB();
-        String sql = "INSERT INTO admin_user (username, password_hash, email, role) VALUES (?, ?, ?, ?) RETURNING user_id";
-
-        String username = (String) input.get("username");
-        String email = (String) input.get("email");
-        String role = (String) input.get("role");
+        String sql = "INSERT INTO admin_user (username, password_hash, email, role, active) VALUES (?, ?, ?, ?, ?) RETURNING user_id";
 
         try {
             conn = pool.getConnection();
-            // Use Statement.RETURN_GENERATED_KEYS if not using RETURNING clause in SQL
-            pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-            pstmt.setString(1, username);
+            pstmt = conn.prepareStatement(sql);
+            pstmt.setString(1, (String) input.get("username"));
             pstmt.setString(2, hashedPassword);
-            pstmt.setString(3, email);
-            pstmt.setString(4, role);
+            pstmt.setString(3, (String) input.get("email"));
+            pstmt.setString(4, (String) input.get("role"));
+            pstmt.setBoolean(5, (Boolean) input.get("active"));
 
-            int affectedRows = pstmt.executeUpdate();
-            if (affectedRows == 0) {
-                throw new SQLException("Creating user failed, no rows affected.");
-            }
-
-            rs = pstmt.getGeneratedKeys();
+            rs = pstmt.executeQuery();
             if (rs.next()) {
-                output.put("_created",true);
-                output.put("userid",rs.getInt(1)); // Get the first generated key (user_id)
-            } else {
-                throw new SQLException("Creating user failed, no ID obtained.");
+                output.put("_created", true);
+                output.put("userid", rs.getInt(1));
             }
-        }finally{
-                pool.cleanup(rs,pstmt,conn);
+        } finally {
+            pool.cleanup(rs, pstmt, conn);
         }
         return output;
     }
 
     @Override
     public void delete(HttpServletRequest req, HttpServletResponse res) {
-        OutputProcessor.errorResponse(res, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", "DELETE method not supported for this resource.", req.getRequestURI());
+        OutputProcessor.errorResponse(res, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", "DELETE method not supported.", req.getRequestURI());
     }
 
     @Override
     public void put(HttpServletRequest req, HttpServletResponse res) {
-        OutputProcessor.errorResponse(res, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", "PUT method not supported for this resource.", req.getRequestURI());
+        OutputProcessor.errorResponse(res, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", "PUT method not supported.", req.getRequestURI());
     }
 
     @Override
-    public boolean validate(String method, HttpServletRequest req, HttpServletResponse res){
-        return InputProcessor.validate( req,
-                res);
+    public boolean validate(String method, HttpServletRequest req, HttpServletResponse res) {
+        return "POST".equalsIgnoreCase(method);
     }
 }

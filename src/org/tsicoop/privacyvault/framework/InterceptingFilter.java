@@ -66,7 +66,7 @@ public class InterceptingFilter implements Filter {
             }
 
             // Check
-            //System.out.println("servletPath:"+servletPath);
+            System.out.println("servletPath:"+servletPath);
              try {
                  if(servletPath.contains("api/admin")
                          && !servletPath.contains("api/admin/login")
@@ -82,13 +82,13 @@ public class InterceptingFilter implements Filter {
                      InputProcessor.processInput(req, res);
                      operation = strTok.nextToken();
                      classname = apiRegistry.getProperty(servletPath.trim());
-                     //System.out.println("operation:" + operation + " classname:" + classname);
+                     System.out.println("operation:" + operation + " classname:" + classname);
                      if (classname == null || method == null) res.sendError(400);
 
                    
                      Action action = ((Action) Class.forName(classname).getConstructor().newInstance());
                      validrequest = action.validate(method, req, res);
-                     //System.out.println("validrequest:" + validrequest);
+                     System.out.println("validrequest:" + validrequest);
                      if (validrequest) {
                          if (method.equalsIgnoreCase("GET")) {
                              res.setContentType("application/json");
