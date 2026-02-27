@@ -5,30 +5,6 @@
   "properties": {
     "_func": {
       "type": "string"
-    },
-    "startDate": {
-      "type": "string"
-    },
-    "endDate": {
-      "type": "string"
-    },
-    "apiKey": {
-      "type": "string"
-    },
-    "operationType": {
-      "type": "string"
-    },
-    "idType": {
-      "type": "string"
-    },
-    "referenceKey": {
-      "type": "string"
-    },
-    "page": {
-      "type": "number"
-    },
-    "size": {
-      "type": "number"
     }
   },
   "required": [

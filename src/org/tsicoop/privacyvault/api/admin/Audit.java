@@ -72,10 +72,9 @@ public class Audit implements Action {
             String outcome = (String) input.get("outcome");
 
             // Revised SQL joining with vault_entity_master
-            StringBuilder sqlBuilder = new StringBuilder("SELECT el.log_id, el.api_key, au.client_name, el.operation_type, " +
+            StringBuilder sqlBuilder = new StringBuilder("SELECT el.log_id, el.who,  el.operation_type, " +
                     "el.entity_code, el.reference_key, el.client_ip, el.user_agent, el.machine_id, el.outcome, " +
                     "el.failure_reason, el.log_datetime FROM event_log el " +
-                    "LEFT JOIN api_user au ON el.api_key = au.api_key " +
                     "LEFT JOIN vault_entity_master vem ON el.entity_code = vem.entity_code WHERE 1=1");
 
             List<Object> sqlParams = new ArrayList<>();
@@ -90,7 +89,7 @@ public class Audit implements Action {
                 sqlParams.add(Timestamp.valueOf(LocalDateTime.parse(endDateStr)));
             }
             if (apiKey != null && !apiKey.trim().isEmpty()) {
-                sqlBuilder.append(" AND el.api_key = ?");
+                sqlBuilder.append(" AND el.who = ?");
                 sqlParams.add(apiKey);
             }
             if (operationType != null && !operationType.trim().isEmpty()) {
@@ -134,8 +133,7 @@ public class Audit implements Action {
             while (rs.next()) {
                 JSONObject logEntry = new JSONObject();
                 logEntry.put("logId", rs.getLong("log_id"));
-                logEntry.put("apiKey", rs.getString("api_key"));
-                logEntry.put("clientName", rs.getString("client_name"));
+                logEntry.put("apiKey", rs.getString("who"));
                 logEntry.put("operationType", rs.getString("operation_type"));
                 logEntry.put("entityCode", rs.getString("entity_code"));
                 logEntry.put("referenceKey", rs.getString("reference_key"));
