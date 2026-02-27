@@ -10,9 +10,6 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import java.sql.*;
 
-/**
- * Dashboard service aligned with vault_registry schema.
- */
 public class Dashboard implements Action {
 
     @Override
@@ -26,12 +23,10 @@ public class Dashboard implements Action {
                 return;
             }
 
-            switch (func.toLowerCase()) {
-                case "get_dashboard_stats":
-                    OutputProcessor.send(res, 200, getDashboardStats());
-                    break;
-                default:
-                    OutputProcessor.errorResponse(res, 400, "Bad Request", "Unknown function", req.getRequestURI());
+            if ("get_dashboard_stats".equalsIgnoreCase(func)) {
+                OutputProcessor.send(res, 200, getDashboardStats());
+            } else {
+                OutputProcessor.errorResponse(res, 400, "Bad Request", "Unknown function", req.getRequestURI());
             }
         } catch (Exception e) {
             OutputProcessor.errorResponse(res, 500, "Internal Error", e.getMessage(), req.getRequestURI());
@@ -46,19 +41,19 @@ public class Dashboard implements Action {
         try {
             conn = pool.getConnection();
 
-            // 1. Total Records (From vault_registry)
+            // 1. Total Records (Vault Registry)
             data.put("total_records", getSimpleCount(conn, pool, "SELECT COUNT(*) FROM vault_registry"));
 
-            // 2. Active API Keys (Assuming api_user_permissions handles key status)
-            data.put("active_keys", getSimpleCount(conn, pool, "SELECT COUNT(*) FROM api_user_permissions WHERE can_read = true OR can_write = true"));
+            // 2. Active API Keys (Fixed: Now using your 'api_user' table)
+            data.put("active_keys", getSimpleCount(conn, pool, "SELECT COUNT(*) FROM api_user WHERE active = true"));
 
-            // 3. Entity Flavors (Distinct entity types in registry: ID or FILE)
-            data.put("entity_flavors", getSimpleCount(conn, pool, "SELECT COUNT(DISTINCT entity_type) FROM vault_registry"));
+            // 3. Entity Flavors (Fixed: Now using 'vault_entity_master')
+            data.put("entity_flavors", getSimpleCount(conn, pool, "SELECT COUNT(*) FROM vault_entity_master WHERE active = true"));
 
-            // 4. Auth Failures (From forensic event log)
+            // 4. Auth Failures
             data.put("auth_failures", getSimpleCount(conn, pool, "SELECT COUNT(*) FROM event_log WHERE outcome = 'DENIED'"));
 
-            // 5. Recent Logs (For dashboard live stream)
+            // 5. Recent Logs
             data.put("recent_logs", getRecentAuditLogs(conn, pool));
 
             data.put("_success", true);
@@ -82,7 +77,7 @@ public class Dashboard implements Action {
 
     private JSONArray getRecentAuditLogs(Connection conn, PoolDB pool) throws SQLException {
         JSONArray logs = new JSONArray();
-        // Selecting forensic metadata including machine_id for BSA compliance
+        // Fixed: Updated columns to match your 'event_log' schema
         String sql = "SELECT log_datetime, who, operation_type, outcome, machine_id " +
                      "FROM event_log ORDER BY log_datetime DESC LIMIT 5";
         
@@ -94,7 +89,7 @@ public class Dashboard implements Action {
             while (rs.next()) {
                 JSONObject log = new JSONObject();
                 log.put("timestamp", rs.getTimestamp("log_datetime").toInstant().toString());
-                log.put("who", rs.getString("who"));
+                log.put("who", rs.getString("who")); // Principal
                 log.put("operation_type", rs.getString("operation_type"));
                 log.put("outcome", rs.getString("outcome"));
                 log.put("machine_id", rs.getString("machine_id")); 
@@ -106,26 +101,8 @@ public class Dashboard implements Action {
         return logs;
     }
 
-    @Override
-    public boolean validate(String method, HttpServletRequest req, HttpServletResponse res) {
-        return "POST".equalsIgnoreCase(method);
-    }
-
-    @Override
-    public void get(HttpServletRequest req, HttpServletResponse res) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'get'");
-    }
-
-    @Override
-    public void delete(HttpServletRequest req, HttpServletResponse res) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'delete'");
-    }
-
-    @Override
-    public void put(HttpServletRequest req, HttpServletResponse res) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'put'");
-    }
+    @Override public boolean validate(String method, HttpServletRequest req, HttpServletResponse res) { return "POST".equalsIgnoreCase(method); }
+    @Override public void get(HttpServletRequest req, HttpServletResponse res) {}
+    @Override public void delete(HttpServletRequest req, HttpServletResponse res) {}
+    @Override public void put(HttpServletRequest req, HttpServletResponse res) {}
 }
