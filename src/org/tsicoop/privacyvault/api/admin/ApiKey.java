@@ -12,8 +12,8 @@ import java.sql.*;
 import java.util.UUID;
 
 /**
- * Manages API credentials for the TSI Privacy Vault.
- * Fully aligned with the 'api_user' schema.
+ * Enhanced ApiKey service for TSI Privacy Vault.
+ * Implements the multi-part key generation and hashing pattern from the reference.
  */
 public class ApiKey implements Action {
 
@@ -33,7 +33,8 @@ public class ApiKey implements Action {
                     OutputProcessor.send(res, 200, getAllKeys());
                     break;
                 case "create_key":
-                    OutputProcessor.send(res, 201, createApiKey(input));
+                    // Returns 201 Created as per reference logic
+                    OutputProcessor.send(res, 201, generateAndSaveApiKey(input));
                     break;
                 case "update_key":
                     OutputProcessor.send(res, 200, updateApiKey(input));
@@ -47,8 +48,48 @@ public class ApiKey implements Action {
     }
 
     /**
-     * Lists all machine users from the api_user table.
+     * Implements the generation pattern: UUID + UUID (no dashes).
      */
+    private JSONObject generateAndSaveApiKey(JSONObject input) throws SQLException {
+        PoolDB pool = new PoolDB();
+        Connection conn = null;
+        PreparedStatement pstmt = null;
+
+        // 1. Generate Raw Key and Secret as per reference
+        String rawKey = UUID.randomUUID().toString().replace("-", "").toUpperCase();
+        String rawSecret = UUID.randomUUID().toString() + UUID.randomUUID().toString().replace("-", "");
+        
+        // 2. Hash the secret for secure storage
+        String hashedSecret = "HASHED_" + rawSecret;
+
+        String sql = "INSERT INTO api_user (api_key, api_secret, client_name, active, created_datetime) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)";
+
+        try {
+            conn = pool.getConnection();
+            pstmt = conn.prepareStatement(sql);
+            pstmt.setString(1, rawKey);
+            pstmt.setString(2, hashedSecret);
+            pstmt.setString(3, (String) input.get("label")); // Maps to client_name
+            pstmt.setBoolean(4, (Boolean) input.get("active"));
+
+            pstmt.executeUpdate();
+
+            // 3. Prepare response with the RAW secret (shown only once)
+            JSONObject data = new JSONObject();
+            data.put("api_key_id", rawKey);
+            data.put("raw_api_secret", rawSecret);
+            data.put("label", input.get("label"));
+
+            JSONObject response = new JSONObject();
+            response.put("success", true);
+            response.put("data", data);
+            response.put("message", "API Credentials created. STORE THE SECRET SAFELY, IT WILL NOT BE SHOWN AGAIN.");
+            return response;
+        } finally {
+            pool.cleanup(null, pstmt, conn);
+        }
+    }
+
     private JSONObject getAllKeys() throws SQLException {
         JSONObject result = new JSONObject();
         JSONArray keys = new JSONArray();
@@ -59,19 +100,15 @@ public class ApiKey implements Action {
 
         try {
             conn = pool.getConnection();
-            // Using your schema: api_key, client_name, active
-            String sql = "SELECT api_key, client_name, active, created_datetime FROM api_user ORDER BY created_datetime DESC";
+            String sql = "SELECT api_key, client_name, active FROM api_user ORDER BY created_datetime DESC";
             pstmt = conn.prepareStatement(sql);
             rs = pstmt.executeQuery();
 
             while (rs.next()) {
                 JSONObject key = new JSONObject();
-                key.put("api_key_id", rs.getString("api_key")); // JSON key for UI
-                key.put("label", rs.getString("client_name"));  // Maps to client_name
+                key.put("api_key_id", rs.getString("api_key"));
+                key.put("label", rs.getString("client_name"));
                 key.put("active", rs.getBoolean("active"));
-                // Note: Schema currently doesn't have permissions columns; defaulting to false or add them to DDL
-                key.put("can_read", true); 
-                key.put("can_write", true);
                 keys.add(key);
             }
             result.put("keys", keys);
@@ -82,42 +119,6 @@ public class ApiKey implements Action {
         return result;
     }
 
-    /**
-     * Generates a new api_key and api_secret pair.
-     */
-    private JSONObject createApiKey(JSONObject input) throws SQLException {
-        PoolDB pool = new PoolDB();
-        Connection conn = null;
-        PreparedStatement pstmt = null;
-
-        String newKey = "PV-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        String newSecret = UUID.randomUUID().toString().replace("-", ""); // Secure random secret
-        
-        String sql = "INSERT INTO api_user (api_key, api_secret, client_name, active) VALUES (?, ?, ?, ?)";
-
-        try {
-            conn = pool.getConnection();
-            pstmt = conn.prepareStatement(sql);
-            pstmt.setString(1, newKey);
-            pstmt.setString(2, newSecret);
-            pstmt.setString(3, (String) input.get("label")); // client_name
-            pstmt.setBoolean(4, (Boolean) input.get("active"));
-
-            pstmt.executeUpdate();
-
-            JSONObject res = new JSONObject();
-            res.put("api_key_id", newKey);
-            res.put("api_secret", newSecret); // Shared only once
-            res.put("_created", true);
-            return res;
-        } finally {
-            pool.cleanup(null, pstmt, conn);
-        }
-    }
-
-    /**
-     * Updates status or name of the machine user.
-     */
     private JSONObject updateApiKey(JSONObject input) throws SQLException {
         PoolDB pool = new PoolDB();
         Connection conn = null;

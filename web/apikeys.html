@@ -6,11 +6,7 @@
     <title>TSI Privacy Vault - API Keys</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root {
-            --vault-primary: #0f172a;
-            --vault-accent: #6366f1;
-            --background: #f8fafc;
-        }
+        :root { --vault-primary: #0f172a; --vault-accent: #6366f1; --background: #f8fafc; }
         body { background-color: var(--background); font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; }
         .sidebar { width: 260px; background-color: var(--vault-primary); color: white; position: fixed; height: 100vh; z-index: 50; }
         .nav-link { display: flex; align-items: center; padding: 12px 24px; color: #94a3b8; font-size: 0.875rem; font-weight: 500; }
@@ -33,9 +29,7 @@
         <a href="users.html" class="nav-link">👥 Users</a>
         <a href="apikeys.html" class="nav-link active">🔑 API Keys</a>
         <a href="audit.html" class="nav-link">📜 Audit</a>
-        <a href="reports.html" class="nav-link">📈 Reports</a>
     </nav>
-    
     <div class="p-6 border-t border-slate-800">
         <div class="flex items-center gap-3">
             <div class="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs" id="user-initials">AD</div>
@@ -60,14 +54,14 @@
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
-                        <th class="px-6 py-4">Key Label & ID</th>
-                        <th class="px-6 py-4">Permissions</th>
+                        <th class="px-6 py-4">Client App Name</th>
+                        <th class="px-6 py-4">API Key ID</th>
                         <th class="px-6 py-4">Status</th>
                         <th class="px-6 py-4 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="key-table-body" class="text-sm divide-y divide-slate-100">
-                    <tr><td colspan="4" class="px-6 py-10 text-center text-slate-400 italic">Retrieving active credentials...</td></tr>
+                    <tr><td colspan="4" class="px-6 py-10 text-center text-slate-400 italic">Synchronizing credentials...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -78,100 +72,84 @@
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
         <div class="p-6 bg-slate-900 text-white">
             <h3 class="text-lg font-black uppercase tracking-tight" id="modal-title">Generate API Key</h3>
-            <p class="text-[10px] text-slate-400 uppercase font-bold tracking-widest mt-1">Issue secure access for external applications</p>
         </div>
         <form id="key-form" class="p-8 space-y-4">
             <input type="hidden" id="is-edit" value="false">
-            <input type="hidden" id="key_id" name="key_id">
-
+            <input type="hidden" id="api_key_id" name="api_key_id">
             <div>
-                <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Application Label</label>
-                <input type="text" id="label" name="label" required class="w-full border border-slate-200 rounded p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g. Production Mobile App">
+                <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Client Name</label>
+                <input type="text" id="label" name="label" required class="w-full border border-slate-200 rounded p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
-
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Status</label>
-                    <select id="active" name="active" required class="w-full border border-slate-200 rounded p-2 text-sm bg-white outline-none focus:ring-2 focus:ring-indigo-500">
-                        <option value="true">Active</option>
-                        <option value="false">Revoked</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Expiry (Optional)</label>
-                    <input type="date" id="expiry" name="expiry" class="w-full border border-slate-200 rounded p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-                </div>
+            <div>
+                <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Account Status</label>
+                <select id="active" name="active" class="w-full border border-slate-200 rounded p-2 text-sm bg-white outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="true">Active</option>
+                    <option value="false">Disabled</option>
+                </select>
             </div>
-
-            <div class="p-4 bg-slate-50 rounded-lg border border-slate-100">
-                <p class="text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest border-b pb-2">Flavor Access Control</p>
-                <div class="flex gap-4">
-                    <label class="flex items-center gap-2">
-                        <input type="checkbox" id="can_read" name="can_read" class="rounded text-indigo-600">
-                        <span class="text-xs font-bold text-slate-600">READ</span>
-                    </label>
-                    <label class="flex items-center gap-2">
-                        <input type="checkbox" id="can_write" name="can_write" class="rounded text-indigo-600">
-                        <span class="text-xs font-bold text-slate-600">WRITE</span>
-                    </label>
-                </div>
-            </div>
-
             <div class="flex justify-end gap-3 pt-4">
-                <button type="button" onclick="closeModal()" class="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Cancel</button>
-                <button type="submit" id="save-btn" class="bg-slate-900 text-white px-6 py-2 rounded font-bold text-xs uppercase tracking-widest shadow-lg">Save Changes</button>
+                <button type="button" onclick="closeModal()" class="px-4 py-2 text-xs font-bold text-slate-400 uppercase">Cancel</button>
+                <button type="submit" class="bg-slate-900 text-white px-6 py-2 rounded font-bold text-xs uppercase shadow-lg">Commit Key</button>
             </div>
         </form>
+    </div>
+</div>
+
+<div id="secretModal" class="modal-overlay">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border-2 border-amber-500">
+        <div class="p-6 bg-amber-500 text-white">
+            <h3 class="text-lg font-black uppercase tracking-tight">Security Disclosure</h3>
+            <p class="text-[10px] font-bold uppercase opacity-80 mt-1">Store these credentials immediately</p>
+        </div>
+        <div class="p-8 space-y-6">
+            <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 font-mono">
+                <p class="text-[9px] text-slate-400 font-bold uppercase mb-2">API Key</p>
+                <div class="flex justify-between items-center bg-white p-2 rounded border">
+                    <span id="display-key" class="text-xs break-all"></span>
+                </div>
+                <p class="text-[9px] text-slate-400 font-bold uppercase mt-4 mb-2">API Secret</p>
+                <div class="flex justify-between items-center bg-white p-2 rounded border">
+                    <span id="display-secret" class="text-xs break-all text-indigo-600 font-bold"></span>
+                </div>
+            </div>
+            <p class="text-[10px] text-red-500 font-bold italic">Warning: For security, the secret will never be displayed again after you close this window.</p>
+            <button onclick="closeSecretModal()" class="w-full bg-slate-900 text-white py-3 rounded-lg font-bold text-xs uppercase tracking-widest">I have saved the credentials</button>
+        </div>
     </div>
 </div>
 
 <script>
     const API_URL = 'api/admin/apikey';
     const TOKEN = localStorage.getItem('vaultToken');
-    const USERNAME = localStorage.getItem('username') || 'Admin';
+    const USER = localStorage.getItem('username') || 'Admin';
 
     document.addEventListener('DOMContentLoaded', () => {
-        document.getElementById('display-name').textContent = USERNAME;
-        document.getElementById('user-initials').textContent = USERNAME.substring(0, 2).toUpperCase();
+        document.getElementById('display-name').textContent = USER;
+        document.getElementById('user-initials').textContent = USER.substring(0, 2).toUpperCase();
         fetchKeys();
     });
 
     async function fetchKeys() {
         try {
-            const response = await fetch(API_URL, {
+            const res = await fetch(API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
                 body: JSON.stringify({ "_func": "get_all_keys" })
             });
-            const data = await response.json();
+            const data = await res.json();
             const tbody = document.getElementById('key-table-body');
-            
-            if (response.ok) {
-                const keys = data.keys || [];
-                tbody.innerHTML = keys.map(key => `
+            if (res.ok) {
+                tbody.innerHTML = (data.keys || []).map(key => `
                     <tr class="hover:bg-slate-50 transition">
-                        <td class="px-6 py-4">
-                            <div class="font-bold text-slate-700">${key.label}</div>
-                            <div class="text-[10px] font-mono text-slate-400">${key.api_key_id}</div>
-                        </td>
-                        <td class="px-6 py-4">
-                            <div class="flex gap-1">
-                                ${key.can_read ? '<span class="px-2 py-0.5 bg-green-50 text-green-600 text-[9px] font-black rounded">READ</span>' : ''}
-                                ${key.can_write ? '<span class="px-2 py-0.5 bg-blue-50 text-blue-600 text-[9px] font-black rounded">WRITE</span>' : ''}
-                            </div>
-                        </td>
-                        <td class="px-6 py-4">
-                            <span class="text-xs font-bold ${key.active ? 'text-green-600' : 'text-red-500'}">
-                                ${key.active ? 'Active' : 'Revoked'}
-                            </span>
-                        </td>
+                        <td class="px-6 py-4 font-bold text-slate-700">${key.label}</td>
+                        <td class="px-6 py-4 font-mono text-[10px] text-slate-400">${key.api_key_id}</td>
+                        <td class="px-6 py-4"><span class="text-xs font-bold ${key.active ? 'text-green-600' : 'text-gray-400'}">${key.active ? 'Active' : 'Disabled'}</span></td>
                         <td class="px-6 py-4 text-right">
-                            <button onclick='loadEdit(${JSON.stringify(key)})' class="text-indigo-600 hover:underline text-xs font-bold uppercase">Configure</button>
+                            <button onclick='loadEdit("${key.api_key_id}", "${key.label}", ${key.active})' class="text-indigo-600 hover:underline text-xs font-bold uppercase">Modify</button>
                         </td>
-                    </tr>
-                `).join('');
+                    </tr>`).join('');
             }
-        } catch (err) { console.error("Key retrieval failed", err); }
+        } catch (err) { console.error(err); }
     }
 
     document.getElementById('key-form').onsubmit = async (e) => {
@@ -180,49 +158,49 @@
         const payload = {
             "_func": isEdit ? "update_key" : "create_key",
             "label": document.getElementById('label').value,
-            "active": document.getElementById('active').value === "true",
-            "can_read": document.getElementById('can_read').checked,
-            "can_write": document.getElementById('can_write').checked,
-            "expiry": document.getElementById('expiry').value
+            "active": document.getElementById('active').value === "true"
         };
+        if (isEdit) payload.api_key_id = document.getElementById('api_key_id').value;
 
-        if (isEdit) payload.api_key_id = document.getElementById('key_id').value;
-
-        const response = await fetch(API_URL, {
+        const res = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
             body: JSON.stringify(payload)
         });
+        const result = await res.json();
 
-        if (response.ok) {
+        if (res.ok) {
             closeModal();
+            if (!isEdit && result.data) {
+                showSecret(result.data.api_key_id, result.data.raw_api_secret);
+            }
             fetchKeys();
-        } else {
-            const err = await response.json();
-            alert(err.message || "Operation failed");
         }
     };
 
-    function loadEdit(key) {
+    function showSecret(key, secret) {
+        document.getElementById('display-key').textContent = key;
+        document.getElementById('display-secret').textContent = secret;
+        document.getElementById('secretModal').style.display = 'flex';
+    }
+
+    function loadEdit(id, label, active) {
         document.getElementById('is-edit').value = "true";
-        document.getElementById('modal-title').textContent = "Configure API Key";
-        document.getElementById('key_id').value = key.api_key_id;
-        document.getElementById('label').value = key.label;
-        document.getElementById('active').value = key.active.toString();
-        document.getElementById('can_read').checked = key.can_read;
-        document.getElementById('can_write').checked = key.can_write;
-        document.getElementById('expiry').value = key.expiry || "";
+        document.getElementById('modal-title').textContent = "Modify Credentials";
+        document.getElementById('api_key_id').value = id;
+        document.getElementById('label').value = label;
+        document.getElementById('active').value = active.toString();
         document.getElementById('keyModal').style.display = 'flex';
     }
 
-    function openModal() {
-        document.getElementById('key-form').reset();
+    function openModal() { 
+        document.getElementById('key-form').reset(); 
         document.getElementById('is-edit').value = "false";
         document.getElementById('modal-title').textContent = "Generate API Key";
-        document.getElementById('keyModal').style.display = 'flex';
+        document.getElementById('keyModal').style.display = 'flex'; 
     }
-
     function closeModal() { document.getElementById('keyModal').style.display = 'none'; }
+    function closeSecretModal() { document.getElementById('secretModal').style.display = 'none'; }
     function handleLogout() { localStorage.clear(); window.location.href = "index.html"; }
 </script>
 </body>
