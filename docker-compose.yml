@@ -1,48 +1,70 @@
+# TSI Privacy Vault - Universal Docker Compose (Public Release)
+
+x-db-credentials: &db-credentials
+  POSTGRES_DB: "${POSTGRES_DB:-tsi_privacy_vault}"
+  POSTGRES_USER: "${POSTGRES_USER:-tsi_admin}"
+  POSTGRES_PASSWORD: "${POSTGRES_PASSWD:-secure_dev_password}"
+
 services:
-  # PostgreSQL Database Service
+  # 1. PostgreSQL Database Service
   postgres_db:
     image: postgres:15-alpine
-    container_name: tsi_privacy_vault_postgres
+    container_name: tsi_privacy_vault_db
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWD}
+      <<: *db-credentials
     ports:
-      - "5432:5432"
+      - "${DB_PORT_MAP:-5432:5432}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./db:/docker-entrypoint-initdb.d
+      - ./db:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 45s
+    networks:
+      - tsi_internal
 
-  # Java Jetty Web Application Service
+  # 2. Java Jetty Web Application Service
   jetty_app:
-    build: . # Build the image from the Dockerfile in the current directory
-    container_name: tsi_privacy_vault_jetty
+    # Uses the IMAGE_NAME from .env, defaults to latest if not set
+    #image: "${IMAGE_NAME:-tsicoop/tsi-privacy-vault:latest}"
+    
+    # DEVELOPERS: To build from local source, uncomment the block below
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    user: "root"
+    container_name: tsi_privacy_vault_server
+    restart: unless-stopped
+    
     ports:
-      - "8080:8080" # Map host port 8080 to container port 8080 (Jetty's default)
+      - "${APP_PORT_MAP:-8080:8080}"
+    
     environment:
-      # Database
       POSTGRES_HOST: "jdbc:postgresql://postgres_db:5432"
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWD: ${POSTGRES_PASSWD}
-
-      # Global Salt for LookupHasher
-      TSI_LOOKUP_SALT: ${TSI_LOOKUP_SALT}
-      TSI_PRIVACY_VAULT_ENV: ${TSI_PRIVACY_VAULT_ENV}
-
-      # AWS Credentials for KMS Service (ONLY FOR LOCAL TESTING, NOT FOR PRODUCTION)
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_REGION: ${AWS_REGION}
-      AWS_KMS_KEY_IDENTIFIER: ${AWS_KMS_KEY_IDENTIFIER}
+      POSTGRES_DB: "${POSTGRES_DB:-tsi_privacy_vault}"
+      POSTGRES_USER: "${POSTGRES_USER:-tsi_admin}"
+      POSTGRES_PASSWD: "${POSTGRES_PASSWD:-secure_dev_password}"
+      TSI_PRIVACY_VAULT_ENV: "${TSI_DPDP_CMS_ENV:-production}"
+      TSI_EXPORT_PATH: "${TSI_EXPORT_PATH:-/var/lib/tsi/exports/}"
+    
+    volumes:
+      - "tsi_reports_data:${TSI_EXPORT_PATH:-/var/lib/tsi/exports/}:rw"
+    
     depends_on:
       postgres_db:
         condition: service_healthy
+    networks:
+      - tsi_internal
+
+# Infrastructure Definitions
+networks:
+  tsi_internal:
+    driver: bridge
+
 volumes:
-  postgres_data:
+  postgres_data:      
+  tsi_reports_data:
