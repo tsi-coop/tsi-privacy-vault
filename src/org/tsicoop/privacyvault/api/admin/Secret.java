@@ -12,10 +12,10 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Digital Safe & Utility Management.
+ * Secret Management.
  * Implements hardware-anchored envelope encryption using LocalKmsProvider.
  */
-public class Utility implements Action {
+public class Secret implements Action {
 
     private static final String FUNCTION = "_func";
 
