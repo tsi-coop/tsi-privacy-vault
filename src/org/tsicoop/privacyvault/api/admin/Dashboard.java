@@ -42,7 +42,7 @@ public class Dashboard implements Action {
             conn = pool.getConnection();
 
             // 1. Total Records (Vault Registry)
-            data.put("total_records", getSimpleCount(conn, pool, "SELECT COUNT(*) FROM vault_registry"));
+            data.put("total_records", getSimpleCount(conn, pool, "SELECT COUNT(*) FROM vault_entities"));
 
             // 2. Active API Keys (Fixed: Now using your 'api_user' table)
             data.put("active_keys", getSimpleCount(conn, pool, "SELECT COUNT(*) FROM api_user WHERE active = true"));

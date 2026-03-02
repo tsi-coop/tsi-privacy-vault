@@ -53,8 +53,8 @@ CREATE TABLE api_user_permissions (
     granted_by VARCHAR(255) -- Track which admin gave this access
 );
 
--- Master Table for ID and File Records
-CREATE TABLE vault_registry (
+-- Master Table for ID, DATA and File Records
+CREATE TABLE vault_entities (
     reference_key UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     entity_type VARCHAR(20) NOT NULL, -- 'ID' or 'FILE'
     id_type_code VARCHAR(50),        -- Aadhaar, Voter, etc. (for IDs)
@@ -65,10 +65,22 @@ CREATE TABLE vault_registry (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE vault_utilities (
+    utility_id VARCHAR(50) PRIMARY KEY,
+    flavor VARCHAR(20) NOT NULL, -- KEYS, CERT, SHARED_KEYS
+    label VARCHAR(255) NOT NULL,
+    payload TEXT, -- Encrypted local secret
+    metadata JSONB NOT NULL DEFAULT '{}', -- stores external_ref, alias, passphrase, k, n
+    encrypted_key TEXT,  
+    machine_id VARCHAR(50) NOT NULL, -- Mandatory hardware anchor
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- BSA 2023 Forensic Metadata (The "Evidence Log")
 CREATE TABLE bsa_forensic_logs (
     log_id BIGSERIAL PRIMARY KEY,
-    reference_key UUID REFERENCES vault_registry(reference_key),    
+    reference_key UUID,    
     -- PART A: User/Machine Details
     device_make_model VARCHAR(255),
     device_serial_number VARCHAR(100),
@@ -88,7 +100,7 @@ CREATE TABLE bsa_forensic_logs (
 -- Audit Log for Access (Proves Lawful Control)
 CREATE TABLE vault_audit_trail (
     audit_id BIGSERIAL PRIMARY KEY,
-    reference_key UUID REFERENCES vault_registry(reference_key),
+    reference_key UUID,
     action_type VARCHAR(20),         -- 'STORE', 'FETCH', 'PRINT'
     api_key VARCHAR(100),            -- App or User ID
     access_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -96,29 +108,19 @@ CREATE TABLE vault_audit_trail (
 );
 
 -- Create Table: event_log
-CREATE TABLE event_log (
-    -- Unique Identifier for the log entry
+CREATE TABLE IF NOT EXISTS event_log (
     log_id BIGSERIAL PRIMARY KEY,    
-    -- The "Who": Application or User Identity
     who VARCHAR(255),    
-    -- The "What": Action performed (e.g., STORE, FETCH, LOOKUP, DELETE)
     operation_type VARCHAR(50) NOT NULL,    
-    -- The "Flavor": Links to the blueprint (ID/DATA/FILE)
-    entity_code VARCHAR(50) REFERENCES vault_entity_master(entity_code),    
-    -- The "Specific Record": Pointer to the vaulted item
-    reference_key UUID REFERENCES vault_registry(reference_key),    
-    -- The "Where": Network and Device Identity
-    client_ip VARCHAR(45) NOT NULL, -- IPv4 or IPv6
-    user_agent TEXT,                -- Browser/SDK version
-    machine_id VARCHAR(100),       -- Serial/MAC for BSA Part A    
-    -- The "Result": Success or Failure (for RBAC auditing)
+    entity_code VARCHAR(50), 
+    reference_key UUID,      -- Used by the Entity Master
+    utility_ref UUID, -- Used by the Utility 
+    client_ip VARCHAR(45) NOT NULL, 
+    user_agent TEXT,                
+    machine_id VARCHAR(100),       
     outcome VARCHAR(20) DEFAULT 'SUCCESS' 
         CHECK (outcome IN ('SUCCESS', 'DENIED', 'ERROR')),
-    failure_reason TEXT,           -- e.g., "RBAC Violation", "Invalid Hash"    
-    -- The "When": Temporal anchoring
+    failure_reason TEXT,           
     log_datetime TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-
--- indexes
-ALTER TABLE api_user_permissions ADD CONSTRAINT unique_api_permission UNIQUE (api_key, entity_code);

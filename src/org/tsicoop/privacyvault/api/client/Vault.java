@@ -84,7 +84,7 @@ public class Vault implements Action {
         PoolDB pool = new PoolDB();
         try {
             conn = pool.getConnection();
-            ps = conn.prepareStatement("SELECT entity_type FROM vault_registry WHERE reference_key = ?");
+            ps = conn.prepareStatement("SELECT entity_type FROM vault_entities WHERE reference_key = ?");
             ps.setObject(1, ref);
             rs = ps.executeQuery();
             return rs.next() ? rs.getString("entity_type") : "UNKNOWN";
@@ -121,7 +121,7 @@ public class Vault implements Action {
         String type = null;
         try {
             conn = pool.getConnection();
-            ps = conn.prepareStatement("SELECT * FROM vault_registry WHERE reference_key = ?");
+            ps = conn.prepareStatement("SELECT * FROM vault_entities WHERE reference_key = ?");
             ps.setObject(1, ref);
             rs = ps.executeQuery();
             if (rs.next()) {
@@ -153,7 +153,7 @@ public class Vault implements Action {
         try {
             String hash = ForensicEngine.calculateSHA256(val.getBytes("UTF-8"));
             conn = pool.getConnection();
-            ps = conn.prepareStatement("SELECT reference_key FROM vault_registry WHERE hashed_value_sha256 = ?");
+            ps = conn.prepareStatement("SELECT reference_key FROM vault_entities WHERE hashed_value_sha256 = ?");
             ps.setString(1, hash);
             rs = ps.executeQuery();
             if (rs.next()) {
@@ -203,7 +203,7 @@ public class Vault implements Action {
         try {
             conn = pool.getConnection();
             conn.setAutoCommit(false);
-            pReg = conn.prepareStatement("INSERT INTO vault_registry (reference_key, entity_type, file_name, encrypted_content, encrypted_data_key, hashed_value_sha256) VALUES (?, ?, ?, ?, ?, ?)");
+            pReg = conn.prepareStatement("INSERT INTO vault_entities (reference_key, entity_type, file_name, encrypted_content, encrypted_data_key, hashed_value_sha256) VALUES (?, ?, ?, ?, ?, ?)");
             pReg.setObject(1, ref); pReg.setString(2, type); pReg.setString(3, name);
             pReg.setString(4, Base64.getEncoder().encodeToString(data)); pReg.setString(5, key); pReg.setString(6, hash);
             pReg.executeUpdate();
@@ -277,7 +277,7 @@ public class Vault implements Action {
         JSONObject forensicData = new JSONObject(); // Initialize empty
         try {
             conn = pool.getConnection();
-            String sql = "SELECT v.hashed_value_sha256, f.* FROM vault_registry v JOIN bsa_forensic_logs f ON v.reference_key = f.reference_key WHERE v.reference_key = ?";
+            String sql = "SELECT v.hashed_value_sha256, f.* FROM vault_entities v JOIN bsa_forensic_logs f ON v.reference_key = f.reference_key WHERE v.reference_key = ?";
             ps = conn.prepareStatement(sql);
             ps.setObject(1, ref);
             rs = ps.executeQuery();

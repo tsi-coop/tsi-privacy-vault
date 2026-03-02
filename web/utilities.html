@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSI Privacy Vault - Utility Master</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --vault-primary: #0f172a;
+            --vault-accent: #6366f1;
+            --background: #f8fafc;
+        }
+        body { background-color: var(--background); font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; }
+        .sidebar { width: 260px; background-color: var(--vault-primary); color: white; position: fixed; height: 100vh; z-index: 50; }
+        .nav-link { display: flex; align-items: center; padding: 12px 24px; color: #94a3b8; font-size: 0.875rem; font-weight: 500; }
+        .nav-link:hover, .nav-link.active { background-color: #1e293b; color: white; border-right: 4px solid var(--vault-accent); }
+        .card { background: white; border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        @media (min-width: 1024px) { main { padding-left: 260px; } }
+        #terminal { background: #0f172a; color: #10b981; font-family: 'ui-monospace', monospace; font-size: 10px; border-left: 4px solid #10b981; }
+    </style>
+</head>
+<body class="flex">
+
+<aside class="sidebar hidden lg:flex flex-col">
+    <div class="p-8">
+        <h2 class="text-lg font-black tracking-tighter uppercase">TSI Privacy Vault</h2>
+        <p class="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">Secure Data Isolation</p>
+    </div>
+    <nav class="flex-1 mt-4">
+        <a href="dashboard.html" class="nav-link">📊 Dashboard</a>
+        <a href="entities.html" class="nav-link">🧬 Entities</a>
+        <a href="utilities.html" class="nav-link active">🛠 Utilities</a>
+        <a href="users.html" class="nav-link">👤 Users</a>
+        <a href="apikeys.html" class="nav-link">🔑 API Keys</a>
+        <a href="audit.html" class="nav-link">📜 Audit</a>
+    </nav>
+    <div class="p-6 border-t border-slate-800">
+        <div class="flex items-center gap-3">
+            <div class="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs" id="user-initials">AD</div>
+            <div>
+                <p class="text-xs font-bold" id="display-name">Admin User</p>
+                <a href="#" onclick="handleLogout()" class="text-[10px] text-red-400 font-bold uppercase hover:underline">Sign Out</a>
+            </div>
+        </div>
+    </div>
+</aside>
+
+<main class="flex-1 min-h-screen">
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-40">
+        <h1 class="text-sm font-bold text-slate-500 uppercase tracking-widest text-[10px]">Utility & Secret Management</h1>
+        <button onclick="openEnrollModal()" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition">
+            + Enroll New Utility
+        </button>
+    </header>
+
+    <div class="p-8">
+        <div class="card overflow-hidden">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
+                        <th class="px-6 py-4">Label / Name</th>
+                        <th class="px-6 py-4">Category (Flavor)</th>
+                        <th class="px-6 py-4">Utility ID</th>
+                        <th class="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="utility-table-body" class="text-sm divide-y divide-slate-100">
+                    <tr><td colspan="4" class="px-6 py-10 text-center text-slate-400 italic">Synchronizing Vault Registry...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="terminal" class="mt-8 p-4 rounded-lg shadow-xl h-48 overflow-y-auto">
+            > [SYSTEM] Digital Safe initialized. Ready for JSON-based operations.
+        </div>
+    </div>
+</main>
+
+<div id="utilityModal" class="modal-overlay">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div class="p-6 bg-slate-900 text-white">
+            <h3 class="text-lg font-black uppercase tracking-tight" id="modal-title">Enroll New Utility</h3>
+            <p class="text-[10px] text-slate-400 uppercase font-bold tracking-widest mt-1">Hardware-anchored persistent storage</p>
+        </div>
+        <form id="utility-form" class="p-8 space-y-4">
+            <input type="hidden" id="modal-func" value="enroll">
+            <input type="hidden" id="target-id" value="">
+            
+            <div id="enroll-fields">
+                <div>
+                    <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Friendly Label</label>
+                    <input type="text" id="label" class="w-full border border-slate-200 rounded p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g. Stripe API Key">
+                </div>
+                <div class="mt-4">
+                    <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Flavor (Category)</label>
+                    <select id="category" class="w-full border border-slate-200 rounded p-2 text-sm bg-white outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="KEYS">KEYS</option>
+                        <option value="CERT">CERT</option>
+                        <option value="SHARED_KEYS">SHARED_KEYS</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="rotate-info" class="hidden p-3 bg-amber-50 border border-amber-100 rounded text-[11px] text-amber-700 font-bold uppercase">
+                Rotating Utility: <span id="display-target-id"></span>
+            </div>
+
+            <div>
+                <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Secret Payload</label>
+                <textarea id="payload" required rows="4" class="w-full border border-slate-200 rounded p-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Enter sensitive data..."></textarea>
+            </div>
+            
+            <div class="flex justify-end gap-3 pt-4">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Cancel</button>
+                <button type="submit" class="bg-slate-900 text-white px-6 py-2 rounded font-bold text-xs uppercase tracking-widest shadow-lg hover:bg-slate-800 transition">Execute Task</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const API_URL = 'api/admin/utility';
+    const TOKEN = localStorage.getItem('vaultToken');
+    const USERNAME = localStorage.getItem('username') || 'Admin';
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('display-name').textContent = USERNAME;
+        document.getElementById('user-initials').textContent = USERNAME.substring(0, 2).toUpperCase();
+        fetchUtilities();
+    });
+
+    /**
+     * Fetch list via POST with JSON Body
+     */
+    async function fetchUtilities() {
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${TOKEN}`,
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({ "_func": "list" })
+            });
+            
+            if (!response.ok) throw new Error("Connection failed");
+
+            const utilities = await response.json();
+            const tbody = document.getElementById('utility-table-body');
+            
+            tbody.innerHTML = utilities.map(item => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="px-6 py-4 font-bold text-slate-700">${item.label}</td>
+                    <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 uppercase">${item.category}</span></td>
+                    <td class="px-6 py-4 font-mono text-[10px] text-slate-400">${item.id}</td>
+                    <td class="px-6 py-4 text-right space-x-4">
+                        <button onclick="handleCheckout('${item.id}')" class="text-indigo-600 hover:underline text-xs font-bold uppercase">Checkout</button>
+                        <button onclick="openRotateModal('${item.id}')" class="text-amber-600 hover:underline text-xs font-bold uppercase">Rotate</button>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (err) { 
+            logTerminal("Registry Sync Error: " + err.message); 
+            document.getElementById('utility-table-body').innerHTML = `<tr><td colspan="4" class="px-6 py-10 text-center text-red-400 font-bold">Failed to synchronize with Vault.</td></tr>`;
+        }
+    }
+
+    /**
+     * Submit Form via JSON
+     */
+    document.getElementById('utility-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const func = document.getElementById('modal-func').value;
+        
+        // Build JSON Object
+        const payloadObj = {
+            "_func": func,
+            "payload": document.getElementById('payload').value
+        };
+
+        if (func === 'enroll') {
+            payloadObj.label = document.getElementById('label').value;
+            payloadObj.category = document.getElementById('category').value;
+        } else {
+            payloadObj.utility_id = document.getElementById('target-id').value;
+        }
+
+        logTerminal(`Sending JSON [${func.toUpperCase()}] to Vault...`);
+
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${TOKEN}` 
+            },
+            body: JSON.stringify(payloadObj)
+        });
+
+        if (response.ok) {
+            logTerminal(`SUCCESS: Task [${func.toUpperCase()}] acknowledged by Vault.`);
+            closeModal();
+            fetchUtilities();
+        } else {
+            const errorText = await response.text();
+            logTerminal(`ERROR: Operation failed. ${errorText}`);
+        }
+    };
+
+    /**
+     * Checkout via JSON
+     */
+    async function handleCheckout(id) {
+        logTerminal(`Forensic Checkout: Requesting cleartext for ${id}...`);
+        
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 
+                'Authorization': `Bearer ${TOKEN}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+                "_func": "checkout", 
+                "utility_id": id 
+            })
+        });
+
+        if (response.ok) {
+            const secret = await response.text();
+            // In a production app, consider using a secure modal instead of alert
+            alert(`Decrypted Secret Received:\n\n${secret}\n\nThis event has been logged in the Forensic Ledger.`);
+            logTerminal("Checkout Success: Data release complete.");
+        } else {
+            logTerminal("Checkout Refused: Authorization or existence check failed.");
+        }
+    }
+
+    // Terminal Logging Utility
+    function logTerminal(msg) {
+        const term = document.getElementById('terminal');
+        term.innerHTML += `<br><span class="text-slate-500">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
+        term.scrollTop = term.scrollHeight;
+    }
+
+    // Modal Control Logic
+    function openEnrollModal() {
+        document.getElementById('modal-title').textContent = "Enroll New Utility";
+        document.getElementById('modal-func').value = "enroll";
+        document.getElementById('enroll-fields').classList.remove('hidden');
+        document.getElementById('rotate-info').classList.add('hidden');
+        document.getElementById('utility-form').reset();
+        document.getElementById('utilityModal').style.display = 'flex';
+    }
+
+    function openRotateModal(id) {
+        document.getElementById('modal-title').textContent = "Rotate Utility Secret";
+        document.getElementById('modal-func').value = "rotate";
+        document.getElementById('target-id').value = id;
+        document.getElementById('display-target-id').textContent = id;
+        document.getElementById('enroll-fields').classList.add('hidden');
+        document.getElementById('rotate-info').classList.remove('hidden');
+        document.getElementById('payload').value = "";
+        document.getElementById('utilityModal').style.display = 'flex';
+    }
+
+    function closeModal() { document.getElementById('utilityModal').style.display = 'none'; }
+    function handleLogout() { localStorage.clear(); window.location.href = "index.html"; }
+</script>
+</body>
+</html>

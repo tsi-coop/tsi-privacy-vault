@@ -9,4 +9,5 @@
 /api/admin/dashboard=org.tsicoop.privacyvault.api.admin.Dashboard
 /api/admin/clients=org.tsicoop.privacyvault.api.admin.Clients
 /api/admin/entity=org.tsicoop.privacyvault.api.admin.Entity
+/api/admin/utility=org.tsicoop.privacyvault.api.admin.Utility
 /api/admin/audit=org.tsicoop.privacyvault.api.admin.Audit
