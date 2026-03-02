@@ -48,7 +48,8 @@ services:
       POSTGRES_DB: "${POSTGRES_DB:-tsi_privacy_vault}"
       POSTGRES_USER: "${POSTGRES_USER:-tsi_admin}"
       POSTGRES_PASSWD: "${POSTGRES_PASSWD:-secure_dev_password}"
-      TSI_PRIVACY_VAULT_ENV: "${TSI_DPDP_CMS_ENV:-production}"
+      TSI_PRIVACY_VAULT_ENV: "${TSI_PRIVACY_VAULT_ENV:-production}"
+      TSI_PRIVACY_VAULT_MASTER_KEY: "${TSI_PRIVACY_VAULT_MASTER_KEY:-32_BYTE_MASTER_KEY_FOR_LOCAL_DEV}"
       TSI_EXPORT_PATH: "${TSI_EXPORT_PATH:-/var/lib/tsi/exports/}"
     
     volumes:
