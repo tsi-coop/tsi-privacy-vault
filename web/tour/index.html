@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSI Privacy Vault - Interactive Journey</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --tsi-primary: #0f172a;
+            --tsi-accent: #6366f1;
+        }
+        body { background-color: #f8fafc; color: #334155; font-family: 'Inter', sans-serif; }
+        .tour-row:hover { background-color: #f1f5f9; border-left: 4px solid var(--tsi-accent); }
+        .status-badge {
+            font-size: 0.6rem;
+            padding: 2px 10px;
+            border-radius: 9999px;
+            text-transform: uppercase;
+            font-weight: 900;
+            letter-spacing: 0.05em;
+        }
+    </style>
+</head>
+<body>
+
+<header class="bg-white py-12 px-6 border-b border-slate-200">
+  <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-end">
+    <div>
+      <img src="https://tsicoop.org/logo.svg" alt="TSI" class="h-12 mb-6" />
+      <h1 class="text-4xl font-black tracking-tighter text-slate-900 uppercase">Sovereign Vault Tour</h1>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-6 py-12">
+
+  <div class="bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+    <div class="px-8 py-5 bg-slate-900 flex justify-between items-center">
+      <h2 class="text-xs font-black text-white uppercase tracking-[0.3em]">The Implementation Path</h2>
+      <div class="flex gap-2">
+         <div class="h-2 w-2 rounded-full bg-green-500"></div>
+         <div class="h-2 w-2 rounded-full bg-slate-700"></div>
+         <div class="h-2 w-2 rounded-full bg-slate-700"></div>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse">
+        <tbody class="divide-y divide-slate-100">
+
+        <tr class="tour-row transition-all group">
+          <td class="px-8 py-8 w-16 text-2xl font-black text-slate-200 group-hover:text-indigo-500">01</td>
+          <td class="px-4 py-8">
+            <div class="font-black text-slate-900 uppercase text-sm tracking-tight">Environment Setup</div>
+            <div class="text-[10px] text-slate-400 font-mono mt-1">init.html</div>
+            <p class="text-sm text-slate-500 mt-2 max-w-md">Initialize the Sovereign Safe, define Master Keys, and establish the root hardware anchor.</p>
+          </td>
+          <td class="px-6 py-8"><span class="status-badge bg-blue-100 text-blue-700">Infrastructure</span></td>
+          <td class="px-8 py-8 text-right">
+            <a href="/init.html" class="inline-flex items-center px-6 py-2.5 bg-slate-900 text-white rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-indigo-600 transition-colors">Start Setup</a>
+          </td>
+        </tr>
+</main>
+
+</body>
+</html>
