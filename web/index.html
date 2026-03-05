@@ -98,12 +98,6 @@
 
         <p id="error-msg" class="text-[10px] font-bold text-red-500 uppercase text-center hidden"></p>
     </form>
-
-    <div class="mt-8 text-center">
-        <p class="text-[9px] font-medium text-slate-400 uppercase tracking-widest">
-            Protected by Hardware Attestation & AES-256
-        </p>
-    </div>
 </div>
 
 <script>
@@ -117,7 +111,7 @@ async function handleLogin(event) {
 
     // UI state: Disable button during processing
     btn.disabled = true;
-    btn.innerText = "Attesting...";
+    btn.innerText = "Signing In...";
     errorEl.classList.add('hidden');
 
     try {

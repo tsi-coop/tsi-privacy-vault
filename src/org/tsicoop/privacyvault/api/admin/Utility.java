@@ -15,7 +15,7 @@ import java.util.UUID;
  * Secret Management.
  * Implements hardware-anchored envelope encryption using LocalKmsProvider.
  */
-public class Secret implements Action {
+public class Utility implements Action {
 
     private static final String FUNCTION = "_func";
 

@@ -32,13 +32,13 @@ curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhb
 curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiU1lTVEVNX0FETUlOIiwibmFtZSI6ImFkbWluIiwic3ViIjoiYWRtaW5AdHNpY29vcC5vcmciLCJpYXQiOjE3NzA4MTQxMzQsImV4cCI6MTc3MTY3ODEzNH0.ER1O-pumqC2oYb-8_50BSm_P2-TMFpRKHmdqfwlS07Q" -d @/home/arundhati/tsi-privacy-vault/api-tests/admin/get_audit_logs.json http://localhost:8080/api/admin/audit
 
 {
-  "apiKey":"ext-791bb544-3b85-415d-a303-b7bbf501ebd4",
-  "apiSecret":"8981eea7-08a5-49bb-8b8c-931a9f2398cc"
+  "apiKey":"AF2AF44349DA42F5B0ED2D8FE7665B1D",
+  "apiSecret":"caf9ed8d-fd11-4273-8896-f74a701f789f2fe638313fa94401becf0a963a9e5025"
 }
 
 ##Client
 # Store ID
-curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-791bb544-3b85-415d-a303-b7bbf501ebd4" -H "X-API-Secret:8981eea7-08a5-49bb-8b8c-931a9f2398cc" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/store_id.json http://localhost:8080/api/client/vault
+curl -X POST -H "Content-Type: application/json" -H "X-API-Key:AF2AF44349DA42F5B0ED2D8FE7665B1D" -H "X-API-Secret:caf9ed8d-fd11-4273-8896-f74a701f789f2fe638313fa94401becf0a963a9e5025" -d @/home/tsi/tsi-privacy-vault/api-tests/client/store_id.json http://localhost:8080/api/client/vault
 # Fetch ID By Reference
 curl -X POST -H "Content-Type: application/json" -H "X-API-Key:ext-791bb544-3b85-415d-a303-b7bbf501ebd4" -H "X-API-Secret:8981eea7-08a5-49bb-8b8c-931a9f2398cc" -d @/home/arundhati/tsi-privacy-vault/api-tests/client/fetch_id_by_reference.json http://localhost:8080/api/client/vault
 # Fetch Reference By ID Value

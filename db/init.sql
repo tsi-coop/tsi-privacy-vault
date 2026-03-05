@@ -39,20 +39,6 @@ CREATE TABLE api_user (
     created_datetime TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE api_user_permissions (
-    permission_id SERIAL PRIMARY KEY,    
-    -- The Actor: Which app/user is this for?
-    api_key VARCHAR(255) REFERENCES api_user(api_key) ON DELETE CASCADE,
-    -- The Resource: What specific data can they touch?
-    entity_code VARCHAR(50) REFERENCES vault_entity_master(entity_code) ON DELETE CASCADE,
-    -- The Action: What can they do?
-    can_read BOOLEAN DEFAULT FALSE,
-    can_write BOOLEAN DEFAULT FALSE,
-    -- Optional: Audit metadata for the permission itself
-    granted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    granted_by VARCHAR(255) -- Track which admin gave this access
-);
-
 -- Master Table for ID, DATA and File Records
 CREATE TABLE vault_entities (
     reference_key UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -75,6 +61,37 @@ CREATE TABLE vault_utilities (
     machine_id VARCHAR(50) NOT NULL, -- Mandatory hardware anchor
     active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- API Permissions Schema
+CREATE TABLE permissions (
+    permission_id SERIAL PRIMARY KEY,
+    
+    -- THE ACTOR
+    -- References the unique API Key of the application or agent
+    api_key VARCHAR(255) NOT NULL REFERENCES api_user(api_key) ON DELETE CASCADE,
+    
+    -- THE RESOURCE
+    -- 'ENTITY' for broad access to a business unit
+    -- 'UTILITY' for granular access to a specific secret
+    resource_type VARCHAR(20) NOT NULL CHECK (resource_type IN ('ENTITY', 'UTILITY')),
+    
+    -- Holds the entity_code or utility_id
+    resource_id TEXT NOT NULL,
+
+    -- THE ACTIONS
+    -- can_read: Permission to retrieve cleartext
+    -- can_write: Permission to enroll, update, or rotate keys
+    can_read BOOLEAN DEFAULT FALSE,
+    can_write BOOLEAN DEFAULT FALSE,
+
+    -- AUDIT METADATA
+    -- Essential for BSA Section 62 (Forensic Evidence)
+    granted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    granted_by VARCHAR(255), 
+    
+    -- Prevent duplicate rule definitions
+    UNIQUE(api_key, resource_type, resource_id)
 );
 
 -- BSA 2023 Forensic Metadata (The "Evidence Log")

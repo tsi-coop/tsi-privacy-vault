@@ -6,8 +6,9 @@
 /api/admin/login=org.tsicoop.privacyvault.api.admin.Login
 /api/admin/user=org.tsicoop.privacyvault.api.admin.User
 /api/admin/apikey=org.tsicoop.privacyvault.api.admin.ApiKey
+/api/admin/permission=org.tsicoop.privacyvault.api.admin.Permission
 /api/admin/dashboard=org.tsicoop.privacyvault.api.admin.Dashboard
 /api/admin/clients=org.tsicoop.privacyvault.api.admin.Clients
 /api/admin/entity=org.tsicoop.privacyvault.api.admin.Entity
-/api/admin/secret=org.tsicoop.privacyvault.api.admin.Secret
+/api/admin/utility=org.tsicoop.privacyvault.api.admin.Utility
 /api/admin/audit=org.tsicoop.privacyvault.api.admin.Audit
