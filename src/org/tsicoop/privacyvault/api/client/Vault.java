@@ -8,6 +8,7 @@ import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
 import org.json.simple.JSONObject;
+import org.json.simple.JSONArray;
 import org.tsicoop.privacyvault.framework.*;
 
 public class Vault implements Action {
@@ -32,6 +33,9 @@ public class Vault implements Action {
             if (func == null || apiKey == null) throw new Exception("Missing function code or API Key.");
           
             switch (func.toLowerCase()) {
+                case "get_authorized_entities":
+                    handleGetAuthorizedEntities(apiKey, res);
+                    break;
                 case "store_data":
                     handleStore(input, apiKey, clientIp, userAgent, res);
                     break;
@@ -54,6 +58,51 @@ public class Vault implements Action {
         }
     }
 
+    // --- New Capability: get_authorized_entities ---
+
+    /**
+     * Fetches the capability matrix for a specific API Key.
+     * Used by the Data Client to render available entities and permissions.
+     */
+    private void handleGetAuthorizedEntities(String apiKey, HttpServletResponse res) throws Exception {
+        Connection conn = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        PoolDB pool = new PoolDB();
+        
+        // Query joins permissions with the master entity registry to get the 'flavor'
+        String sql = "SELECT p.entity_code, p.can_read, p.can_write, m.flavor " +
+                     "FROM api_user_permissions p " +
+                     "JOIN vault_entities_master m ON p.entity_code = m.entity_code " +
+                     "WHERE p.api_key = ? AND m.active = true";
+                     
+        JSONArray entities = new JSONArray();
+        
+        try {
+            conn = pool.getConnection();
+            ps = conn.prepareStatement(sql);
+            ps.setString(1, apiKey);
+            rs = ps.executeQuery();
+            
+            while (rs.next()) {
+                JSONObject ent = new JSONObject();
+                ent.put("entity_code", rs.getString("entity_code"));
+                ent.put("flavor", rs.getString("flavor"));
+                ent.put("can_read", rs.getBoolean("can_read"));
+                ent.put("can_write", rs.getBoolean("can_write"));
+                entities.add(ent);
+            }
+            
+            JSONObject output = new JSONObject();
+            output.put("status", "SUCCESS");
+            output.put("entities", entities);
+            
+            OutputProcessor.send(res, 200, output);
+        } finally {
+            pool.cleanup(rs, ps, conn);
+        }
+    }
+
     // --- RBAC & Gatekeeping ---
 
     public boolean isAuthorized(String apiKey, String entityCode, String action) throws SQLException {
@@ -70,8 +119,6 @@ public class Vault implements Action {
             ps.setString(2, entityCode);
             rs = ps.executeQuery();
             return rs.next() && rs.getBoolean(col);
-        } catch (SQLException e) {
-            throw e;
         } finally {
             pool.cleanup(rs, ps, conn);
         }
@@ -88,8 +135,6 @@ public class Vault implements Action {
             ps.setObject(1, ref);
             rs = ps.executeQuery();
             return rs.next() ? rs.getString("entity_type") : "UNKNOWN";
-        } catch (SQLException e) {
-            throw e;
         } finally {
             pool.cleanup(rs, ps, conn);
         }
@@ -117,7 +162,7 @@ public class Vault implements Action {
         PreparedStatement ps = null;
         ResultSet rs = null;
         PoolDB pool = new PoolDB();
-        JSONObject out = new JSONObject(); // Initialize empty instead of null
+        JSONObject out = new JSONObject();
         String type = null;
         try {
             conn = pool.getConnection();
@@ -130,12 +175,10 @@ public class Vault implements Action {
                 byte[] decrypted = kms.aesDecrypt(Base64.getDecoder().decode(rs.getString("encrypted_content")), Base64.getDecoder().decode(plainKey));
                 out.put("content", "FILE".equalsIgnoreCase(type) ? Base64.getEncoder().encodeToString(decrypted) : new String(decrypted, "UTF-8"));
             }
-        } catch (Exception e) {
-            throw e;
         } finally {
             pool.cleanup(rs, ps, conn);
         }
-        if(out.get("content")!=null){
+        if(out.get("content") != null){
             logEvent(apiKey, "FETCH", type, ref.toString(), ip, ua, "SUCCESS", null);
         }
         return out; 
@@ -146,7 +189,7 @@ public class Vault implements Action {
         PreparedStatement ps = null;
         ResultSet rs = null;
         PoolDB pool = new PoolDB();
-        JSONObject out = new JSONObject(); // Initialize empty instead of null
+        JSONObject out = new JSONObject();
         String val = (String) input.get("content");
         String type = (String) input.get("entityType");
         String ref = null;
@@ -160,12 +203,10 @@ public class Vault implements Action {
                 ref = rs.getObject("reference_key").toString();
                 out.put("reference-key", ref);                
             }
-        } catch (Exception e) {
-            throw e;
         } finally {
             pool.cleanup(rs, ps, conn);
         }
-        if(out.get("reference-key")!=null){
+        if(out.get("reference-key") != null){
             logEvent(apiKey, "LOOKUP", type, ref, ip, ua, "SUCCESS", null);
         }
         return out;
@@ -177,7 +218,7 @@ public class Vault implements Action {
         Connection conn = null;
         PreparedStatement ps = null;
         PoolDB pool = null;
-        String machineId = ForensicEngine.getMachineIdentifier(); 
+        String machineId = ForensicEngine.getMachineIdentifier();
         String sql = "INSERT INTO event_log (api_key, operation_type, entity_code, reference_key, client_ip, user_agent, machine_id, outcome, failure_reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try {
             pool = new PoolDB();
@@ -191,7 +232,7 @@ public class Vault implements Action {
         } catch (Exception e) {
             System.err.println("Audit Failure: " + e.getMessage());
         } finally {
-            pool.cleanup(null, ps, conn);
+            if (pool != null) pool.cleanup(null, ps, conn);
         }
     }
 
@@ -274,7 +315,7 @@ public class Vault implements Action {
         PreparedStatement ps = null;
         ResultSet rs = null;
         PoolDB pool = new PoolDB();
-        JSONObject forensicData = new JSONObject(); // Initialize empty
+        JSONObject forensicData = new JSONObject();
         try {
             conn = pool.getConnection();
             String sql = "SELECT v.hashed_value_sha256, f.* FROM vault_entities v JOIN bsa_forensic_logs f ON v.reference_key = f.reference_key WHERE v.reference_key = ?";

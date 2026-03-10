@@ -12,7 +12,7 @@
         .nav-link { display: flex; align-items: center; padding: 12px 24px; color: #94a3b8; font-size: 0.875rem; font-weight: 500; }
         .nav-link:hover, .nav-link.active { background-color: #1e293b; color: white; border-right: 4px solid var(--vault-accent); }
         .card { background: white; border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); display: none; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(2px); }
         @media (min-width: 1024px) { main { padding-left: 260px; } }
         .custom-scroll::-webkit-scrollbar { width: 4px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -33,15 +33,6 @@
         <a href="apikeys.html" class="nav-link active">API Keys</a>
         <a href="audit.html" class="nav-link">Audit</a>
     </nav>
-    <div class="p-6 border-t border-slate-800">
-        <div class="flex items-center gap-3">
-            <div class="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs" id="user-initials">AD</div>
-            <div>
-                <p class="text-xs font-bold" id="display-name">Admin User</p>
-                <a href="#" onclick="handleLogout()" class="text-[10px] text-red-400 font-bold uppercase hover:underline">Sign Out</a>
-            </div>
-        </div>
-    </div>
 </aside>
 
 <main class="flex-1 min-h-screen">
@@ -57,7 +48,7 @@
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
-                        <th class="px-6 py-4">Client App Name</th>
+                        <th class="px-6 py-4">API Name / Label</th>
                         <th class="px-6 py-4">API Key ID</th>
                         <th class="px-6 py-4">Status</th>
                         <th class="px-6 py-4 text-right">Actions</th>
@@ -71,68 +62,87 @@
     </div>
 </main>
 
-<div id="permissionsModal" class="fixed inset-0 z-50 overflow-hidden hidden" role="dialog" aria-modal="true">
-    <div class="absolute inset-0 overflow-hidden">
-        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" onclick="closePermissions()"></div>
-        <div class="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
-            <div class="pointer-events-auto w-screen max-w-2xl">
-                <div class="flex h-full flex-col overflow-y-scroll bg-white shadow-2xl custom-scroll">
-                    <div class="bg-slate-900 px-6 py-8">
-                        <div class="flex items-start justify-between">
-                            <h2 class="text-xl font-black text-white uppercase tracking-widest">Manage Permissions</h2>
-                            <button onclick="closePermissions()" class="text-slate-400 hover:text-white">✕</button>
+<div id="keyModal" class="modal-overlay">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div class="p-6 bg-slate-900 text-white">
+            <h3 class="text-lg font-black uppercase tracking-tight">Generate API Access Key</h3>
+        </div>
+        <form id="key-form" class="p-8 space-y-6">
+            <div id="input-fields">
+                <label class="block text-[10px] font-black text-slate-500 uppercase mb-2">API Name / Description</label>
+                <input type="text" id="key-label" name="label" required placeholder="e.g. Analytics-Service-Prod" 
+                       class="w-full border border-slate-200 rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition">
+            </div>
+
+            <div id="secret-reveal-section" class="hidden space-y-4 bg-amber-50 p-5 rounded-xl border border-amber-200">
+                <p class="text-[11px] text-amber-900 font-bold uppercase tracking-tight">⚠️ Secure your secret now</p>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-[9px] font-black text-slate-500 uppercase mb-1">API Key ID</label>
+                        <code id="new-key-id" class="block bg-white p-2.5 border border-slate-200 text-xs font-mono break-all rounded"></code>
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-black text-slate-500 uppercase mb-1">Private Secret Key</label>
+                        <code id="new-key-secret" class="block bg-white p-2.5 border border-slate-200 text-xs font-mono text-indigo-700 break-all rounded shadow-inner"></code>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-50">
+                <button type="button" onclick="closeModal()" id="cancel-btn" class="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Cancel</button>
+                <button type="submit" id="save-btn" class="bg-slate-900 text-white px-8 py-3 rounded-lg font-bold text-[10px] uppercase tracking-widest hover:bg-slate-800 transition">Generate Key</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="permissionsModal" class="fixed inset-0 z-50 overflow-hidden hidden">
+    <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closePermissions()"></div>
+    <div class="fixed inset-y-0 right-0 flex max-w-full pl-10">
+        <div class="w-screen max-w-2xl bg-white shadow-2xl flex flex-col custom-scroll overflow-y-auto">
+            <div class="bg-slate-900 p-8 text-white">
+                <div class="flex justify-between items-start">
+                    <h2 class="text-xl font-black uppercase tracking-widest">Manage Permissions</h2>
+                    <button onclick="closePermissions()" class="text-slate-400 hover:text-white transition text-2xl">✕</button>
+                </div>
+                <p class="text-xs text-indigo-400 mt-2 font-mono uppercase" id="displayPermissionsApiKey"></p>
+            </div>
+            
+            <div class="p-8">
+                <section class="mb-10 bg-slate-50 p-6 rounded-xl border border-slate-200">
+                    <h3 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Grant Access</h3>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Type</label>
+                            <select id="perm_type" onchange="fetchResourceIDs()" class="w-full rounded border-slate-200 p-2 text-sm">
+                                <option value="ENTITY">ENTITY</option>
+                                <option value="UTILITY">UTILITY</option>
+                            </select>
                         </div>
-                        <p class="mt-2 text-sm text-slate-400">Target Key: <span id="displayPermissionsApiKey" class="font-mono text-indigo-400"></span></p>
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Resource</label>
+                            <select id="perm_id" class="w-full rounded border-slate-200 p-2 text-sm"></select>
+                        </div>
                     </div>
-
-                    <div class="relative flex-1 px-6 py-8">
-                        <section class="mb-10 bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                            <h3 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Grant Access</h3>
-                            <div class="grid grid-cols-6 gap-4">
-                                <div class="col-span-3">
-                                    <label class="block text-[10px] font-bold text-slate-700 uppercase mb-1">Resource Type</label>
-                                    <select id="perm_type" onchange="toggleResourceList()" class="w-full rounded border-slate-300 py-2 text-sm">
-                                        <option value="ENTITY">ENTITY (Broad)</option>
-                                        <option value="UTILITY">UTILITY (Specific)</option>
-                                    </select>
-                                </div>
-                                <div class="col-span-3">
-                                    <label class="block text-[10px] font-bold text-slate-700 uppercase mb-1">Select Resource ID</label>
-                                    <select id="perm_id" class="w-full rounded border-slate-300 py-2 text-sm">
-                                        <option value="">Choose an ID...</option>
-                                    </select>
-                                </div>
-                                <div class="col-span-6 flex gap-6">
-                                    <label class="inline-flex items-center text-xs font-bold uppercase text-slate-700 cursor-pointer">
-                                        <input type="checkbox" id="perm_read" class="mr-2 rounded text-indigo-600"> Read
-                                    </label>
-                                    <label class="inline-flex items-center text-xs font-bold uppercase text-slate-700 cursor-pointer">
-                                        <input type="checkbox" id="perm_write" class="mr-2 rounded text-indigo-600"> Write
-                                    </label>
-                                </div>
-                                <button onclick="savePermission()" class="col-span-6 bg-indigo-600 text-white py-3 rounded text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 mt-2 transition shadow-md">
-                                    Commit Permission
-                                </button>
-                            </div>
-                        </section>
-
-                        <section>
-                            <h3 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Active ACL Ledger</h3>
-                            <div class="border rounded-xl overflow-hidden shadow-sm">
-                                <table class="w-full text-left text-xs">
-                                    <thead class="bg-slate-50 border-b">
-                                        <tr>
-                                            <th class="px-4 py-3 uppercase text-slate-400 text-[10px]">Type</th>
-                                            <th class="px-4 py-3 uppercase text-slate-400 text-[10px]">Resource</th>
-                                            <th class="px-4 py-3 uppercase text-slate-400 text-[10px]">Rights</th>
-                                            <th class="px-4 py-3"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="perm-table-body" class="divide-y divide-slate-100"></tbody>
-                                </table>
-                            </div>
-                        </section>
+                    <div class="flex gap-4 mb-4">
+                        <label class="flex items-center text-xs font-bold text-slate-600"><input type="checkbox" id="perm_read" class="mr-2"> READ</label>
+                        <label class="flex items-center text-xs font-bold text-slate-600"><input type="checkbox" id="perm_write" class="mr-2"> WRITE</label>
                     </div>
+                    <button onclick="savePermission()" class="w-full bg-indigo-600 text-white py-3 rounded text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700">Commit Permission</button>
+                </section>
+
+                <h3 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Active ACL</h3>
+                <div class="border rounded-xl overflow-hidden">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-50 border-b">
+                            <tr>
+                                <th class="px-4 py-3 uppercase text-slate-400 text-[10px]">Resource</th>
+                                <th class="px-4 py-3 uppercase text-slate-400 text-[10px]">Rights</th>
+                                <th class="px-4 py-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="perm-table-body" class="divide-y divide-slate-100"></tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -145,141 +155,130 @@
     const TOKEN = localStorage.getItem('vaultToken');
     const USER = localStorage.getItem('username') || 'Admin';
 
-    let entityList = [];
-    let utilityList = [];
-
-    document.addEventListener('DOMContentLoaded', () => {
-        document.getElementById('display-name').textContent = USER;
-        document.getElementById('user-initials').textContent = USER.substring(0, 2).toUpperCase();
-        fetchKeys();
-    });
+    document.addEventListener('DOMContentLoaded', () => { fetchKeys(); });
 
     async function fetchKeys() {
-        try {
-            const res = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
-                body: JSON.stringify({ "_func": "get_all_keys" })
-            });
-            const data = await res.json();
-            const tbody = document.getElementById('key-table-body');
-            if (res.ok) {
-                tbody.innerHTML = (data.keys || []).map(key => `
-                    <tr class="hover:bg-slate-50 transition border-b border-slate-50">
-                        <td class="px-6 py-4 font-bold text-slate-700">${key.label}</td>
-                        <td class="px-6 py-4 font-mono text-[10px] text-slate-400">${key.api_key_id}</td>
-                        <td class="px-6 py-4"><span class="px-2 py-1 rounded text-[9px] font-black uppercase ${key.active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'}">${key.active ? 'Active' : 'Disabled'}</span></td>
-                        <td class="px-6 py-4 text-right flex justify-end gap-4">
-                            <button onclick='openPermissions("${key.api_key_id}")' class="text-slate-500 hover:text-indigo-600 text-xs font-bold uppercase tracking-tight">Permissions</button>
-                            <button onclick='loadEdit("${key.api_key_id}", "${key.label}", ${key.active})' class="text-indigo-600 hover:underline text-xs font-bold uppercase">Modify</button>
-                        </td>
-                    </tr>`).join('');
-            }
-        } catch (err) { console.error(err); }
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+            body: JSON.stringify({ "_func": "get_all_keys" })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            document.getElementById('key-table-body').innerHTML = (data.keys || []).map(key => `
+                <tr class="hover:bg-slate-50 transition border-b border-slate-50">
+                    <td class="px-6 py-4 font-bold text-slate-700 uppercase text-xs">${key.label}</td>
+                    <td class="px-6 py-4 font-mono text-[11px] text-slate-400">${key.api_key_id}</td>
+                    <td class="px-6 py-4"><span class="px-2 py-1 rounded text-[9px] font-black uppercase ${key.active ? 'bg-green-100 text-green-700' : 'bg-rose-50 text-rose-600'}">${key.active ? 'Active' : 'Revoked'}</span></td>
+                    <td class="px-6 py-4 text-right">
+                        <button onclick='openPermissions("${key.api_key_id}")' class="text-indigo-600 hover:underline text-[10px] font-black uppercase">Permissions</button>
+                    </td>
+                </tr>`).join('');
+        }
     }
+
+    document.getElementById('key-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+            body: JSON.stringify({
+                "_func": "create_key",
+                "label": document.getElementById('key-label').value,
+                "active": true
+            })
+        });
+        const result = await res.json();
+        
+        // FIX: Match the response JSON structure exactly
+        if (res.ok && result.success === true) {
+            document.getElementById('input-fields').classList.add('hidden');
+            document.getElementById('new-key-id').innerText = result.data.api_key_id;
+            document.getElementById('new-key-secret').innerText = result.data.raw_api_secret;
+            document.getElementById('secret-reveal-section').classList.remove('hidden');
+            document.getElementById('save-btn').classList.add('hidden');
+            document.getElementById('cancel-btn').innerText = "Finished Copying";
+        } else {
+            console.error("API Error:", result);
+            alert("Error: " + (result.message || "Failed to generate key"));
+        }
+    };
 
     async function openPermissions(apiKeyId) {
         document.getElementById('displayPermissionsApiKey').innerText = apiKeyId;
         document.getElementById('permissionsModal').classList.remove('hidden');
-        
-        // Parallel load
-        await Promise.all([fetchResources(), fetchActiveACL(apiKeyId)]);
+        await fetchResourceIDs();
+        await fetchActiveACL(apiKeyId);
     }
 
-    function closePermissions() { document.getElementById('permissionsModal').classList.add('hidden'); }
-
-    /**
-     * Revised fetchResources to use the centralized Permission.java endpoint
-     */
-    async function fetchResources() {
-        try {
-            // Using a single call to get valid resources for the dropdown
-            const res = await fetch(PERM_API, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
-                body: JSON.stringify({ "_func": "get_resource_list" }) 
-            });
-
-            if (!res.ok) throw new Error("Server error: " + res.status);
-            
-            const data = await res.json();
-            if (data._success) {
-                // Filter the combined list into our local arrays
-                entityList = data.resources.filter(r => r.type === 'ENTITY');
-                utilityList = data.resources.filter(r => r.type === 'UTILITY');
-                toggleResourceList();
-            }
-        } catch (err) {
-            console.error("Error loading resources:", err);
-            // Fallback: Clear lists on error to prevent JSON parse crashes
-            entityList = []; utilityList = [];
+    async function fetchResourceIDs() {
+        const type = document.getElementById('perm_type').value;
+        const res = await fetch(PERM_API, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+            body: JSON.stringify({ "_func": "get_resource_list" }) 
+        });
+        const data = await res.json();
+        if (data._success) {
+            document.getElementById('perm_id').innerHTML = data.resources
+                .filter(r => r.type === type)
+                .map(r => `<option value="${r.id}">${r.label} (${r.id})</option>`).join('');
         }
     }
 
-    function toggleResourceList() {
-        const type = document.getElementById('perm_type').value;
-        const select = document.getElementById('perm_id');
-        const list = (type === 'ENTITY') ? entityList : utilityList;
-        
-        select.innerHTML = '<option value="">Choose an ID...</option>' + 
-            list.map(i => `<option value="${i.id}">${i.id} (${i.label})</option>`).join('');
-    }
-
     async function fetchActiveACL(apiKeyId) {
-        const tbody = document.getElementById('perm-table-body');
-        tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-slate-400 italic text-xs tracking-widest">Scanning ledger...</td></tr>';
-
-        try {
-            const res = await fetch(PERM_API, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
-                body: JSON.stringify({ "_func": "get_permissions_by_key", "api_key": apiKeyId })
-            });
-            const data = await res.json();
-            if (res.ok && data._success) {
-                tbody.innerHTML = (data.permissions || []).map(p => `
-                    <tr class="hover:bg-slate-50 transition">
-                        <td class="px-4 py-3"><span class="px-2 py-0.5 rounded-[4px] font-black text-[9px] uppercase ${p.resource_type === 'ENTITY' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}">${p.resource_type}</span></td>
-                        <td class="px-4 py-3 font-bold text-slate-700">${p.resource_id}</td>
-                        <td class="px-4 py-3"><div class="flex gap-2 font-black text-[10px]">${p.can_read ? '<span class="text-green-600">READ</span>' : '<span class="text-slate-200">READ</span>'}${p.can_write ? '<span class="text-green-600">WRITE</span>' : '<span class="text-slate-200">WRITE</span>'}</div></td>
-                        <td class="px-4 py-3 text-right"><button onclick="deletePermission(${p.permission_id}, '${apiKeyId}')" class="text-slate-300 hover:text-red-600 font-bold text-lg">×</button></td>
-                    </tr>`).join('') || '<tr><td colspan="4" class="px-4 py-8 text-center text-slate-400 italic text-xs">No access rules found.</td></tr>';
-            }
-        } catch (err) { console.error(err); }
+        const res = await fetch(PERM_API, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+            body: JSON.stringify({ "_func": "get_permissions_by_key", "api_key": apiKeyId })
+        });
+        const data = await res.json();
+        if (res.ok && data._success) {
+            document.getElementById('perm-table-body').innerHTML = (data.permissions || []).map(p => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="px-4 py-3 font-bold text-slate-600">${p.resource_id}</td>
+                    <td class="px-4 py-3 font-black text-[10px] space-x-2 text-indigo-600">
+                        ${p.can_read ? 'READ':''} ${p.can_write ? 'WRITE':''}
+                    </td>
+                    <td class="px-4 py-3 text-right"><button onclick="deletePermission(${p.permission_id}, '${apiKeyId}')" class="text-rose-600 font-bold">✕</button></td>
+                </tr>`).join('') || '<tr><td colspan="3" class="p-4 italic text-slate-400">No active permissions</td></tr>';
+        }
     }
 
     async function savePermission() {
-        const apiKeyId = document.getElementById('displayPermissionsApiKey').innerText;
-        const resourceId = document.getElementById('perm_id').value;
-        if (!resourceId) return alert("Select a resource ID");
-
-        const res = await fetch(PERM_API, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+        const apiKey = document.getElementById('displayPermissionsApiKey').innerText;
+        await fetch(PERM_API, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
             body: JSON.stringify({
-                "_func": "create_permission",
-                "api_key": apiKeyId,
+                "_func": "create_permission", "api_key": apiKey,
                 "resource_type": document.getElementById('perm_type').value,
-                "resource_id": resourceId,
+                "resource_id": document.getElementById('perm_id').value,
                 "can_read": document.getElementById('perm_read').checked,
                 "can_write": document.getElementById('perm_write').checked,
                 "granted_by": USER
             })
         });
-        if (res.ok) fetchActiveACL(apiKeyId);
+        fetchActiveACL(apiKey);
     }
 
     async function deletePermission(pid, keyId) {
-        if (!confirm("Revoke access?")) return;
-        const res = await fetch(PERM_API, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+        if (!confirm("Revoke?")) return;
+        await fetch(PERM_API, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
             body: JSON.stringify({ "_func": "delete_permission", "permission_id": pid })
         });
-        if (res.ok) fetchActiveACL(keyId);
+        fetchActiveACL(keyId);
     }
 
-    function handleLogout() { localStorage.clear(); window.location.href = "index.html"; }
+    function openModal() {
+        document.getElementById('key-form').reset();
+        document.getElementById('input-fields').classList.remove('hidden');
+        document.getElementById('secret-reveal-section').classList.add('hidden');
+        document.getElementById('save-btn').classList.remove('hidden');
+        document.getElementById('cancel-btn').innerText = "Cancel";
+        document.getElementById('keyModal').style.display = 'flex';
+    }
+
+    function closeModal() { document.getElementById('keyModal').style.display = 'none'; fetchKeys(); }
+    function closePermissions() { document.getElementById('permissionsModal').classList.add('hidden'); }
 </script>
 </body>
 </html>
