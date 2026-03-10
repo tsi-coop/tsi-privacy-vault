@@ -3,10 +3,10 @@ package org.tsicoop.privacyvault.api.client;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.sql.*;
-import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
+import java.security.MessageDigest;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONArray;
 import org.tsicoop.privacyvault.framework.*;
@@ -43,11 +43,8 @@ public class Vault implements Action {
                 case "fetch_file_by_reference":
                     handleFetch(input, apiKey, clientIp, userAgent, res);
                     break;
-                case "fetch_reference_by_id_value":
-                    handleLookup(input, apiKey, clientIp, userAgent, res);
-                    break;
                 case "generate_bsa_certificate":
-                    handleCertGen(input, apiKey, clientIp, userAgent, res);
+                    handleCertGen((String) input.get("reference_key"), res);
                     break;
                 default:
                     OutputProcessor.sendError(res, 404, "Function not found.");
@@ -58,32 +55,23 @@ public class Vault implements Action {
         }
     }
 
-    // --- New Capability: get_authorized_entities ---
-
-    /**
-     * Fetches the capability matrix for a specific API Key.
-     * Used by the Data Client to render available entities and permissions.
-     */
     private void handleGetAuthorizedEntities(String apiKey, HttpServletResponse res) throws Exception {
         Connection conn = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
         PoolDB pool = new PoolDB();
         
-        // Query joins permissions with the master entity registry to get the 'flavor'
-        String sql = "SELECT p.entity_code, p.can_read, p.can_write, m.flavor " +
-                     "FROM api_user_permissions p " +
-                     "JOIN vault_entities_master m ON p.entity_code = m.entity_code " +
-                     "WHERE p.api_key = ? AND m.active = true";
+        String sql = "SELECT p.resource_id as entity_code, p.can_read, p.can_write, m.flavor " +
+                     "FROM permissions p " +
+                     "JOIN vault_entity_master m ON p.resource_id = m.entity_code " +
+                     "WHERE p.api_key = ? AND p.resource_type = 'ENTITY' AND m.active = true";
                      
         JSONArray entities = new JSONArray();
-        
         try {
             conn = pool.getConnection();
             ps = conn.prepareStatement(sql);
             ps.setString(1, apiKey);
             rs = ps.executeQuery();
-            
             while (rs.next()) {
                 JSONObject ent = new JSONObject();
                 ent.put("entity_code", rs.getString("entity_code"));
@@ -92,225 +80,109 @@ public class Vault implements Action {
                 ent.put("can_write", rs.getBoolean("can_write"));
                 entities.add(ent);
             }
-            
             JSONObject output = new JSONObject();
-            output.put("status", "SUCCESS");
+            output.put("success", true);
             output.put("entities", entities);
-            
             OutputProcessor.send(res, 200, output);
         } finally {
             pool.cleanup(rs, ps, conn);
         }
     }
 
-    // --- RBAC & Gatekeeping ---
+    private void handleStore(JSONObject input, String apiKey, String ip, String ua, HttpServletResponse res) throws Exception {
+        String entityCode = (String) input.get("entity_code");
+        String plainValue = (String) input.get("value");
 
-    public boolean isAuthorized(String apiKey, String entityCode, String action) throws SQLException {
-        Connection conn = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        PoolDB pool = new PoolDB();
-        String col = action.equalsIgnoreCase("WRITE") ? "can_write" : "can_read";
-        String sql = "SELECT " + col + " FROM api_user_permissions WHERE api_key = ? AND entity_code = ?";
-        try {
-            conn = pool.getConnection();
-            ps = conn.prepareStatement(sql);
-            ps.setString(1, apiKey);
-            ps.setString(2, entityCode);
-            rs = ps.executeQuery();
-            return rs.next() && rs.getBoolean(col);
-        } finally {
-            pool.cleanup(rs, ps, conn);
+        if (!isAuthorized(apiKey, entityCode, "WRITE")) {
+            OutputProcessor.sendError(res, 403, "Write access denied.");
+            return;
         }
-    }
 
-    private String getEntityCodeFromRef(UUID ref) throws SQLException {
-        Connection conn = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        PoolDB pool = new PoolDB();
-        try {
-            conn = pool.getConnection();
-            ps = conn.prepareStatement("SELECT entity_type FROM vault_entities WHERE reference_key = ?");
-            ps.setObject(1, ref);
-            rs = ps.executeQuery();
-            return rs.next() ? rs.getString("entity_type") : "UNKNOWN";
-        } finally {
-            pool.cleanup(rs, ps, conn);
-        }
-    }
+        // 1. Generate unique Data Key for this record via KMS
+        Map<String, String> dataKeyPack = kms.generateDataKey();
+        byte[] rawPlaintextKey = Base64.getDecoder().decode(dataKeyPack.get("plaintextDataKey"));
+        String encryptedDataKey = dataKeyPack.get("encryptedDataKey");
 
-    // --- Core Forensic Handlers ---
+        // 2. Encrypt value with the plaintext Data Key
+        byte[] ciphertext = kms.aesEncrypt(plainValue.getBytes("UTF-8"), rawPlaintextKey);
+        String ciphertextB64 = Base64.getEncoder().encodeToString(ciphertext);
 
-    private JSONObject storeInVault(byte[] content, String name, String type, String key, String ip, String ua) throws Exception {
-        String hash = ForensicEngine.calculateSHA256(content);
-        JSONObject bsa = ForensicEngine.captureBSAMetadata();
-        Map<String, String> dataKeys = kms.generateDataKey();
-        byte[] encrypted = kms.aesEncrypt(content, Base64.getDecoder().decode(dataKeys.get("plaintextDataKey")));
+        String referenceKey = UUID.randomUUID().toString().replace("-", "").toUpperCase();
         
-        UUID ref = UUID.randomUUID();
-        saveToRegistry(ref, type, name, encrypted, dataKeys.get("encryptedDataKey"), hash, bsa);
-        logEvent(key, "STORE", type, ref.toString(), ip, ua, "SUCCESS", null);
+        Connection conn = null;
+        PreparedStatement ps = null;
+        PoolDB pool = new PoolDB();
         
-        JSONObject out = new JSONObject();
-        out.put("referenceKey", ref.toString());
-        return out;
-    }
-
-    private JSONObject fetchByReference(String apiKey, UUID ref, String ip, String ua) throws Exception {
-        Connection conn = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        PoolDB pool = new PoolDB();
-        JSONObject out = new JSONObject();
-        String type = null;
         try {
             conn = pool.getConnection();
-            ps = conn.prepareStatement("SELECT * FROM vault_entities WHERE reference_key = ?");
-            ps.setObject(1, ref);
-            rs = ps.executeQuery();
-            if (rs.next()) {
-                type = rs.getString("entity_type");
-                String plainKey = kms.decryptDataKey(rs.getString("encrypted_data_key"));
-                byte[] decrypted = kms.aesDecrypt(Base64.getDecoder().decode(rs.getString("encrypted_content")), Base64.getDecoder().decode(plainKey));
-                out.put("content", "FILE".equalsIgnoreCase(type) ? Base64.getEncoder().encodeToString(decrypted) : new String(decrypted, "UTF-8"));
-            }
-        } finally {
-            pool.cleanup(rs, ps, conn);
-        }
-        if(out.get("content") != null){
-            logEvent(apiKey, "FETCH", type, ref.toString(), ip, ua, "SUCCESS", null);
-        }
-        return out; 
-    }
-
-    private JSONObject fetchReferenceByHash(String apiKey, JSONObject input, String ip, String ua) throws Exception {
-        Connection conn = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        PoolDB pool = new PoolDB();
-        JSONObject out = new JSONObject();
-        String val = (String) input.get("content");
-        String type = (String) input.get("entityType");
-        String ref = null;
-        try {
-            String hash = ForensicEngine.calculateSHA256(val.getBytes("UTF-8"));
-            conn = pool.getConnection();
-            ps = conn.prepareStatement("SELECT reference_key FROM vault_entities WHERE hashed_value_sha256 = ?");
-            ps.setString(1, hash);
-            rs = ps.executeQuery();
-            if (rs.next()) {
-                ref = rs.getObject("reference_key").toString();
-                out.put("reference-key", ref);                
-            }
-        } finally {
-            pool.cleanup(rs, ps, conn);
-        }
-        if(out.get("reference-key") != null){
-            logEvent(apiKey, "LOOKUP", type, ref, ip, ua, "SUCCESS", null);
-        }
-        return out;
-    }
-
-    // --- Logging & Registry Management ---
-
-    private void logEvent(String key, String op, String type, String ref, String ip, String ua, String outcome, String reason) {
-        Connection conn = null;
-        PreparedStatement ps = null;
-        PoolDB pool = null;
-        String machineId = ForensicEngine.getMachineIdentifier();
-        String sql = "INSERT INTO event_log (api_key, operation_type, entity_code, reference_key, client_ip, user_agent, machine_id, outcome, failure_reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        try {
-            pool = new PoolDB();
-            conn = pool.getConnection();
+            // Store the ciphertext AND the encrypted data key (the envelope)
+            String sql = "INSERT INTO vault_entities (entity_code, reference_key, encrypted_value, kms_id, hashed_value_sha256) VALUES (?, ?, ?, ?, ?)";
             ps = conn.prepareStatement(sql);
-            ps.setString(1, key); ps.setString(2, op); ps.setString(3, type);
-            ps.setObject(4, ref != null ? UUID.fromString(ref) : null);
-            ps.setString(5, ip); ps.setString(6, ua); ps.setString(7, machineId);
-            ps.setString(8, outcome); ps.setString(9, reason);
+            ps.setString(1, entityCode);
+            ps.setString(2, referenceKey);
+            ps.setString(3, ciphertextB64);
+            ps.setString(4, encryptedDataKey); // Using kms_id column to store the encrypted data key
+            ps.setString(5, computeHash(plainValue));
             ps.executeUpdate();
-        } catch (Exception e) {
-            System.err.println("Audit Failure: " + e.getMessage());
+            
+            logAudit(conn, apiKey, "STORE", entityCode, referenceKey, ip, ua);
+            
+            JSONObject out = new JSONObject();
+            out.put("success", true);
+            out.put("reference_key", referenceKey);
+            OutputProcessor.send(res, 201, out);
         } finally {
-            if (pool != null) pool.cleanup(null, ps, conn);
+            pool.cleanup(null, ps, conn);
         }
     }
 
-    private void saveToRegistry(UUID ref, String type, String name, byte[] data, String key, String hash, JSONObject bsa) throws SQLException {
+    private void handleFetch(JSONObject input, String apiKey, String ip, String ua, HttpServletResponse res) throws Exception {
+        String ref = (String) input.get("reference_key");
         Connection conn = null;
-        PreparedStatement pReg = null;
-        PreparedStatement pBsa = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
         PoolDB pool = new PoolDB();
+        
         try {
             conn = pool.getConnection();
-            conn.setAutoCommit(false);
-            pReg = conn.prepareStatement("INSERT INTO vault_entities (reference_key, entity_type, file_name, encrypted_content, encrypted_data_key, hashed_value_sha256) VALUES (?, ?, ?, ?, ?, ?)");
-            pReg.setObject(1, ref); pReg.setString(2, type); pReg.setString(3, name);
-            pReg.setString(4, Base64.getEncoder().encodeToString(data)); pReg.setString(5, key); pReg.setString(6, hash);
-            pReg.executeUpdate();
-
-            pBsa = conn.prepareStatement("INSERT INTO bsa_forensic_logs (reference_key, device_make_model, system_status, device_mac_address, device_serial_number, hash_algorithm) VALUES (?, ?, ?, ?, ?, ?)");
-            pBsa.setObject(1, ref); pBsa.setString(2, (String) bsa.get("makeModel"));
-            pBsa.setString(3, (String) bsa.get("systemStatus")); pBsa.setString(4, (String) bsa.get("macAddress"));
-            pBsa.setString(5, (String) bsa.get("serialNumber")); pBsa.setString(6, "SHA-256");
-            pBsa.executeUpdate();
+            ps = conn.prepareStatement("SELECT entity_code, encrypted_value, kms_id FROM vault_entities WHERE reference_key = ?");
+            ps.setString(1, ref);
+            rs = ps.executeQuery();
             
-            conn.commit();
-        } catch (SQLException e) {
-            if (conn != null) conn.rollback();
-            throw e;
+            if (rs.next()) {
+                String entityCode = rs.getString("entity_code");
+                if (!isAuthorized(apiKey, entityCode, "READ")) {
+                    OutputProcessor.sendError(res, 403, "Read access denied.");
+                    return;
+                }
+                
+                String ciphertextB64 = rs.getString("encrypted_value");
+                String encryptedDataKey = rs.getString("kms_id");
+
+                // 1. Decrypt the Data Key using the Master Key (KMS internal logic)
+                String plaintextDataKeyB64 = kms.decryptDataKey(encryptedDataKey);
+                byte[] rawPlaintextKey = Base64.getDecoder().decode(plaintextDataKeyB64);
+
+                // 2. Decrypt value with the retrieved plaintext Data Key
+                byte[] ciphertext = Base64.getDecoder().decode(ciphertextB64);
+                byte[] decryptedBytes = kms.aesDecrypt(ciphertext, rawPlaintextKey);
+                String decrypted = new String(decryptedBytes, "UTF-8");
+
+                logAudit(conn, apiKey, "FETCH", entityCode, ref, ip, ua);
+                
+                JSONObject out = new JSONObject();
+                out.put("success", true);
+                out.put("value", decrypted);
+                OutputProcessor.send(res, 200, out);
+            } else {
+                OutputProcessor.sendError(res, 404, "Reference not found.");
+            }
         } finally {
-            if (pBsa != null) pool.cleanup(null, pBsa, null);
-            pool.cleanup(null, pReg, conn);
+            pool.cleanup(rs, ps, conn);
         }
     }
 
-    // --- RBAC Handlers & Wrappers ---
-
-    private void handleStore(JSONObject input, String key, String ip, String ua, HttpServletResponse res) throws Exception {
-        String type = (String) input.get("entityType");
-        if (!isAuthorized(key, type, "WRITE")) {
-            logEvent(key, "STORE", type, null, ip, ua, "DENIED", "RBAC Violation: No WRITE access");
-            OutputProcessor.sendError(res, 403, "Forbidden: No WRITE access for " + type);
-            return;
-        }
-        byte[] content = Base64.getDecoder().decode((String) input.get("content"));
-        String name = (String) input.get("entityName");
-        OutputProcessor.send(res, 200, storeInVault(content, name, type, key, ip, ua));
-    }
-
-    private void handleFetch(JSONObject input, String key, String ip, String ua, HttpServletResponse res) throws Exception {
-        UUID ref = UUID.fromString((String) input.get("reference-key"));
-        String type = getEntityCodeFromRef(ref);
-        if (!isAuthorized(key, type, "READ")) {
-            logEvent(key, "FETCH", type, ref.toString(), ip, ua, "DENIED", "RBAC Violation: No READ access");
-            OutputProcessor.sendError(res, 403, "Forbidden: No READ access for " + type);
-            return;
-        }
-        OutputProcessor.send(res, 200, fetchByReference(key, ref, ip, ua));
-    }
-
-    private void handleLookup(JSONObject input, String key, String ip, String ua, HttpServletResponse res) throws Exception {
-        String type = (String) input.get("entityType");
-        if (!isAuthorized(key, type, "READ")) {
-            logEvent(key, "LOOKUP", type, null, ip, ua, "DENIED", "RBAC Violation");
-            OutputProcessor.sendError(res, 403, "Forbidden: No READ access for " + type);
-            return;
-        }
-        OutputProcessor.send(res, 200, fetchReferenceByHash(key, input, ip, ua));
-    }
-
-    private void handleCertGen(JSONObject input, String key, String ip, String ua, HttpServletResponse res) throws Exception {
-        UUID ref = UUID.fromString((String) input.get("reference-key"));
-        String type = getEntityCodeFromRef(ref);
-        if (!isAuthorized(key, type, "READ")) {
-            OutputProcessor.sendError(res, 403, "Forbidden: No READ access for " + type);
-            return;
-        }
-        generateCertificateResponse(res, ref);
-    }
-
-    private void generateCertificateResponse(HttpServletResponse res, UUID ref) throws Exception {
+    private void handleCertGen(String ref, HttpServletResponse res) throws Exception {
         Connection conn = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -318,9 +190,11 @@ public class Vault implements Action {
         JSONObject forensicData = new JSONObject();
         try {
             conn = pool.getConnection();
-            String sql = "SELECT v.hashed_value_sha256, f.* FROM vault_entities v JOIN bsa_forensic_logs f ON v.reference_key = f.reference_key WHERE v.reference_key = ?";
+            String sql = "SELECT v.hashed_value_sha256, f.* FROM vault_entities v " +
+                         "JOIN bsa_forensic_logs f ON v.reference_key = f.reference_key " +
+                         "WHERE v.reference_key = ?";
             ps = conn.prepareStatement(sql);
-            ps.setObject(1, ref);
+            ps.setString(1, ref);
             rs = ps.executeQuery();
             if (rs.next()) {
                 forensicData.put("sha256_hash", rs.getString("hashed_value_sha256"));
@@ -334,6 +208,49 @@ public class Vault implements Action {
         if (forensicData.isEmpty()) throw new Exception("Forensic metadata missing.");
         res.setContentType("application/pdf");
         certGenerator.streamSection63Certificate(forensicData, res.getOutputStream());
+    }
+
+    private void logAudit(Connection conn, String apiKey, String action, String entity, String ref, String ip, String ua) throws SQLException {
+        String sql = "INSERT INTO vault_audit_logs (api_key, action_type, entity_code, reference_key, client_ip, user_agent) VALUES (?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, apiKey);
+            ps.setString(2, action);
+            ps.setString(3, entity);
+            ps.setString(4, ref);
+            ps.setString(5, ip);
+            ps.setString(6, ua);
+            ps.executeUpdate();
+        }
+    }
+
+    private String computeHash(String input) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] hash = digest.digest(input.getBytes("UTF-8"));
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : hash) {
+            String hex = Integer.toHexString(0xff & b);
+            if (hex.length() == 1) hexString.append('0');
+            hexString.append(hex);
+        }
+        return hexString.toString();
+    }
+
+    public boolean isAuthorized(String apiKey, String entityCode, String action) throws SQLException {
+        Connection conn = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        PoolDB pool = new PoolDB();
+        String col = action.equalsIgnoreCase("WRITE") ? "can_write" : "can_read";
+        try {
+            conn = pool.getConnection();
+            ps = conn.prepareStatement("SELECT " + col + " FROM permissions WHERE api_key = ? AND resource_id = ? AND resource_type = 'ENTITY'");
+            ps.setString(1, apiKey);
+            ps.setString(2, entityCode);
+            rs = ps.executeQuery();
+            return rs.next() && rs.getBoolean(col);
+        } finally {
+            pool.cleanup(rs, ps, conn);
+        }
     }
 
     @Override public boolean validate(String m, HttpServletRequest q, HttpServletResponse s) { return true; }

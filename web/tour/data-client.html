@@ -19,11 +19,11 @@
 <div id="authBarrier" class="auth-overlay">
     <div class="bg-white p-10 rounded-3xl w-full max-w-md shadow-2xl">
         <div class="text-center mb-8">
-            <h2 class="text-2xl font-black text-slate-900 uppercase tracking-tighter">Vault <span class="text-[#006A67]">Identity</span></h2>
+            <h2 class="text-2xl font-black text-slate-900 uppercase tracking-tighter">Vault <span class="text-[#006A67]">Handshake</span></h2>
             <p class="text-slate-400 text-xs mt-1">Provide API credentials to synchronize entities.</p>
         </div>
         <div class="space-y-4">
-            <input type="text" id="api_key" placeholder="X-API-KEY" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm outline-none focus:ring-2 focus:ring-[#006A67]">
+            <input type="text" id="api_key" placeholder="API KEY ID" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm outline-none focus:ring-2 focus:ring-[#006A67]">
             <input type="password" id="api_secret" placeholder="API SECRET" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm outline-none focus:ring-2 focus:ring-[#006A67]">
             <button onclick="initializeSession()" class="w-full bg-[#006A67] text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-teal-700 transition-all">Connect to Vault</button>
         </div>
@@ -33,12 +33,12 @@
 <div class="max-w-6xl mx-auto">
     <header class="flex justify-between items-end mb-10">
         <div>
-            <h1 class="text-3xl font-black text-slate-900 tracking-tight uppercase">Data <span class="text-[#006A67]">Explorer</span></h1>
+            <h1 class="text-3xl font-black text-slate-900 tracking-tight uppercase">Data <span class="text-[#006A67]">Client</span></h1>
             <p id="sessionDisplay" class="text-slate-500 text-[10px] font-mono mt-2 uppercase">Status: Awaiting Initialization</p>
         </div>
         <div class="bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
             <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Forensic Anchor</p>
-            <p class="text-xs font-bold text-green-600 uppercase">● Live Service</p>
+            <p class="text-xs font-bold text-green-600 uppercase">● Active</p>
         </div>
     </header>
 
@@ -49,12 +49,11 @@
                     <th class="px-8 py-5">Flavor</th>
                     <th class="px-8 py-5">Entity Resource</th>
                     <th class="px-8 py-5">Access Rights</th>
-                    <th class="px-8 py-5 text-right">Function Execution</th>
+                    <th class="px-8 py-5 text-right">Operations</th>
                 </tr>
             </thead>
             <tbody id="entityTable" class="divide-y divide-slate-100 text-sm">
-                <tr><td colspan="4" class="px-8 py-10 text-center text-slate-400">Please authenticate to load authorized entities.</td></tr>
-            </tbody>
+                </tbody>
         </table>
     </div>
 </div>
@@ -72,28 +71,25 @@
         <div class="p-8">
             <div id="readView" class="hidden space-y-4">
                 <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200 font-mono text-sm break-all" id="decryptedOutput"></div>
-                <div class="bg-rose-50 p-3 rounded-lg border border-rose-100">
-                    <p class="text-[9px] text-rose-600 font-black uppercase">Forensic Ledger Hash</p>
-                    <p id="eventHash" class="text-[9px] font-mono text-rose-400 truncate">sha256:initialized...</p>
-                </div>
+                <p class="text-[10px] text-rose-500 font-bold uppercase italic text-center">Event hash written to forensic ledger.</p>
             </div>
 
             <div id="writeView" class="hidden space-y-4">
-                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Sensitive Payload Input</label>
-                <textarea id="writeInput" rows="5" class="w-full border border-slate-200 rounded-2xl p-4 font-mono text-sm outline-none focus:ring-2 focus:ring-teal-500" placeholder="Data entered here will be AES-encrypted before storage..."></textarea>
+                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">New Sensitive Payload</label>
+                <textarea id="writeInput" rows="5" class="w-full border border-slate-200 rounded-2xl p-4 font-mono text-sm outline-none focus:ring-2 focus:ring-teal-500" placeholder="Enter data to encrypt..."></textarea>
                 <button id="execWriteBtn" class="w-full bg-[#006A67] text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg">Commit Encrypted Write</button>
             </div>
             
-            <button onclick="closeModal()" class="w-full mt-6 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition">Close Transaction</button>
+            <button onclick="closeModal()" class="w-full mt-6 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition">Discard Transaction</button>
         </div>
     </div>
 </div>
 
 <script>
-    // Updated Service URL to match Vault.java deployment
-    const VAULT_URL = '/api/client/vault'; 
+    const API_ENDPOINT = '/api/client/vault'; // Common function gateway
     let CREDENTIALS = { key: '', secret: '' };
 
+    // Centralized _func request handler
     async function vaultRequest(funcName, params = {}) {
         const payload = {
             "_func": funcName,
@@ -101,11 +97,12 @@
         };
 
         try {
-            const response = await fetch(VAULT_URL, {
+            const response = await fetch(API_ENDPOINT, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'X-API-Key': CREDENTIALS.key // Header required by Vault.java
+                    'X-API-Key': CREDENTIALS.key,
+                    'X-API-Secret': CREDENTIALS.secret
                 },
                 body: JSON.stringify(payload)
             });
@@ -120,17 +117,16 @@
         CREDENTIALS.key = document.getElementById('api_key').value;
         CREDENTIALS.secret = document.getElementById('api_secret').value;
 
-        if(!CREDENTIALS.key) return alert("X-API-KEY Required");
+        if(!CREDENTIALS.key || !CREDENTIALS.secret) return alert("Credentials Missing");
 
-        // Uses the newly implemented function in Vault.java
         const data = await vaultRequest("get_authorized_entities");
         
-        if(data && data.status === 'SUCCESS') {
+        if(data && data.entities) {
             document.getElementById('authBarrier').classList.add('hidden');
             document.getElementById('sessionDisplay').textContent = `Authenticated: ${CREDENTIALS.key}`;
             renderEntities(data.entities);
         } else {
-            alert("Handshake Refused: Invalid API Key or Unauthorized Client");
+            alert("Handshake Refused");
         }
     }
 
@@ -151,53 +147,41 @@
                     </div>
                 </td>
                 <td class="px-8 py-6 text-right space-x-2">
-                    <button onclick="handleOp('FETCH', '${e.entity_code}')" class="px-4 py-2 text-[10px] font-black uppercase border border-[#006A67] text-[#006A67] rounded-md ${!e.can_read ? 'opacity-20 cursor-not-allowed' : 'hover:bg-[#006A67] hover:text-white'}" ${!e.can_read ? 'disabled' : ''}>Fetch</button>
-                    <button onclick="handleOp('STORE', '${e.entity_code}')" class="px-4 py-2 text-[10px] font-black uppercase bg-[#006A67] text-white rounded-md ${!e.can_write ? 'opacity-20 cursor-not-allowed' : 'hover:bg-teal-800'}" ${!e.can_write ? 'disabled' : ''}>Store</button>
+                    <button onclick="handleOp('read_data', '${e.entity_code}')" class="px-4 py-2 text-[10px] font-black uppercase border border-[#006A67] text-[#006A67] rounded-md ${!e.can_read ? 'opacity-20 cursor-not-allowed' : 'hover:bg-[#006A67] hover:text-white'}" ${!e.can_read ? 'disabled' : ''}>Fetch</button>
+                    <button onclick="handleOp('prep_write', '${e.entity_code}')" class="px-4 py-2 text-[10px] font-black uppercase bg-[#006A67] text-white rounded-md ${!e.can_write ? 'opacity-20 cursor-not-allowed' : 'hover:bg-teal-800'}" ${!e.can_write ? 'disabled' : ''}>Update</button>
                 </td>
             </tr>
         `).join('');
     }
 
-    async function handleOp(type, code) {
+    async function handleOp(func, code) {
         const modal = document.getElementById('opModal');
         const readView = document.getElementById('readView');
         const writeView = document.getElementById('writeView');
         
-        document.getElementById('modalSubtitle').textContent = `Target: vault://entities/${code}`;
+        document.getElementById('modalSubtitle').textContent = `Entity: ${code}`;
         
-        if(type === 'FETCH') {
+        if(func === 'read_data') {
             document.getElementById('modalTitle').textContent = "Vault Read Operation";
-            // Uses fetch_id_by_reference or fetch_file_by_reference as defined in Vault.java
-            const funcName = code.includes('FILE') ? "fetch_file_by_reference" : "fetch_id_by_reference";
-            // Note: In real use, you'd provide the specific reference-key
-            const response = await vaultRequest(funcName, { "reference-key": "UUID_HERE" }); 
-            
-            document.getElementById('decryptedOutput').textContent = response.content || "RESOURCE NOT FOUND";
+            const response = await vaultRequest("read_entity_data", { entity_code: code });
+            document.getElementById('decryptedOutput').textContent = response.decrypted_value || "ERROR: UNABLE TO DECRYPT";
             readView.classList.remove('hidden');
             writeView.classList.add('hidden');
         } else {
-            document.getElementById('modalTitle').textContent = "Vault Store Operation";
+            document.getElementById('modalTitle').textContent = "Vault Write Operation";
             readView.classList.add('hidden');
             writeView.classList.remove('hidden');
-            document.getElementById('execWriteBtn').onclick = () => executeStore(code);
+            document.getElementById('execWriteBtn').onclick = () => executeWrite(code);
         }
         
         modal.style.display = 'flex';
     }
 
-    async function executeStore(code) {
+    async function executeWrite(code) {
         const val = document.getElementById('writeInput').value;
-        // Base64 encode for store_data function in Vault.java
-        const encoded = btoa(val); 
-        
-        const res = await vaultRequest("store_data", { 
-            entityType: code, 
-            content: encoded,
-            entityName: `AUTO_INGEST_${Date.now()}` 
-        });
-        
-        if(res.referenceKey) {
-            alert(`Success: Encrypted & Stored. Reference Key: ${res.referenceKey}`);
+        const res = await vaultRequest("write_entity_data", { entity_code: code, payload: val });
+        if(res.status === 'SUCCESS') {
+            alert("Data Encrypted & Anchored to Forensic Ledger");
             closeModal();
         }
     }
