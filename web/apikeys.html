@@ -33,6 +33,15 @@
         <a href="apikeys.html" class="nav-link active">API Keys</a>
         <a href="audit.html" class="nav-link">Audit</a>
     </nav>
+    <div class="p-6 border-t border-slate-800">
+        <div class="flex items-center gap-3">
+            <div class="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs" id="user-initials">AD</div>
+            <div>
+                <p class="text-xs font-bold" id="display-name">Admin User</p>
+                <a href="#" onclick="handleLogout()" class="text-[10px] text-red-400 font-bold uppercase hover:underline">Sign Out</a>
+            </div>
+        </div>
+    </div>
 </aside>
 
 <main class="flex-1 min-h-screen">
@@ -156,6 +165,8 @@
     const USER = localStorage.getItem('username') || 'Admin';
 
     document.addEventListener('DOMContentLoaded', () => { fetchKeys(); });
+    document.getElementById('display-name').textContent = USER;
+    document.getElementById('user-initials').textContent = USER.substring(0, 2).toUpperCase();
 
     async function fetchKeys() {
         const res = await fetch(API_URL, {
@@ -279,6 +290,11 @@
 
     function closeModal() { document.getElementById('keyModal').style.display = 'none'; fetchKeys(); }
     function closePermissions() { document.getElementById('permissionsModal').classList.add('hidden'); }
+
+    function handleLogout() {
+        localStorage.clear();
+        window.location.href = 'index.html';
+    }
 </script>
 </body>
 </html>
