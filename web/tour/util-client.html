@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSI Vault - Utility Consumer (Light)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: ui-sans-serif, system-ui, sans-serif; background-color: #f8fafc; color: #1e293b; }
+        .client-container { max-width: 800px; margin: 60px auto; padding: 0 20px; }
+        .secret-card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: all 0.2s; }
+        .secret-card:hover { border-color: #006A67; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        
+        .util-badge { font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; margin-right: 8px; }
+        .type-key { background: #fee2e2; color: #991b1b; }
+        .type-cert { background: #e0f2fe; color: #075985; }
+        
+        .btn-fetch { background: #006A67; color: white; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; }
+        .btn-fetch:hover { background: #004F4C; }
+
+        /* Auth Overlay */
+        .auth-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f8fafc; display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .auth-box { background: white; padding: 40px; border-radius: 16px; width: 420px; border: 1px solid #e2e8f0; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+        
+        input { width: 100%; background: #fff; border: 1px solid #cbd5e1; color: #1e293b; padding: 12px; border-radius: 8px; margin-top: 8px; margin-bottom: 20px; font-family: monospace; font-size: 0.9rem; }
+        label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+        
+        .code-block { background: #1e293b; color: #38bdf8; padding: 20px; border-radius: 8px; font-family: 'Courier New', Courier, monospace; overflow-x: auto; }
+    </style>
+</head>
+<body>
+
+<div class="client-container">
+    <div class="mb-10 text-center">
+        <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Utility <span class="text-[#006A67]">Consumer</span></h1>
+        <p class="text-slate-500 text-sm mt-2">Authenticated Retrieval for API Keys and Certificates</p>
+    </div>
+
+    <div id="utility-list" class="space-y-4">
+        <div class="text-center py-10 text-slate-400 italic">
+            <p>Awaiting authentication to synchronize resources...</p>
+        </div>
+    </div>
+</div>
+
+<div id="auth-barrier" class="auth-overlay">
+    <div class="auth-box">
+        <div class="text-center mb-8">
+            <h2 class="text-2xl font-black text-[#006A67]">Vault Access</h2>
+            <p class="text-slate-500 text-sm">Verify identity to retrieve utilities.</p>
+        </div>
+        
+        <label>X-API-Key</label>
+        <input type="text" id="api-key-id" placeholder="UUID Format">
+
+        <label>X-API-Secret</label>
+        <input type="password" id="api-secret" placeholder="••••••••••••">
+
+        <button onclick="authenticateClient()" class="w-full bg-[#006A67] text-white py-3 rounded-lg font-bold hover:bg-[#004F4C] transition-all shadow-md">
+            Initialize Session
+        </button>
+        
+        <p class="mt-6 text-[10px] text-center text-slate-400 font-bold uppercase tracking-widest">
+            Privacy Vault v3.0
+        </p>
+    </div>
+</div>
+
+<div id="result-modal" class="fixed inset-0 bg-slate-900/60 hidden flex justify-center items-center z-[2000] p-4 backdrop-blur-sm">
+    <div class="bg-white p-8 rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200">
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <h3 id="modal-title" class="text-lg font-bold text-slate-800">Secret Value</h3>
+                <span class="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black uppercase">Forensic Log Active</span>
+            </div>
+            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-2xl transition-colors">&times;</button>
+        </div>
+        
+        <div class="code-block mt-4">
+            <pre id="secret-output" class="text-sm whitespace-pre-wrap break-all"></pre>
+        </div>
+        
+        <div class="mt-6 flex justify-between items-center">
+            <button onclick="copyToClipboard()" class="text-xs font-bold text-[#006A67] hover:underline uppercase tracking-widest">
+                📋 Copy to Clipboard
+            </button>
+            <p class="text-[10px] text-slate-400 italic">This fragment will expire when the window closes.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    let AUTH = { key: '', secret: '' };
+
+    async function authenticateClient() {
+        const id = document.getElementById('api-key-id').value.trim();
+        const sec = document.getElementById('api-secret').value.trim();
+        
+        if(!id || !sec) return alert("Credentials required");
+
+        AUTH.key = id;
+        AUTH.secret = sec;
+
+        document.getElementById('auth-barrier').classList.add('hidden');
+        loadAuthorizedUtilities();
+    }
+
+    function loadAuthorizedUtilities() {
+        const listDiv = document.getElementById('utility-list');
+        
+        // MOCK DATA: Simulating authorized utilities for this API Key
+        const mockPerms = [
+            { id: 'PROD_DB_SECRET', label: 'Main Production DB', type: 'KEY' },
+            { id: 'JWT_SIGNING_RSA', label: 'Auth Token Signing Cert', type: 'CERT' },
+            { id: 'SENDGRID_API_V3', label: 'Marketing Mailer Secret', type: 'KEY' }
+        ];
+
+        listDiv.innerHTML = mockPerms.map(util => `
+            <div class="secret-card flex justify-between items-center animate-in fade-in duration-500">
+                <div>
+                    <div class="flex items-center">
+                        <span class="util-badge ${util.type === 'KEY' ? 'type-key' : 'type-cert'}">${util.type}</span>
+                        <h4 class="font-bold text-slate-800 text-sm">${util.label}</h4>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-1 font-mono">${util.id}</p>
+                </div>
+                <button onclick="revealSecret('${util.id}')" class="btn-fetch">Fetch Value</button>
+            </div>
+        `).join('');
+    }
+
+    async function revealSecret(utilId) {
+        // In actual implementation, this would be an AJAX call to Utility.java
+        const mockSecretValue = utilId.includes('CERT') 
+            ? "-----BEGIN CERTIFICATE-----\nMIIDdTCCAl2gAwIBAgILBAAAAAAB..." 
+            : "vault_sh_8892_zxy_99201_active";
+
+        document.getElementById('modal-title').textContent = utilId;
+        document.getElementById('secret-output').textContent = mockSecretValue;
+        document.getElementById('result-modal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+        document.getElementById('result-modal').classList.add('hidden');
+        document.getElementById('secret-output').textContent = '';
+    }
+
+    function copyToClipboard() {
+        const text = document.getElementById('secret-output').textContent;
+        navigator.clipboard.writeText(text);
+        const btn = event.target;
+        btn.textContent = "✅ Copied!";
+        setTimeout(() => { btn.textContent = "📋 Copy to Clipboard"; }, 2000);
+    }
+</script>
+
+</body>
+</html>

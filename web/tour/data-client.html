@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSI Vault - Data Explorer Client</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; }
+        .glass-card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        
+        .flavor-badge { font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; }
+        .bg-id { background: #dcfce7; color: #166534; }
+        .bg-file { background: #dbeafe; color: #1e40af; }
+        .bg-data { background: #fef9c3; color: #854d0e; }
+
+        .btn-action { padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; transition: all 0.2s; cursor: pointer; }
+        .btn-read { border: 1px solid #006A67; color: #006A67; }
+        .btn-read:hover:not(:disabled) { background: #006A67; color: white; }
+        .btn-write { background: #006A67; color: white; }
+        .btn-write:hover:not(:disabled) { background: #004F4C; }
+        
+        .btn-disabled { opacity: 0.3; cursor: not-allowed; filter: grayscale(1); }
+
+        /* Auth Overlay */
+        .auth-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); backdrop-blur: 8px; display: flex; justify-content: center; align-items: center; z-index: 3000; }
+        .auth-box { background: white; padding: 40px; border-radius: 20px; width: 100%; max-width: 400px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        
+        input { width: 100%; background: #fff; border: 1px solid #cbd5e1; padding: 12px; border-radius: 8px; margin-top: 6px; margin-bottom: 20px; font-family: monospace; }
+        label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 4000; }
+    </style>
+</head>
+<body>
+
+<div id="auth-barrier" class="auth-overlay">
+    <div class="auth-box animate-in fade-in zoom-in duration-300">
+        <div class="text-center mb-8">
+            <div class="inline-block p-3 bg-teal-50 rounded-full mb-4">
+                <svg class="w-8 h-8 text-[#006A67]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+            </div>
+            <h2 class="text-2xl font-black text-slate-900">Vault Access</h2>
+            <p class="text-slate-500 text-sm">Enter API credentials to sync permissions.</p>
+        </div>
+        
+        <label>API Key ID</label>
+        <input type="text" id="api-key" placeholder="e.g. TSI-USR-9921">
+
+        <label>Secret Key</label>
+        <input type="password" id="api-secret" placeholder="••••••••••••">
+
+        <button onclick="authenticate()" class="w-full bg-[#006A67] text-white py-3 rounded-lg font-bold shadow-lg hover:bg-teal-700 transition-all">
+            Verify & Sync
+        </button>
+    </div>
+</div>
+
+<div class="client-container max-w-6xl mx-auto px-6 py-12">
+    <header class="flex justify-between items-end mb-10">
+        <div>
+            <h1 class="text-3xl font-black text-slate-900 tracking-tight">Data <span class="text-[#006A67]">Explorer</span></h1>
+            <p id="session-label" class="text-slate-500 text-sm font-mono mt-1 italic">Initializing secure session...</p>
+        </div>
+        <div class="bg-white border border-slate-200 px-4 py-2 rounded-lg shadow-sm">
+            <span class="text-[10px] font-bold text-slate-400 block uppercase">Forensic Mode</span>
+            <span class="text-xs font-bold text-green-600">● LIVE ENCRYPTION</span>
+        </div>
+    </header>
+
+    <div class="glass-card overflow-hidden">
+        <table class="w-full text-left border-collapse">
+            <thead class="bg-slate-50 border-b border-slate-200">
+                <tr>
+                    <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase">Flavor</th>
+                    <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase">Entity Label</th>
+                    <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase">Permissions</th>
+                    <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="entity-tbody" class="divide-y divide-slate-100">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="action-modal" class="modal">
+    <div class="bg-white p-8 rounded-2xl w-full max-w-lg shadow-2xl">
+        <h3 id="modal-title" class="text-xl font-bold mb-2"></h3>
+        <p class="text-xs text-slate-400 mb-6 font-mono" id="modal-subtitle"></p>
+        
+        <div id="read-view" class="hidden">
+            <div class="bg-slate-900 p-4 rounded-lg text-teal-400 font-mono text-sm break-all mb-4">
+                <pre id="decrypted-content"></pre>
+            </div>
+            <p class="text-[10px] text-red-500 font-bold uppercase">This access event has been logged to the Forensic Ledger.</p>
+        </div>
+
+        <div id="write-view" class="hidden">
+            <label>New Payload Value</label>
+            <textarea id="write-payload" rows="4" class="w-full border p-3 rounded-lg font-mono text-sm" placeholder="Enter sensitive data to encrypt..."></textarea>
+            <button onclick="commitWrite()" class="w-full bg-[#006A67] text-white py-3 rounded-lg font-bold mt-4">Encrypt & Commit</button>
+        </div>
+
+        <button onclick="closeModal()" class="w-full mt-4 text-slate-400 text-xs font-bold uppercase tracking-widest">Close</button>
+    </div>
+</div>
+
+<script>
+    const MOCK_DB = [
+        { id: 'E-001', label: 'USER_AADHAAR_KYC', flavor: 'ID', canRead: true, canWrite: false },
+        { id: 'E-002', label: 'FINANCIAL_TAX_RECORDS', flavor: 'DATA', canRead: true, canWrite: true },
+        { id: 'E-003', label: 'PROPERTY_DEED_PDF', flavor: 'FILE', canRead: false, canWrite: true }
+    ];
+
+    function authenticate() {
+        const key = document.getElementById('api-key').value;
+        const secret = document.getElementById('api-secret').value;
+        if(!key || !secret) return alert("Credentials Required");
+
+        document.getElementById('auth-barrier').classList.add('hidden');
+        document.getElementById('session-label').textContent = `Authorized: ${key} (Level: Enterprise)`;
+        renderEntities();
+    }
+
+    function renderEntities() {
+        const tbody = document.getElementById('entity-tbody');
+        tbody.innerHTML = MOCK_DB.map(ent => `
+            <tr class="hover:bg-slate-50/80 transition-colors">
+                <td class="px-6 py-4"><span class="flavor-badge bg-${ent.flavor.toLowerCase()}">${ent.flavor}</span></td>
+                <td class="px-6 py-4 font-bold text-slate-700 text-sm">${ent.label}</td>
+                <td class="px-6 py-4">
+                    <div class="flex gap-2">
+                        <span class="text-[9px] font-black ${ent.canRead ? 'text-green-600' : 'text-slate-300'}">READ</span>
+                        <span class="text-[9px] font-black ${ent.canWrite ? 'text-blue-600' : 'text-slate-300'}">WRITE</span>
+                    </div>
+                </td>
+                <td class="px-6 py-4 text-right">
+                    <button onclick="openAction('READ', '${ent.label}')" class="btn-action btn-read ${!ent.canRead ? 'btn-disabled' : ''}" ${!ent.canRead ? 'disabled' : ''}>Read</button>
+                    <button onclick="openAction('WRITE', '${ent.label}')" class="btn-action btn-write ${!ent.canWrite ? 'btn-disabled' : ''}" ${!ent.canWrite ? 'disabled' : ''}>Write</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function openAction(type, label) {
+        document.getElementById('modal-title').textContent = `${type} OPERATION: ${label}`;
+        document.getElementById('modal-subtitle').textContent = `Requesting secure access for ${label}...`;
+        
+        const readView = document.getElementById('read-view');
+        const writeView = document.getElementById('write-view');
+        
+        if(type === 'READ') {
+            readView.classList.remove('hidden');
+            writeView.classList.add('hidden');
+            document.getElementById('decrypted-content').textContent = `decrypted_payload_for_${label.toLowerCase()}_v1.0`;
+        } else {
+            writeView.classList.remove('hidden');
+            readView.classList.add('hidden');
+        }
+        
+        document.getElementById('action-modal').style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('action-modal').style.display = 'none';
+    }
+
+    function commitWrite() {
+        alert("Success: Forensic Hash Generated. Data encrypted via AES-256-GCM.");
+        closeModal();
+    }
+</script>
+
+</body>
+</html>

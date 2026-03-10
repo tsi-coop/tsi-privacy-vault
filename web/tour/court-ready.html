@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSI Vault - Legal Compliance & Evidence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #0f172a; }
+        .cert-container { max-width: 900px; margin: 50px auto; }
+        .legal-paper { background: white; border: 1px solid #e2e8f0; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1); position: relative; overflow: hidden; }
+        .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 8rem; font-weight: 900; color: rgba(241, 245, 249, 0.5); z-index: 0; pointer-events: none; text-transform: uppercase; white-space: nowrap; }
+        .content-layer { position: relative; z-index: 10; }
+        .hash-box { font-family: 'Courier New', Courier, monospace; background: #f8fafc; border: 1px dashed #cbd5e1; padding: 12px; font-size: 11px; color: #475569; }
+        .seal { width: 80px; height: 80px; border: 4px double #006A67; border-radius: 50%; display: flex; items: center; justify-content: center; color: #006A67; font-weight: 900; font-size: 10px; text-align: center; transform: rotate(-15deg); }
+    </style>
+</head>
+<body class="p-6">
+
+<div class="cert-container">
+    <div class="flex justify-between items-center mb-8 no-print">
+        <div>
+            <h1 class="text-2xl font-black text-slate-900 uppercase tracking-tighter">Legal <span class="text-[#006A67]">Compliance</span></h1>
+            <p class="text-slate-500 text-sm">Admissibility Dashboard for BSA 2023 Section 63</p>
+        </div>
+        <button onclick="window.print()" class="bg-[#006A67] text-white px-6 py-2.5 rounded-full font-bold text-xs uppercase tracking-widest shadow-lg hover:bg-teal-700 transition-all">
+            Download Signed Certificate
+        </button>
+    </div>
+
+    <div class="legal-paper p-12 rounded-sm">
+        <div class="watermark">ADMISSIBLE</div>
+        
+        <div class="content-layer">
+            <div class="flex justify-between border-b-4 border-[#006A67] pb-6 mb-8">
+                <div>
+                    <h2 class="text-xl font-black text-slate-800 uppercase">Certificate of Electronic Evidence</h2>
+                    <p class="text-xs text-slate-500 font-bold">Issued by TSI Sovereign Privacy Vault v3.0</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Certificate ID</p>
+                    <p class="font-mono text-sm font-bold">TSI-EVID-2026-09941</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-12 mb-10">
+                <div>
+                    <h3 class="text-[10px] font-black text-slate-400 uppercase mb-3 tracking-widest">Origin & Attribution</h3>
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-500">API Identifier:</span>
+                            <span class="font-bold">USR_FINANCE_PROD_01</span>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-500">Machine Anchor:</span>
+                            <span class="font-mono font-bold">HW-ECC-99:22:A1</span>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-500">Auth Handshake:</span>
+                            <span class="text-green-600 font-bold uppercase">Success (RSA-4096)</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-[10px] font-black text-slate-400 uppercase mb-3 tracking-widest">Chronology</h3>
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-500">Event Timestamp:</span>
+                            <span class="font-bold">2026-03-10 06:49:30 UTC</span>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-500">Clock Sync:</span>
+                            <span class="text-green-600 font-bold uppercase">NTP Verified</span>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-500">Vault Uptime:</span>
+                            <span class="font-bold">99.998%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-10">
+                <h3 class="text-[10px] font-black text-slate-400 uppercase mb-3 tracking-widest">Immutable Evidence Fact (SHA-256 Payload Hash)</h3>
+                <div class="hash-box break-all">
+                    f89d2c6e9a1b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d
+                </div>
+                <p class="text-[9px] text-slate-400 mt-2 italic text-center">
+                    The above hash represents the exact state of the retrieved entity at the moment of access. Any modification to the data will result in a signature mismatch.
+                </p>
+            </div>
+
+            <div class="bg-slate-50 p-6 rounded-lg border border-slate-200 mb-10">
+                <h4 class="text-xs font-bold text-slate-700 uppercase mb-2">Statutory Declaration</h4>
+                <p class="text-[11px] leading-relaxed text-slate-600">
+                    This document serves as primary evidence under the <strong>Bharatiya Sakshya Adhiniyam, 2023</strong>. The TSI Privacy Vault certifies that the electronic record was produced by a computer system which was operating properly at the time of the transaction. The digital signature attached to this record is linked to the root hardware security module (HSM) and cannot be repudiated.
+                </p>
+            </div>
+
+            <div class="flex justify-between items-center mt-12 pt-8 border-t border-slate-100">
+                <div class="flex items-center gap-6">
+                    <div class="seal">
+                        TSI VAULT<br>OFFICIAL<br>VERIFIED
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase">Cryptographic Signatory</p>
+                        <p class="text-xs font-bold">Root_HSM_Master_Signer</p>
+                    </div>
+                </div>
+                <div class="text-right flex items-center gap-4">
+                    <div class="text-right">
+                        <p class="text-[9px] font-bold text-slate-400 uppercase">Scan to Verify Chain</p>
+                        <p class="text-[9px] text-slate-500">integrity.tsicoop.org</p>
+                    </div>
+                    <div class="w-16 h-16 bg-slate-100 border border-slate-200 flex items-center justify-center p-1">
+                        <div class="grid grid-cols-4 gap-0.5 w-full h-full">
+                            <div class="bg-slate-800"></div><div class="bg-slate-300"></div><div class="bg-slate-800"></div><div class="bg-slate-800"></div>
+                            <div class="bg-slate-300"></div><div class="bg-slate-800"></div><div class="bg-slate-300"></div><div class="bg-slate-300"></div>
+                            <div class="bg-slate-800"></div><div class="bg-slate-300"></div><div class="bg-slate-800"></div><div class="bg-slate-300"></div>
+                            <div class="bg-slate-800"></div><div class="bg-slate-800"></div><div class="bg-slate-300"></div><div class="bg-slate-800"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

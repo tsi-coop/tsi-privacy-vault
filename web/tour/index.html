@@ -9,6 +9,7 @@
         :root {
             --tsi-primary: #0f172a;
             --tsi-accent: #6366f1;
+            --tsi-vault: #006A67;
         }
         body { background-color: #f8fafc; color: #334155; font-family: 'Inter', sans-serif; }
         .tour-row:hover { background-color: #f1f5f9; border-left: 4px solid var(--tsi-accent); }
@@ -40,8 +41,8 @@
       <h2 class="text-xs font-black text-white uppercase tracking-[0.3em]">The Implementation Path</h2>
       <div class="flex gap-2">
          <div class="h-2 w-2 rounded-full bg-green-500"></div>
-         <div class="h-2 w-2 rounded-full bg-slate-700"></div>
-         <div class="h-2 w-2 rounded-full bg-slate-700"></div>
+         <div class="h-2 w-2 rounded-full bg-green-500"></div>
+         <div class="h-2 w-2 rounded-full bg-green-500"></div>
       </div>
     </div>
 
@@ -54,13 +55,60 @@
           <td class="px-4 py-8">
             <div class="font-black text-slate-900 uppercase text-sm tracking-tight">Environment Setup</div>
             <div class="text-[10px] text-slate-400 font-mono mt-1">init.html</div>
-            <p class="text-sm text-slate-500 mt-2 max-w-md">Initialize the Sovereign Safe, define Master Keys, and establish the root hardware anchor.</p>
+            <p class="text-sm text-slate-500 mt-2 max-w-md">Initialize the Sovereign Safe, define Master Keys, and establish the root hardware anchor for the vault instance.</p>
           </td>
           <td class="px-6 py-8"><span class="status-badge bg-blue-100 text-blue-700">Infrastructure</span></td>
           <td class="px-8 py-8 text-right">
-            <a href="/init.html" class="inline-flex items-center px-6 py-2.5 bg-slate-900 text-white rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-indigo-600 transition-colors">Start Setup</a>
+            <a href="init.html" class="inline-flex items-center px-6 py-2.5 bg-slate-900 text-white rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-indigo-600 transition-colors">Start Setup</a>
           </td>
         </tr>
+
+        <tr class="tour-row transition-all group">
+          <td class="px-8 py-8 w-16 text-2xl font-black text-slate-200 group-hover:text-rose-500">02</td>
+          <td class="px-4 py-8">
+            <div class="font-black text-slate-900 uppercase text-sm tracking-tight">Data Client</div>
+            <div class="text-[10px] text-slate-400 font-mono mt-1">data-client.html</div>
+            <p class="text-sm text-slate-500 mt-2 max-w-md">The core ingestion hub. Securely store and retrieve records across ID, DATA, and FILE flavors with integrated forensic hashing.</p>
+          </td>
+          <td class="px-6 py-8"><span class="status-badge bg-rose-100 text-rose-700">PII Management</span></td>
+          <td class="px-8 py-8 text-right">
+            <a href="data-client.html" class="inline-flex items-center px-6 py-2.5 bg-[#006A67] text-white rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-rose-600 transition-colors">Launch Client</a>
+          </td>
+        </tr>
+
+        <tr class="tour-row transition-all group">
+          <td class="px-8 py-8 w-16 text-2xl font-black text-slate-200 group-hover:text-teal-600">03</td>
+          <td class="px-4 py-8">
+            <div class="font-black text-slate-900 uppercase text-sm tracking-tight">Utility Client</div>
+            <div class="text-[10px] text-slate-400 font-mono mt-1">util-client.html</div>
+            <p class="text-sm text-slate-500 mt-2 max-w-md">Handshake and fetch cryptographic assets. Access system keys and SSL certificates authorized for your specific API credentials.</p>
+          </td>
+          <td class="px-6 py-8"><span class="status-badge bg-teal-100 text-teal-700">Security Utils</span></td>
+          <td class="px-8 py-8 text-right">
+            <a href="util-client.html" class="inline-flex items-center px-6 py-2.5 border-2 border-slate-900 text-slate-900 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-colors">Access Utils</a>
+          </td>
+        </tr>
+
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="mt-12 p-8 bg-slate-50 rounded-3xl border border-slate-200 flex items-center justify-between">
+    <div class="flex items-center gap-6">
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+        <svg class="w-8 h-8 text-[#006A67]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+      </div>
+      <div>
+        <h4 class="font-black text-slate-900 uppercase text-xs tracking-widest">Evidence Chain Active</h4>
+        <p class="text-sm text-slate-500 mt-1">All modules utilize the <code>/api/v1/forensic</code> endpoint to ensure every interaction is court-ready.</p>
+      </div>
+    </div>
+    <div class="text-right">
+        <span class="text-[10px] font-bold text-slate-400 block uppercase">Version</span>
+        <span class="font-mono text-xs font-bold text-[#006A67]">3.0.0-PROD</span>
+    </div>
+  </div>
 </main>
 
 </body>
