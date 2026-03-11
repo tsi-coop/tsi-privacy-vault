@@ -6,26 +6,28 @@
     <title>TSI Vault - Sovereign Data Client</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root { --tsi-teal: #006A67; --tsi-navy: #0f172a; }
+        :root { --tsi-teal: #006A67; }
         body { background-color: #f8fafc; font-family: ui-sans-serif, system-ui, sans-serif; }
         .glass-card { background: white; border: 1px solid #e2e8f0; border-radius: 1rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
         .auth-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 2000; }
+        .data-entry { border-left: 3px solid #006A67; margin-top: 10px; padding: 12px; background: #f1f5f9; border-radius: 0 8px 8px 0; font-family: monospace; font-size: 13px; }
         .flavor-tag { font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 9999px; text-transform: uppercase; }
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 2000; }
+        input[readonly] { background-color: #f1f5f9; color: #64748b; cursor: not-allowed; }
     </style>
 </head>
-<body class="p-4 md:p-12">
+<body class="p-6 md:p-12">
 
 <div id="authBarrier" class="auth-overlay">
     <div class="bg-white p-10 rounded-3xl w-full max-w-md shadow-2xl">
         <div class="text-center mb-8">
             <h2 class="text-2xl font-black text-slate-900 uppercase tracking-tighter">Vault <span class="text-[#006A67]">Handshake</span></h2>
-            <p class="text-slate-400 text-xs mt-1">Provide API credentials to synchronize entities.</p>
+            <p class="text-slate-400 text-xs mt-1">Initialize Sovereign Identity Protocol</p>
         </div>
         <div class="space-y-4">
-            <input type="text" id="api_key" placeholder="API KEY ID" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm outline-none focus:ring-2 focus:ring-[#006A67]">
-            <input type="password" id="api_secret" placeholder="API SECRET" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm outline-none focus:ring-2 focus:ring-[#006A67]">
-            <button onclick="initializeSession()" class="w-full bg-[#006A67] text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-teal-700 transition-all">Connect to Vault</button>
+            <input type="text" id="api_key" placeholder="API KEY ID" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#006A67]">
+            <input type="password" id="api_secret" placeholder="API SECRET" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#006A67]">
+            <button onclick="initializeSession()" class="w-full bg-[#006A67] text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-teal-700 transition-all">Connect</button>
         </div>
     </div>
 </div>
@@ -33,12 +35,12 @@
 <div class="max-w-6xl mx-auto">
     <header class="flex justify-between items-end mb-10">
         <div>
-            <h1 class="text-3xl font-black text-slate-900 tracking-tight uppercase">Data <span class="text-[#006A67]">Client</span></h1>
-            <p id="sessionDisplay" class="text-slate-500 text-[10px] font-mono mt-2 uppercase">Status: Awaiting Initialization</p>
+            <h1 class="text-3xl font-black text-slate-900 tracking-tight uppercase italic">TSI <span class="text-[#006A67]">Vault</span></h1>
+            <p id="sessionDisplay" class="text-slate-500 text-[10px] font-mono mt-2 uppercase tracking-widest">Interface: store_data Protocol</p>
         </div>
-        <div class="bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
-            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Forensic Anchor</p>
-            <p class="text-xs font-bold text-green-600 uppercase">● Active</p>
+        <div class="bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm text-right">
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Sovereign Layer</p>
+            <p class="text-xs font-bold text-teal-600 uppercase tracking-tighter">● Online</p>
         </div>
     </header>
 
@@ -46,87 +48,83 @@
         <table class="w-full text-left">
             <thead class="bg-slate-50 border-b border-slate-200">
                 <tr class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                    <th class="px-8 py-5">Flavor</th>
-                    <th class="px-8 py-5">Entity Resource</th>
-                    <th class="px-8 py-5">Access Rights</th>
-                    <th class="px-8 py-5 text-right">Operations</th>
+                    <th class="px-8 py-5">Type</th>
+                    <th class="px-8 py-5">Entity Code (ID Type)</th>
+                    <th class="px-8 py-5 text-right">Identity Operations</th>
                 </tr>
             </thead>
-            <tbody id="entityTable" class="divide-y divide-slate-100 text-sm">
-                </tbody>
+            <tbody id="entityTable" class="divide-y divide-slate-100 text-sm"></tbody>
         </table>
     </div>
 </div>
 
 <div id="opModal" class="modal">
-    <div class="bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden">
+    <div class="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden">
         <div class="p-6 bg-slate-900 text-white flex justify-between items-center">
-            <div>
-                <h3 id="modalTitle" class="text-lg font-black uppercase tracking-tight">Operation</h3>
-                <p id="modalSubtitle" class="text-[9px] text-teal-400 font-mono uppercase"></p>
-            </div>
-            <button onclick="closeModal()" class="text-slate-400 hover:text-white text-xl">&times;</button>
+            <h3 id="modalTitle" class="text-lg font-black uppercase tracking-tight italic">Operation</h3>
+            <button onclick="closeModal()" class="text-slate-400 hover:text-white text-2xl">&times;</button>
         </div>
         
         <div class="p-8">
-            <div id="readView" class="hidden space-y-4">
-                <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200 font-mono text-sm break-all" id="decryptedOutput"></div>
-                <p class="text-[10px] text-rose-500 font-bold uppercase italic text-center">Event hash written to forensic ledger.</p>
+            <div id="fetchView" class="hidden space-y-4">
+                <div>
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Reference Key</label>
+                    <input type="text" id="manualRefKey" class="w-full border border-slate-200 rounded-xl p-4 mt-1 font-mono text-sm outline-none focus:ring-2 focus:ring-teal-500" placeholder="Enter key to resolve...">
+                </div>
+                <button onclick="executeFetch()" class="w-full bg-[#006A67] text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-teal-700">Fetch ID</button>
+                <div id="fetchResult" class="hidden">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Resolved Entity ID</label>
+                    <div id="decryptedOutput" class="data-entry"></div>
+                </div>
             </div>
 
-            <div id="writeView" class="hidden space-y-4">
-                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">New Sensitive Payload</label>
-                <textarea id="writeInput" rows="5" class="w-full border border-slate-200 rounded-2xl p-4 font-mono text-sm outline-none focus:ring-2 focus:ring-teal-500" placeholder="Enter data to encrypt..."></textarea>
-                <button id="execWriteBtn" class="w-full bg-[#006A67] text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg">Commit Encrypted Write</button>
+            <div id="storeView" class="hidden space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Entity Name (Code)</label>
+                        <input type="text" id="storeEntityName" readonly class="w-full border border-slate-200 rounded-xl p-4 mt-1 font-mono text-sm outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Payload Content</label>
+                        <input type="text" id="storeContent" class="w-full border border-slate-200 rounded-xl p-4 mt-1 font-mono text-sm outline-none focus:ring-2 focus:ring-teal-500" placeholder="Enter content">
+                    </div>
+                </div>
+                <button id="execStoreBtn" class="w-full bg-[#006A67] text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-teal-800">Store Data</button>
+                <div id="storeResult" class="hidden">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Reference Receipt</label>
+                    <div id="newRefOutput" class="data-entry text-teal-700 font-bold"></div>
+                </div>
             </div>
             
-            <button onclick="closeModal()" class="w-full mt-6 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition">Discard Transaction</button>
+            <button onclick="closeModal()" class="w-full mt-6 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition">Close</button>
         </div>
     </div>
 </div>
 
 <script>
-    const API_ENDPOINT = '/api/client/vault'; // Common function gateway
+    const API_ENDPOINT = '/api/client/vault';
     let CREDENTIALS = { key: '', secret: '' };
 
-    // Centralized _func request handler
     async function vaultRequest(funcName, params = {}) {
-        const payload = {
-            "_func": funcName,
-            ...params
-        };
-
-        try {
-            const response = await fetch(API_ENDPOINT, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'X-API-Key': CREDENTIALS.key,
-                    'X-API-Secret': CREDENTIALS.secret
-                },
-                body: JSON.stringify(payload)
-            });
-            return await response.json();
-        } catch (err) {
-            console.error("Vault Request Failed", err);
-            return { error: true };
-        }
+        const payload = { "_func": funcName, ...params };
+        const response = await fetch(API_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-API-Key': CREDENTIALS.key, 'X-API-Secret': CREDENTIALS.secret },
+            body: JSON.stringify(payload)
+        });
+        return await response.json();
     }
 
     async function initializeSession() {
         CREDENTIALS.key = document.getElementById('api_key').value;
         CREDENTIALS.secret = document.getElementById('api_secret').value;
-
-        if(!CREDENTIALS.key || !CREDENTIALS.secret) return alert("Credentials Missing");
+        if(!CREDENTIALS.key || !CREDENTIALS.secret) return;
 
         const data = await vaultRequest("get_authorized_entities");
-        
         if(data && data.entities) {
             document.getElementById('authBarrier').classList.add('hidden');
-            document.getElementById('sessionDisplay').textContent = `Authenticated: ${CREDENTIALS.key}`;
+            document.getElementById('sessionDisplay').textContent = `Sync: ${CREDENTIALS.key}`;
             renderEntities(data.entities);
-        } else {
-            alert("Handshake Refused");
         }
     }
 
@@ -135,54 +133,73 @@
         tbody.innerHTML = entities.map(e => `
             <tr class="hover:bg-slate-50/50 transition">
                 <td class="px-8 py-6">
-                    <span class="flavor-tag ${e.flavor === 'ID' ? 'bg-green-50 text-green-700' : e.flavor === 'FILE' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'}">
-                        ${e.flavor}
-                    </span>
+                    <span class="flavor-tag bg-teal-50 text-teal-700">${e.flavor}</span>
                 </td>
-                <td class="px-8 py-6 font-bold text-slate-700 font-mono text-xs uppercase">${e.entity_code}</td>
-                <td class="px-8 py-6">
-                    <div class="flex gap-2">
-                        <span class="text-[9px] font-black ${e.can_read ? 'text-teal-600' : 'text-slate-200'}">READ</span>
-                        <span class="text-[9px] font-black ${e.can_write ? 'text-indigo-600' : 'text-slate-200'}">WRITE</span>
-                    </div>
-                </td>
+                <td class="px-8 py-6 font-bold text-slate-700 font-mono text-xs">${e.entity_code}</td>
                 <td class="px-8 py-6 text-right space-x-2">
-                    <button onclick="handleOp('read_data', '${e.entity_code}')" class="px-4 py-2 text-[10px] font-black uppercase border border-[#006A67] text-[#006A67] rounded-md ${!e.can_read ? 'opacity-20 cursor-not-allowed' : 'hover:bg-[#006A67] hover:text-white'}" ${!e.can_read ? 'disabled' : ''}>Fetch</button>
-                    <button onclick="handleOp('prep_write', '${e.entity_code}')" class="px-4 py-2 text-[10px] font-black uppercase bg-[#006A67] text-white rounded-md ${!e.can_write ? 'opacity-20 cursor-not-allowed' : 'hover:bg-teal-800'}" ${!e.can_write ? 'disabled' : ''}>Update</button>
+                    <button onclick="openFetchPopup()" class="px-4 py-2 text-[10px] font-black uppercase border border-slate-200 text-slate-600 rounded-md hover:bg-slate-100">Fetch ID</button>
+                    <button onclick="openStorePopup('${e.entity_code}')" class="px-4 py-2 text-[10px] font-black uppercase bg-[#006A67] text-white rounded-md hover:bg-teal-800">Store ID</button>
                 </td>
             </tr>
         `).join('');
     }
 
-    async function handleOp(func, code) {
-        const modal = document.getElementById('opModal');
-        const readView = document.getElementById('readView');
-        const writeView = document.getElementById('writeView');
-        
-        document.getElementById('modalSubtitle').textContent = `Entity: ${code}`;
-        
-        if(func === 'read_data') {
-            document.getElementById('modalTitle').textContent = "Vault Read Operation";
-            const response = await vaultRequest("read_entity_data", { entity_code: code });
-            document.getElementById('decryptedOutput').textContent = response.decrypted_value || "ERROR: UNABLE TO DECRYPT";
-            readView.classList.remove('hidden');
-            writeView.classList.add('hidden');
-        } else {
-            document.getElementById('modalTitle').textContent = "Vault Write Operation";
-            readView.classList.add('hidden');
-            writeView.classList.remove('hidden');
-            document.getElementById('execWriteBtn').onclick = () => executeWrite(code);
-        }
-        
-        modal.style.display = 'flex';
+    function openFetchPopup() {
+        document.getElementById('opModal').style.display = 'flex';
+        document.getElementById('fetchView').classList.remove('hidden');
+        document.getElementById('storeView').classList.add('hidden');
+        document.getElementById('modalTitle').textContent = "Resolve Reference Key";
+        document.getElementById('fetchResult').classList.add('hidden');
+        document.getElementById('manualRefKey').value = '';
     }
 
-    async function executeWrite(code) {
-        const val = document.getElementById('writeInput').value;
-        const res = await vaultRequest("write_entity_data", { entity_code: code, payload: val });
-        if(res.status === 'SUCCESS') {
-            alert("Data Encrypted & Anchored to Forensic Ledger");
-            closeModal();
+    async function executeFetch() {
+        const refKey = document.getElementById('manualRefKey').value;
+        if(!refKey) return alert("Key required");
+
+        const res = await vaultRequest("fetch_id_by_reference", { "reference-key": refKey });
+        
+        if(res.entity_id) {
+            document.getElementById('decryptedOutput').textContent = res.entity_id;
+            document.getElementById('fetchResult').classList.remove('hidden');
+        } else {
+            alert("Reference not found.");
+        }
+    }
+
+    function openStorePopup(code) {
+        document.getElementById('opModal').style.display = 'flex';
+        document.getElementById('fetchView').classList.add('hidden');
+        document.getElementById('storeView').classList.remove('hidden');
+        document.getElementById('modalTitle').textContent = "Vault Storage Protocol";
+        document.getElementById('storeResult').classList.add('hidden');
+        
+        // Populate and lock the entity code
+        document.getElementById('storeEntityName').value = code;
+        document.getElementById('storeContent').value = '';
+        
+        document.getElementById('execStoreBtn').onclick = () => executeStore();
+    }
+
+    async function executeStore() {
+        const entityCode = document.getElementById('storeEntityName').value;
+        const payloadContent = document.getElementById('storeContent').value;
+        
+        if(!payloadContent) return alert("Content is required.");
+
+        // Updated to match specified JSON schema
+        const res = await vaultRequest("store_data", { 
+            "entityType": "ID", 
+            "entityName": entityCode,
+            "content": btoa(payloadContent) // Encodes to Base64 to match Vault.java requirements
+        });
+
+        // Backend returns referenceKey as per Vault.java storeInVault
+        if(res.referenceKey) {
+            document.getElementById('newRefOutput').textContent = res.referenceKey;
+            document.getElementById('storeResult').classList.remove('hidden');
+        } else {
+            alert("Storage failed.");
         }
     }
 

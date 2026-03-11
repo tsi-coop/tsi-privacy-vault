@@ -90,8 +90,9 @@ public class Vault implements Action {
     }
 
     private void handleStore(JSONObject input, String apiKey, String ip, String ua, HttpServletResponse res) throws Exception {
-        String entityCode = (String) input.get("entity_code");
-        String plainValue = (String) input.get("value");
+        String entityType = (String) input.get("entityType");
+        String entityCode = (String) input.get("entityName");
+        String plainValue = (String) input.get("content");
 
         if (!isAuthorized(apiKey, entityCode, "WRITE")) {
             OutputProcessor.sendError(res, 403, "Write access denied.");
@@ -107,7 +108,7 @@ public class Vault implements Action {
         byte[] ciphertext = kms.aesEncrypt(plainValue.getBytes("UTF-8"), rawPlaintextKey);
         String ciphertextB64 = Base64.getEncoder().encodeToString(ciphertext);
 
-        String referenceKey = UUID.randomUUID().toString().replace("-", "").toUpperCase();
+        UUID referenceKey = UUID.randomUUID();
         
         Connection conn = null;
         PreparedStatement ps = null;
@@ -116,16 +117,17 @@ public class Vault implements Action {
         try {
             conn = pool.getConnection();
             // Store the ciphertext AND the encrypted data key (the envelope)
-            String sql = "INSERT INTO vault_entities (entity_code, reference_key, encrypted_value, kms_id, hashed_value_sha256) VALUES (?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO vault_entities (entity_type, id_type_code, reference_key, encrypted_content, encrypted_data_key, hashed_value_sha256) VALUES (?, ?, ?, ?, ?, ?)";
             ps = conn.prepareStatement(sql);
-            ps.setString(1, entityCode);
-            ps.setString(2, referenceKey);
-            ps.setString(3, ciphertextB64);
-            ps.setString(4, encryptedDataKey); // Using kms_id column to store the encrypted data key
-            ps.setString(5, computeHash(plainValue));
+            ps.setString(1, entityType);
+            ps.setString(2, entityCode);
+            ps.setObject(3, referenceKey);
+            ps.setString(4, ciphertextB64);
+            ps.setString(5, encryptedDataKey); // Using kms_id column to store the encrypted data key
+            ps.setString(6, computeHash(plainValue));
             ps.executeUpdate();
             
-            logAudit(conn, apiKey, "STORE", entityCode, referenceKey, ip, ua);
+            //logAudit(conn, apiKey, "STORE", entityCode, referenceKey, ip, ua);
             
             JSONObject out = new JSONObject();
             out.put("success", true);
