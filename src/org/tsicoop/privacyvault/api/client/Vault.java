@@ -131,7 +131,7 @@ public class Vault implements Action {
             
             JSONObject out = new JSONObject();
             out.put("success", true);
-            out.put("reference_key", referenceKey);
+            out.put("reference_key", referenceKey.toString());
             OutputProcessor.send(res, 201, out);
         } finally {
             pool.cleanup(null, ps, conn);

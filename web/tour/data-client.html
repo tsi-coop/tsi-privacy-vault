@@ -109,7 +109,11 @@
         const payload = { "_func": funcName, ...params };
         const response = await fetch(API_ENDPOINT, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-API-Key': CREDENTIALS.key, 'X-API-Secret': CREDENTIALS.secret },
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-API-Key': CREDENTIALS.key, 
+                'X-API-Secret': CREDENTIALS.secret 
+            },
             body: JSON.stringify(payload)
         });
         return await response.json();
@@ -174,7 +178,6 @@
         document.getElementById('modalTitle').textContent = "Vault Storage Protocol";
         document.getElementById('storeResult').classList.add('hidden');
         
-        // Populate and lock the entity code
         document.getElementById('storeEntityName').value = code;
         document.getElementById('storeContent').value = '';
         
@@ -187,19 +190,17 @@
         
         if(!payloadContent) return alert("Content is required.");
 
-        // Updated to match specified JSON schema
         const res = await vaultRequest("store_data", { 
             "entityType": "ID", 
             "entityName": entityCode,
-            "content": btoa(payloadContent) // Encodes to Base64 to match Vault.java requirements
+            "content": btoa(payloadContent)
         });
 
-        // Backend returns referenceKey as per Vault.java storeInVault
-        if(res.referenceKey) {
-            document.getElementById('newRefOutput').textContent = res.referenceKey;
+        if(res.success && res.reference_key) {
+            document.getElementById('newRefOutput').textContent = res.reference_key;
             document.getElementById('storeResult').classList.remove('hidden');
         } else {
-            alert("Storage failed.");
+            alert("Storage failed: " + (res.message || "Unknown error"));
         }
     }
 
