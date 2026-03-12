@@ -71,7 +71,7 @@
                     <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Reference Key</label>
                     <input type="text" id="manualRefKey" class="w-full border border-slate-200 rounded-xl p-4 mt-1 font-mono text-sm outline-none focus:ring-2 focus:ring-teal-500" placeholder="Enter key to resolve...">
                 </div>
-                <button onclick="executeFetch()" class="w-full bg-[#006A67] text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-teal-700">Fetch ID</button>
+                <button onclick="executeFetch()" class="w-full bg-[#006A67] text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-teal-700">Fetch</button>
                 <div id="fetchResult" class="hidden">
                     <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Resolved Entity ID</label>
                     <div id="decryptedOutput" class="data-entry"></div>
@@ -141,8 +141,8 @@
                 </td>
                 <td class="px-8 py-6 font-bold text-slate-700 font-mono text-xs">${e.entity_code}</td>
                 <td class="px-8 py-6 text-right space-x-2">
-                    <button onclick="openFetchPopup()" class="px-4 py-2 text-[10px] font-black uppercase border border-slate-200 text-slate-600 rounded-md hover:bg-slate-100">Fetch ID</button>
-                    <button onclick="openStorePopup('${e.entity_code}')" class="px-4 py-2 text-[10px] font-black uppercase bg-[#006A67] text-white rounded-md hover:bg-teal-800">Store ID</button>
+                    <button onclick="openFetchPopup()" class="px-4 py-2 text-[10px] font-black uppercase border border-slate-200 text-slate-600 rounded-md hover:bg-slate-100">Fetch</button>
+                    <button onclick="openStorePopup('${e.entity_code}')" class="px-4 py-2 text-[10px] font-black uppercase bg-[#006A67] text-white rounded-md hover:bg-teal-800">Store</button>
                 </td>
             </tr>
         `).join('');
