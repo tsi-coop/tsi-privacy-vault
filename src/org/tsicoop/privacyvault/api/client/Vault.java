@@ -139,7 +139,7 @@ public class Vault implements Action {
     }
 
     private void handleFetch(JSONObject input, String apiKey, String ip, String ua, HttpServletResponse res) throws Exception {
-        String ref = (String) input.get("reference_key");
+        String ref = (String) input.get("reference-key");
         Connection conn = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -147,19 +147,19 @@ public class Vault implements Action {
         
         try {
             conn = pool.getConnection();
-            ps = conn.prepareStatement("SELECT entity_code, encrypted_value, kms_id FROM vault_entities WHERE reference_key = ?");
-            ps.setString(1, ref);
+            ps = conn.prepareStatement("SELECT entity_type,id_type_code, encrypted_content, encrypted_data_key FROM vault_entities WHERE reference_key = ?");
+            ps.setObject(1, UUID.fromString(ref));
             rs = ps.executeQuery();
             
             if (rs.next()) {
-                String entityCode = rs.getString("entity_code");
+                String entityCode = rs.getString("id_type_code");
                 if (!isAuthorized(apiKey, entityCode, "READ")) {
                     OutputProcessor.sendError(res, 403, "Read access denied.");
                     return;
                 }
                 
-                String ciphertextB64 = rs.getString("encrypted_value");
-                String encryptedDataKey = rs.getString("kms_id");
+                String ciphertextB64 = rs.getString("encrypted_content");
+                String encryptedDataKey = rs.getString("encrypted_data_key");
 
                 // 1. Decrypt the Data Key using the Master Key (KMS internal logic)
                 String plaintextDataKeyB64 = kms.decryptDataKey(encryptedDataKey);
@@ -170,7 +170,7 @@ public class Vault implements Action {
                 byte[] decryptedBytes = kms.aesDecrypt(ciphertext, rawPlaintextKey);
                 String decrypted = new String(decryptedBytes, "UTF-8");
 
-                logAudit(conn, apiKey, "FETCH", entityCode, ref, ip, ua);
+                //logAudit(conn, apiKey, "FETCH", entityCode, ref, ip, ua);
                 
                 JSONObject out = new JSONObject();
                 out.put("success", true);

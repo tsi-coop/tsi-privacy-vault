@@ -163,9 +163,17 @@
 
         const res = await vaultRequest("fetch_id_by_reference", { "reference-key": refKey });
         
-        if(res.entity_id) {
-            document.getElementById('decryptedOutput').textContent = res.entity_id;
-            document.getElementById('fetchResult').classList.remove('hidden');
+        // Fixed to use res.value to match backend response: {"success":true,"value":"..."}
+        if(res.success && res.value) {
+            try {
+                // Decoding Base64 content returned from the vault
+                document.getElementById('decryptedOutput').textContent = atob(res.value);
+                document.getElementById('fetchResult').classList.remove('hidden');
+            } catch (e) {
+                // Fallback if content is already plain text
+                document.getElementById('decryptedOutput').textContent = res.value;
+                document.getElementById('fetchResult').classList.remove('hidden');
+            }
         } else {
             alert("Reference not found.");
         }
@@ -196,6 +204,7 @@
             "content": btoa(payloadContent)
         });
 
+        // Matches backend format: {"success":true, "reference_key": "UUID-STRING"}
         if(res.success && res.reference_key) {
             document.getElementById('newRefOutput').textContent = res.reference_key;
             document.getElementById('storeResult').classList.remove('hidden');
