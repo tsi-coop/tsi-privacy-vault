@@ -3,42 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TSI Vault - Utility Consumer (Light)</title>
+    <title>TSI Vault - Utility Consumer (Dynamic)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        :root { --tsi-teal: #006A67; }
         body { font-family: ui-sans-serif, system-ui, sans-serif; background-color: #f8fafc; color: #1e293b; }
         .client-container { max-width: 800px; margin: 60px auto; padding: 0 20px; }
         .secret-card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: all 0.2s; }
-        .secret-card:hover { border-color: #006A67; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .secret-card:hover { border-color: var(--tsi-teal); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
         
         .util-badge { font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; margin-right: 8px; }
-        .type-key { background: #fee2e2; color: #991b1b; }
-        .type-cert { background: #e0f2fe; color: #075985; }
+        .flavor-keys { background: #fee2e2; color: #991b1b; }
+        .flavor-cert { background: #e0f2fe; color: #075985; }
+        .flavor-shared { background: #fef3c7; color: #92400e; }
+        .flavor-default { background: #f1f5f9; color: #475569; }
         
-        .btn-fetch { background: #006A67; color: white; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; }
+        .btn-fetch { background: var(--tsi-teal); color: white; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; transition: background 0.2s; }
         .btn-fetch:hover { background: #004F4C; }
 
-        /* Auth Overlay */
-        .auth-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f8fafc; display: flex; justify-content: center; align-items: center; z-index: 1000; }
-        .auth-box { background: white; padding: 40px; border-radius: 16px; width: 420px; border: 1px solid #e2e8f0; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+        .auth-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .auth-box { background: white; padding: 40px; border-radius: 24px; width: 420px; border: 1px solid #e2e8f0; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
         
-        input { width: 100%; background: #fff; border: 1px solid #cbd5e1; color: #1e293b; padding: 12px; border-radius: 8px; margin-top: 8px; margin-bottom: 20px; font-family: monospace; font-size: 0.9rem; }
-        label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+        input { width: 100%; background: #f1f5f9; border: 1px solid #cbd5e1; color: #1e293b; padding: 14px; border-radius: 12px; margin-top: 8px; margin-bottom: 20px; font-family: monospace; font-size: 0.9rem; outline: none; }
+        input:focus { border-color: var(--tsi-teal); outline: 2px solid var(--tsi-teal); }
+        label { font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
         
-        .code-block { background: #1e293b; color: #38bdf8; padding: 20px; border-radius: 8px; font-family: 'Courier New', Courier, monospace; overflow-x: auto; }
+        .code-block { background: #0f172a; color: #38bdf8; padding: 20px; border-radius: 12px; font-family: 'Fira Code', 'Courier New', monospace; overflow-x: auto; border: 1px solid #1e293b; }
     </style>
 </head>
 <body>
 
 <div class="client-container">
-    <div class="mb-10 text-center">
-        <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Utility <span class="text-[#006A67]">Consumer</span></h1>
-        <p class="text-slate-500 text-sm mt-2">Authenticated Retrieval for API Keys and Certificates</p>
-    </div>
+    <header class="mb-10 text-center">
+        <h1 class="text-4xl font-black text-slate-900 tracking-tighter uppercase italic">Utility <span class="text-[#006A67]">Vault</span></h1>
+        <p id="session-info" class="text-slate-500 text-[10px] font-bold mt-2 uppercase tracking-[0.2em]">Awaiting Secure Handshake...</p>
+    </header>
 
     <div id="utility-list" class="space-y-4">
-        <div class="text-center py-10 text-slate-400 italic">
-            <p>Awaiting authentication to synchronize resources...</p>
+        <div class="text-center py-20 text-slate-400 italic">
+            <p class="text-sm">Initiating handshake with Vault Core...</p>
         </div>
     </div>
 </div>
@@ -46,51 +49,71 @@
 <div id="auth-barrier" class="auth-overlay">
     <div class="auth-box">
         <div class="text-center mb-8">
-            <h2 class="text-2xl font-black text-[#006A67]">Vault Access</h2>
-            <p class="text-slate-500 text-sm">Verify identity to retrieve utilities.</p>
+            <div class="inline-block p-3 bg-teal-50 rounded-2xl mb-4">
+                <svg class="w-8 h-8 text-[#006A67]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 00-2 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+            </div>
+            <h2 class="text-2xl font-black text-slate-800">Utility Access</h2>
+            <p class="text-slate-500 text-xs mt-1">Authenticate to synchronize resources.</p>
         </div>
         
         <label>X-API-Key</label>
-        <input type="text" id="api-key-id" placeholder="UUID Format">
+        <input type="text" id="api-key-id" placeholder="Enter Key ID">
 
         <label>X-API-Secret</label>
         <input type="password" id="api-secret" placeholder="••••••••••••">
 
-        <button onclick="authenticateClient()" class="w-full bg-[#006A67] text-white py-3 rounded-lg font-bold hover:bg-[#004F4C] transition-all shadow-md">
-            Initialize Session
+        <button onclick="authenticateClient()" class="w-full bg-[#006A67] text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#004F4C] transition-all shadow-lg active:scale-95">
+            Synchronize
         </button>
-        
-        <p class="mt-6 text-[10px] text-center text-slate-400 font-bold uppercase tracking-widest">
-            Privacy Vault v3.0
-        </p>
     </div>
 </div>
 
-<div id="result-modal" class="fixed inset-0 bg-slate-900/60 hidden flex justify-center items-center z-[2000] p-4 backdrop-blur-sm">
-    <div class="bg-white p-8 rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200">
-        <div class="flex justify-between items-start mb-4">
+<div id="result-modal" class="fixed inset-0 bg-slate-900/80 hidden flex justify-center items-center z-[2000] p-4 backdrop-blur-md">
+    <div class="bg-white p-8 rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200">
+        <div class="flex justify-between items-start mb-6">
             <div>
-                <h3 id="modal-title" class="text-lg font-bold text-slate-800">Secret Value</h3>
-                <span class="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black uppercase">Forensic Log Active</span>
+                <p class="text-[10px] font-black text-[#006A67] uppercase tracking-widest mb-1">Decrypted Content</p>
+                <h3 id="modal-title" class="text-xl font-bold text-slate-800 font-mono italic">Resource</h3>
             </div>
-            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-2xl transition-colors">&times;</button>
+            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-3xl leading-none">&times;</button>
         </div>
         
-        <div class="code-block mt-4">
-            <pre id="secret-output" class="text-sm whitespace-pre-wrap break-all"></pre>
+        <div class="code-block">
+            <pre id="secret-output" class="text-xs whitespace-pre-wrap break-all"></pre>
         </div>
         
-        <div class="mt-6 flex justify-between items-center">
-            <button onclick="copyToClipboard()" class="text-xs font-bold text-[#006A67] hover:underline uppercase tracking-widest">
+        <div class="mt-8 flex justify-between items-center">
+            <button id="copy-btn" onclick="copyToClipboard()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
                 📋 Copy to Clipboard
             </button>
-            <p class="text-[10px] text-slate-400 italic">This fragment will expire when the window closes.</p>
+            <span class="text-[9px] font-bold text-teal-600 uppercase tracking-tighter bg-teal-50 px-2 py-1 rounded">Secured by Vault Service</span>
         </div>
     </div>
 </div>
 
 <script>
+    // Unified endpoint as requested
+    const API_ENDPOINT = '/api/client/vault';
     let AUTH = { key: '', secret: '' };
+
+    async function utilRequest(funcName, params = {}) {
+        const payload = { "_func": funcName, ...params };
+        try {
+            const response = await fetch(API_ENDPOINT, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'X-API-Key': AUTH.key, 
+                    'X-API-Secret': AUTH.secret 
+                },
+                body: JSON.stringify(payload)
+            });
+            return await response.json();
+        } catch (err) {
+            console.error("Vault Connection Error:", err);
+            return { success: false, message: "Network error" };
+        }
+    }
 
     async function authenticateClient() {
         const id = document.getElementById('api-key-id').value.trim();
@@ -101,54 +124,71 @@
         AUTH.key = id;
         AUTH.secret = sec;
 
-        document.getElementById('auth-barrier').classList.add('hidden');
-        loadAuthorizedUtilities();
+        // Discovers authorized resources from the vault service
+        const res = await utilRequest("get_authorized_utilities");
+        
+        if(res.success && res.utilities) {
+            document.getElementById('auth-barrier').classList.add('hidden');
+            document.getElementById('session-info').textContent = `Identity: ${AUTH.key}`;
+            renderUtilities(res.utilities);
+        } else {
+            alert("Handshake Failed: Vault service rejected credentials.");
+        }
     }
 
-    function loadAuthorizedUtilities() {
+    function getFlavorClass(flavor) {
+        if (!flavor) return 'flavor-default';
+        const f = flavor.toUpperCase();
+        if (f.includes('KEYS')) return 'flavor-keys';
+        if (f.includes('CERT')) return 'flavor-cert';
+        if (f.includes('SHARED')) return 'flavor-shared';
+        return 'flavor-default';
+    }
+
+    function renderUtilities(utils) {
         const listDiv = document.getElementById('utility-list');
         
-        // MOCK DATA: Simulating authorized utilities for this API Key
-        const mockPerms = [
-            { id: 'PROD_DB_SECRET', label: 'Main Production DB', type: 'KEY' },
-            { id: 'JWT_SIGNING_RSA', label: 'Auth Token Signing Cert', type: 'CERT' },
-            { id: 'SENDGRID_API_V3', label: 'Marketing Mailer Secret', type: 'KEY' }
-        ];
+        if (utils.length === 0) {
+            listDiv.innerHTML = `<div class="text-center py-10 text-slate-400 italic">No authorized utilities found.</div>`;
+            return;
+        }
 
-        listDiv.innerHTML = mockPerms.map(util => `
-            <div class="secret-card flex justify-between items-center animate-in fade-in duration-500">
+        listDiv.innerHTML = utils.map(util => `
+            <div class="secret-card flex justify-between items-center mb-4">
                 <div>
                     <div class="flex items-center">
-                        <span class="util-badge ${util.type === 'KEY' ? 'type-key' : 'type-cert'}">${util.type}</span>
+                        <span class="util-badge ${getFlavorClass(util.flavor)}">${util.flavor || 'DATA'}</span>
                         <h4 class="font-bold text-slate-800 text-sm">${util.label}</h4>
                     </div>
                     <p class="text-[11px] text-slate-400 mt-1 font-mono">${util.id}</p>
                 </div>
-                <button onclick="revealSecret('${util.id}')" class="btn-fetch">Fetch Value</button>
+                <button onclick="revealSecret('${util.id}')" class="btn-fetch">Resolve</button>
             </div>
         `).join('');
     }
 
     async function revealSecret(utilId) {
-        // In actual implementation, this would be an AJAX call to Utility.java
-        const mockSecretValue = utilId.includes('CERT') 
-            ? "-----BEGIN CERTIFICATE-----\nMIIDdTCCAl2gAwIBAgILBAAAAAAB..." 
-            : "vault_sh_8892_zxy_99201_active";
+        const res = await utilRequest("resolve_utility", { "utility_id": utilId });
 
-        document.getElementById('modal-title').textContent = utilId;
-        document.getElementById('secret-output').textContent = mockSecretValue;
-        document.getElementById('result-modal').classList.remove('hidden');
+        if(res.success && res.value) {
+            document.getElementById('modal-title').textContent = utilId;
+            document.getElementById('secret-output').textContent = res.value;
+            document.getElementById('result-modal').classList.remove('hidden');
+        } else {
+            alert("Resolution denied by Vault Service.");
+        }
     }
 
     function closeModal() {
         document.getElementById('result-modal').classList.add('hidden');
         document.getElementById('secret-output').textContent = '';
+        document.getElementById('copy-btn').textContent = "📋 Copy to Clipboard";
     }
 
     function copyToClipboard() {
         const text = document.getElementById('secret-output').textContent;
         navigator.clipboard.writeText(text);
-        const btn = event.target;
+        const btn = document.getElementById('copy-btn');
         btn.textContent = "✅ Copied!";
         setTimeout(() => { btn.textContent = "📋 Copy to Clipboard"; }, 2000);
     }

@@ -36,6 +36,9 @@ public class Vault implements Action {
                 case "get_authorized_entities":
                     handleGetAuthorizedEntities(apiKey, res);
                     break;
+                case "get_authorized_utilities":
+                    handleGetAuthorizedUtilities(apiKey, res);
+                    break;
                 case "store_data":
                     handleStore(input, apiKey, clientIp, userAgent, res);
                     break;
@@ -84,6 +87,52 @@ public class Vault implements Action {
             output.put("success", true);
             output.put("entities", entities);
             OutputProcessor.send(res, 200, output);
+        } finally {
+            pool.cleanup(rs, ps, conn);
+        }
+    }
+
+    /**
+     * Discovery Protocol: Fetches authorized utilities from the vault_utilities table.
+     * Uses the vault_utilities table schema and joins with permissions for the API Key.
+     */
+    private void handleGetAuthorizedUtilities(String apiKey, HttpServletResponse res) throws Exception {
+        Connection conn = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        PoolDB pool = new PoolDB();
+        
+        // SQL Joins permissions with the vault_utilities table to ensure the key has access
+        String sql = "SELECT u.utility_id, u.flavor, u.label " +
+                     "FROM permissions p " +
+                     "JOIN vault_utilities u ON p.resource_id = u.utility_id " +
+                     "WHERE p.api_key = ? AND p.resource_type = 'UTILITY' AND u.active = true";
+                     
+        JSONArray utilities = new JSONArray();
+        try {
+            conn = pool.getConnection();
+            ps = conn.prepareStatement(sql);
+            ps.setString(1, apiKey);
+            rs = ps.executeQuery();
+            
+            while (rs.next()) {
+                JSONObject util = new JSONObject();
+                // Map database columns to the JSON fields expected by util-client.html
+                util.put("id", rs.getString("utility_id"));
+                util.put("flavor", rs.getString("flavor")); // Expected: KEY, CERT, etc.
+                util.put("label", rs.getString("label"));
+                utilities.add(util);
+            }
+            
+            JSONObject output = new JSONObject();
+            output.put("success", true);
+            output.put("utilities", utilities);
+            
+            // Send standardized response to the dynamic frontend
+            OutputProcessor.send(res, 200, output);
+            
+        } catch (Exception e) {
+            OutputProcessor.sendError(res, 500, "Discovery Error: " + e.getMessage());
         } finally {
             pool.cleanup(rs, ps, conn);
         }
