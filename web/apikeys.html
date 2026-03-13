@@ -215,6 +215,21 @@
         }
     };
 
+    // Add this event listener to handle type switching
+    document.getElementById('perm_type').addEventListener('change', function() {
+        const isUtility = this.value === 'UTILITY';
+        const writeCheckbox = document.getElementById('perm_write');
+        
+        if (isUtility) {
+            writeCheckbox.checked = false;
+            writeCheckbox.disabled = true;
+            writeCheckbox.parentElement.classList.add('opacity-50', 'cursor-not-allowed');
+        } else {
+            writeCheckbox.disabled = false;
+            writeCheckbox.parentElement.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+    });
+
     async function openPermissions(apiKeyId) {
         document.getElementById('displayPermissionsApiKey').innerText = apiKeyId;
         document.getElementById('permissionsModal').classList.remove('hidden');
