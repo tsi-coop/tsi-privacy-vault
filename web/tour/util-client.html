@@ -16,19 +16,22 @@
         .flavor-keys { background: #fee2e2; color: #991b1b; }
         .flavor-cert { background: #e0f2fe; color: #075985; }
         .flavor-shared { background: #fef3c7; color: #92400e; }
-        .flavor-default { background: #f1f5f9; color: #475569; }
         
-        .btn-fetch { background: var(--tsi-teal); color: white; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; transition: background 0.2s; }
-        .btn-fetch:hover { background: #004F4C; }
+        .btn-action { padding: 8px 16px; border-radius: 6px; font-size: 11px; font-weight: 800; cursor: pointer; text-transform: uppercase; transition: all 0.2s; }
+        .btn-read { background: var(--tsi-teal); color: white; }
+        .btn-read:hover { background: #004F4C; }
+        .btn-write { border: 1px solid var(--tsi-teal); color: var(--tsi-teal); background: transparent; }
+        .btn-write:hover { background: #f0fdfa; }
 
         .auth-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-        .auth-box { background: white; padding: 40px; border-radius: 24px; width: 420px; border: 1px solid #e2e8f0; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        .auth-box { background: white; padding: 40px; border-radius: 24px; width: 420px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
         
-        input { width: 100%; background: #f1f5f9; border: 1px solid #cbd5e1; color: #1e293b; padding: 14px; border-radius: 12px; margin-top: 8px; margin-bottom: 20px; font-family: monospace; font-size: 0.9rem; outline: none; }
-        input:focus { border-color: var(--tsi-teal); outline: 2px solid var(--tsi-teal); }
+        input, textarea { width: 100%; background: #f1f5f9; border: 1px solid #cbd5e1; padding: 14px; border-radius: 12px; margin-top: 8px; margin-bottom: 20px; font-family: monospace; font-size: 0.9rem; outline: none; }
+        input:focus, textarea:focus { border-color: var(--tsi-teal); outline: 2px solid var(--tsi-teal); }
         label { font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
         
-        .code-block { background: #0f172a; color: #38bdf8; padding: 20px; border-radius: 12px; font-family: 'Fira Code', 'Courier New', monospace; overflow-x: auto; border: 1px solid #1e293b; }
+        .code-block { background: #0f172a; color: #38bdf8; padding: 20px; border-radius: 12px; font-family: 'Fira Code', monospace; overflow-x: auto; }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 2000; padding: 20px; }
     </style>
 </head>
 <body>
@@ -41,7 +44,7 @@
 
     <div id="utility-list" class="space-y-4">
         <div class="text-center py-20 text-slate-400 italic">
-            <p class="text-sm">Initiating handshake with Vault Core...</p>
+            <p class="text-sm">Initiating connection to Vault Core...</p>
         </div>
     </div>
 </div>
@@ -49,150 +52,144 @@
 <div id="auth-barrier" class="auth-overlay">
     <div class="auth-box">
         <div class="text-center mb-8">
-            <div class="inline-block p-3 bg-teal-50 rounded-2xl mb-4">
-                <svg class="w-8 h-8 text-[#006A67]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 00-2 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-            </div>
             <h2 class="text-2xl font-black text-slate-800">Utility Access</h2>
             <p class="text-slate-500 text-xs mt-1">Authenticate to synchronize resources.</p>
         </div>
-        
         <label>X-API-Key</label>
         <input type="text" id="api-key-id" placeholder="Enter Key ID">
-
         <label>X-API-Secret</label>
         <input type="password" id="api-secret" placeholder="••••••••••••">
-
-        <button onclick="authenticateClient()" class="w-full bg-[#006A67] text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#004F4C] transition-all shadow-lg active:scale-95">
-            Synchronize
-        </button>
+        <button onclick="authenticateClient()" class="w-full bg-[#006A67] text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#004F4C] transition-all">Synchronize</button>
     </div>
 </div>
 
-<div id="result-modal" class="fixed inset-0 bg-slate-900/80 hidden flex justify-center items-center z-[2000] p-4 backdrop-blur-md">
-    <div class="bg-white p-8 rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200">
-        <div class="flex justify-between items-start mb-6">
-            <div>
-                <p class="text-[10px] font-black text-[#006A67] uppercase tracking-widest mb-1">Decrypted Content</p>
-                <h3 id="modal-title" class="text-xl font-bold text-slate-800 font-mono italic">Resource</h3>
+<div id="opModal" class="modal">
+    <div class="bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden p-8">
+        <div id="readView" class="hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-slate-800 font-mono italic" id="readTitle">Resource Content</h3>
+                <button onclick="closeModal()" class="text-slate-400 text-3xl">&times;</button>
             </div>
-            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-3xl leading-none">&times;</button>
+            <div class="code-block">
+                <pre id="secret-output" class="text-xs whitespace-pre-wrap break-all"></pre>
+            </div>
+            <button onclick="copyToClipboard()" class="mt-6 w-full bg-slate-100 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest">📋 Copy to Clipboard</button>
         </div>
-        
-        <div class="code-block">
-            <pre id="secret-output" class="text-xs whitespace-pre-wrap break-all"></pre>
-        </div>
-        
-        <div class="mt-8 flex justify-between items-center">
-            <button id="copy-btn" onclick="copyToClipboard()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
-                📋 Copy to Clipboard
-            </button>
-            <span class="text-[9px] font-bold text-teal-600 uppercase tracking-tighter bg-teal-50 px-2 py-1 rounded">Secured by Vault Service</span>
+
+        <div id="writeView" class="hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-slate-800 font-mono italic">Update Payload</h3>
+                <button onclick="closeModal()" class="text-slate-400 text-3xl">&times;</button>
+            </div>
+            <input type="hidden" id="writeTargetId">
+            <label>New Secret Payload</label>
+            <textarea id="writeContent" rows="5" placeholder="Enter new value..."></textarea>
+            <button onclick="executeWrite()" class="w-full bg-[#006A67] text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-teal-800">Commit Update</button>
         </div>
     </div>
 </div>
 
 <script>
-    // Unified endpoint as requested
     const API_ENDPOINT = '/api/client/vault';
     let AUTH = { key: '', secret: '' };
 
-    async function utilRequest(funcName, params = {}) {
+    async function vaultRequest(funcName, params = {}) {
         const payload = { "_func": funcName, ...params };
-        try {
-            const response = await fetch(API_ENDPOINT, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json', 
-                    'X-API-Key': AUTH.key, 
-                    'X-API-Secret': AUTH.secret 
-                },
-                body: JSON.stringify(payload)
-            });
-            return await response.json();
-        } catch (err) {
-            console.error("Vault Connection Error:", err);
-            return { success: false, message: "Network error" };
-        }
+        const response = await fetch(API_ENDPOINT, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-API-Key': AUTH.key, 
+                'X-API-Secret': AUTH.secret 
+            },
+            body: JSON.stringify(payload)
+        });
+        return await response.json();
     }
 
     async function authenticateClient() {
-        const id = document.getElementById('api-key-id').value.trim();
-        const sec = document.getElementById('api-secret').value.trim();
+        AUTH.key = document.getElementById('api-key-id').value.trim();
+        AUTH.secret = document.getElementById('api-secret').value.trim();
         
-        if(!id || !sec) return alert("Credentials required");
-
-        AUTH.key = id;
-        AUTH.secret = sec;
-
-        // Discovers authorized resources from the vault service
-        const res = await utilRequest("get_authorized_utilities");
-        
+        const res = await vaultRequest("get_authorized_utilities");
         if(res.success && res.utilities) {
             document.getElementById('auth-barrier').classList.add('hidden');
             document.getElementById('session-info').textContent = `Identity: ${AUTH.key}`;
             renderUtilities(res.utilities);
         } else {
-            alert("Handshake Failed: Vault service rejected credentials.");
+            alert("Handshake Failed.");
         }
-    }
-
-    function getFlavorClass(flavor) {
-        if (!flavor) return 'flavor-default';
-        const f = flavor.toUpperCase();
-        if (f.includes('KEYS')) return 'flavor-keys';
-        if (f.includes('CERT')) return 'flavor-cert';
-        if (f.includes('SHARED')) return 'flavor-shared';
-        return 'flavor-default';
     }
 
     function renderUtilities(utils) {
         const listDiv = document.getElementById('utility-list');
-        
-        if (utils.length === 0) {
-            listDiv.innerHTML = `<div class="text-center py-10 text-slate-400 italic">No authorized utilities found.</div>`;
-            return;
-        }
-
         listDiv.innerHTML = utils.map(util => `
             <div class="secret-card flex justify-between items-center mb-4">
                 <div>
                     <div class="flex items-center">
-                        <span class="util-badge ${getFlavorClass(util.flavor)}">${util.flavor || 'DATA'}</span>
+                        <span class="util-badge flavor-default">${util.flavor}</span>
                         <h4 class="font-bold text-slate-800 text-sm">${util.label}</h4>
                     </div>
                     <p class="text-[11px] text-slate-400 mt-1 font-mono">${util.id}</p>
                 </div>
-                <button onclick="revealSecret('${util.id}')" class="btn-fetch">Resolve</button>
+                <div class="flex space-x-2">
+                    ${util.can_read ? `<button onclick="handleRead('${util.id}')" class="btn-action btn-read">READ</button>` : ''}
+                </div>
             </div>
         `).join('');
     }
 
-    async function revealSecret(utilId) {
-        const res = await utilRequest("resolve_utility", { "utility_id": utilId });
-
+    // --- READ FUNCTION ---
+    async function handleRead(id) {
+        const res = await vaultRequest("resolve_utility", { "utility_id": id });
         if(res.success && res.value) {
-            document.getElementById('modal-title').textContent = utilId;
+            document.getElementById('opModal').style.display = 'flex';
+            document.getElementById('readView').classList.remove('hidden');
+            document.getElementById('writeView').classList.add('hidden');
+            document.getElementById('readTitle').textContent = id;
             document.getElementById('secret-output').textContent = res.value;
-            document.getElementById('result-modal').classList.remove('hidden');
         } else {
-            alert("Resolution denied by Vault Service.");
+            alert("Read Permission Denied or Resource Missing.");
+        }
+    }
+
+    // --- WRITE FUNCTIONS ---
+    function handleWritePrompt(id) {
+        document.getElementById('opModal').style.display = 'flex';
+        document.getElementById('writeView').classList.remove('hidden');
+        document.getElementById('readView').classList.add('hidden');
+        document.getElementById('writeTargetId').value = id;
+        document.getElementById('writeContent').value = '';
+    }
+
+    async function executeWrite() {
+        const id = document.getElementById('writeTargetId').value;
+        const content = document.getElementById('writeContent').value;
+        
+        if(!content) return alert("Payload cannot be empty.");
+
+        const res = await vaultRequest("update_utility", { 
+            "utility_id": id,
+            "payload": btoa(content) // Base64 encoded for safe transit
+        });
+
+        if(res.success) {
+            alert("Utility updated successfully.");
+            closeModal();
+        } else {
+            alert("Update Failed: " + (res.message || "Unauthorized"));
         }
     }
 
     function closeModal() {
-        document.getElementById('result-modal').classList.add('hidden');
-        document.getElementById('secret-output').textContent = '';
-        document.getElementById('copy-btn').textContent = "📋 Copy to Clipboard";
+        document.getElementById('opModal').style.display = 'none';
     }
 
     function copyToClipboard() {
         const text = document.getElementById('secret-output').textContent;
         navigator.clipboard.writeText(text);
-        const btn = document.getElementById('copy-btn');
-        btn.textContent = "✅ Copied!";
-        setTimeout(() => { btn.textContent = "📋 Copy to Clipboard"; }, 2000);
+        alert("Copied to clipboard.");
     }
 </script>
-
 </body>
 </html>

@@ -39,6 +39,9 @@ public class Vault implements Action {
                 case "get_authorized_utilities":
                     handleGetAuthorizedUtilities(apiKey, res);
                     break;
+                case "resolve_utility":
+                    handleResolveUtility(req, res, input);
+                    break;
                 case "store_data":
                     handleStore(input, apiKey, clientIp, userAgent, res);
                     break;
@@ -95,15 +98,15 @@ public class Vault implements Action {
     /**
      * Discovery Protocol: Fetches authorized utilities from the vault_utilities table.
      * Uses the vault_utilities table schema and joins with permissions for the API Key.
-     */
+     */    
     private void handleGetAuthorizedUtilities(String apiKey, HttpServletResponse res) throws Exception {
         Connection conn = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
         PoolDB pool = new PoolDB();
         
-        // SQL Joins permissions with the vault_utilities table to ensure the key has access
-        String sql = "SELECT u.utility_id, u.flavor, u.label " +
+        // SQL updated to include can_read and can_write from the permissions table
+        String sql = "SELECT u.utility_id, u.flavor, u.label, p.can_read, p.can_write " +
                      "FROM permissions p " +
                      "JOIN vault_utilities u ON p.resource_id = u.utility_id " +
                      "WHERE p.api_key = ? AND p.resource_type = 'UTILITY' AND u.active = true";
@@ -117,10 +120,16 @@ public class Vault implements Action {
             
             while (rs.next()) {
                 JSONObject util = new JSONObject();
-                // Map database columns to the JSON fields expected by util-client.html
+                // Core utility data
                 util.put("id", rs.getString("utility_id"));
-                util.put("flavor", rs.getString("flavor")); // Expected: KEY, CERT, etc.
+                util.put("flavor", rs.getString("flavor"));
                 util.put("label", rs.getString("label"));
+                
+                // Permission flags extracted from the JOIN
+                // These are used by the HTML client to show READ/WRITE buttons
+                util.put("can_read", rs.getBoolean("can_read"));
+                util.put("can_write", rs.getBoolean("can_write"));
+                
                 utilities.add(util);
             }
             
@@ -128,7 +137,6 @@ public class Vault implements Action {
             output.put("success", true);
             output.put("utilities", utilities);
             
-            // Send standardized response to the dynamic frontend
             OutputProcessor.send(res, 200, output);
             
         } catch (Exception e) {
@@ -136,6 +144,77 @@ public class Vault implements Action {
         } finally {
             pool.cleanup(rs, ps, conn);
         }
+    }
+
+    /**
+     * Resolution Protocol: Validates READ permissions and returns the utility secret.
+     * This function corresponds to the "READ" button in the Utility Client.
+     */
+    private void handleResolveUtility(HttpServletRequest req, HttpServletResponse res, JSONObject payload) throws Exception {
+        String apiKey = req.getHeader("X-API-Key");
+        String utilityId = (String) payload.get("utility_id");
+
+        if (utilityId == null || utilityId.isEmpty()) {
+            OutputProcessor.sendError(res, 400, "Missing utility_id");
+            return;
+        }
+
+        Connection conn = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        PoolDB pool = new PoolDB();
+
+        // SQL joins permissions and vault_utilities to verify access and fetch the secret
+        String sql = "SELECT u.payload, u.encrypted_key, u.flavor " +
+                     "FROM permissions p " +
+                     "JOIN vault_utilities u ON p.resource_id = u.utility_id " +
+                     "WHERE p.api_key = ? AND u.utility_id = ? " +
+                     "AND p.resource_type = 'UTILITY' AND p.can_read = true AND u.active = true";
+
+        try {
+            conn = pool.getConnection();
+            ps = conn.prepareStatement(sql);
+            ps.setString(1, apiKey);
+            ps.setString(2, utilityId);
+            rs = ps.executeQuery();
+
+            if (rs.next()) {
+                String encryptedPayload = rs.getString("payload");
+                String encryptedKey = rs.getString("encrypted_key");
+                
+                String resolvedValue = decryptUtilityPayload(encryptedKey, encryptedPayload);
+
+                JSONObject output = new JSONObject();
+                output.put("success", true);
+                output.put("value", resolvedValue);
+                output.put("id", utilityId);
+                
+                OutputProcessor.send(res, 200, output);
+            } else {
+                // If no record is found, it means either the utility doesn't exist 
+                // OR the api_key does not have can_read = true.
+                OutputProcessor.sendError(res, 403, "Access Denied: Insufficient permissions to read this utility.");
+            }
+        } catch (Exception e) {
+            OutputProcessor.sendError(res, 500, "Resolution Error: " + e.getMessage());
+        } finally {
+            pool.cleanup(rs, ps, conn);
+        }
+    }
+
+    /**
+     * Placeholder for the Vault's internal decryption logic.
+     */
+    private String decryptUtilityPayload(String encryptedKey, String encryptedData) throws Exception {
+        LocalKmsProvider kms = new LocalKmsProvider();
+        String plaintextKeyB64 = kms.decryptDataKey(encryptedKey);
+        byte[] plaintextKey = Base64.getDecoder().decode(plaintextKeyB64);
+
+        // 2. Decrypt the Payload
+        byte[] encryptedBlob = Base64.getDecoder().decode(encryptedData);
+        byte[] cleartextBytes = kms.aesDecrypt(encryptedBlob, plaintextKey);
+        String cleartext = new String(cleartextBytes, "UTF-8");
+        return cleartext; 
     }
 
     private void handleStore(JSONObject input, String apiKey, String ip, String ua, HttpServletResponse res) throws Exception {
