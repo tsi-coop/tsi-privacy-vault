@@ -3,6 +3,7 @@ package org.tsicoop.privacyvault.api.client;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.sql.*;
+import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
@@ -40,7 +41,7 @@ public class Vault implements Action {
                     handleGetAuthorizedUtilities(apiKey, res);
                     break;
                 case "resolve_utility":
-                    handleResolveUtility(req, res, input);
+                    handleResolveUtility(req, res, clientIp, userAgent, input);
                     break;
                 case "store_data":
                     handleStore(input, apiKey, clientIp, userAgent, res);
@@ -150,7 +151,7 @@ public class Vault implements Action {
      * Resolution Protocol: Validates READ permissions and returns the utility secret.
      * This function corresponds to the "READ" button in the Utility Client.
      */
-    private void handleResolveUtility(HttpServletRequest req, HttpServletResponse res, JSONObject payload) throws Exception {
+    private void handleResolveUtility(HttpServletRequest req, HttpServletResponse res, String ip, String ua, JSONObject payload) throws Exception {
         String apiKey = req.getHeader("X-API-Key");
         String utilityId = (String) payload.get("utility_id");
 
@@ -188,11 +189,32 @@ public class Vault implements Action {
                 output.put("success", true);
                 output.put("value", resolvedValue);
                 output.put("id", utilityId);
+
+                // Log to event_log table
+                logVaultEvent(
+                    conn,
+                    apiKey, 
+                    "RESOLVE", 
+                    utilityId, 
+                    ip, 
+                    ua, 
+                    "SUCCESS"
+                );
                 
                 OutputProcessor.send(res, 200, output);
             } else {
                 // If no record is found, it means either the utility doesn't exist 
                 // OR the api_key does not have can_read = true.
+                  // Log to event_log table
+                logVaultEvent(
+                    conn,
+                    apiKey, 
+                    "RESOLVE", 
+                    utilityId, 
+                    ip, 
+                    ua, 
+                    "FAILURE"
+                );
                 OutputProcessor.sendError(res, 403, "Access Denied: Insufficient permissions to read this utility.");
             }
         } catch (Exception e) {
@@ -255,13 +277,33 @@ public class Vault implements Action {
             ps.setString(6, computeHash(plainValue));
             ps.executeUpdate();
             
-            //logAudit(conn, apiKey, "STORE", entityCode, referenceKey, ip, ua);
+              // Log to event_log table
+            logVaultEvent(
+                conn,
+                apiKey, 
+                "STORE", 
+                entityCode, 
+                ip, 
+                ua, 
+                "SUCCESS"
+            );
             
             JSONObject out = new JSONObject();
             out.put("success", true);
             out.put("reference_key", referenceKey.toString());
             OutputProcessor.send(res, 201, out);
-        } finally {
+        } catch(Exception e){
+                // Log to event_log table
+            logVaultEvent(
+                conn,
+                apiKey, 
+                "STORE", 
+                entityCode, 
+                ip, 
+                ua, 
+                "FAILURE"
+            );
+        }finally {
             pool.cleanup(null, ps, conn);
         }
     }
@@ -271,9 +313,11 @@ public class Vault implements Action {
         Connection conn = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
-        PoolDB pool = new PoolDB();
+        PoolDB pool = null;
+        boolean result = false;
         
         try {
+            pool = new PoolDB();
             conn = pool.getConnection();
             ps = conn.prepareStatement("SELECT entity_type,id_type_code, encrypted_content, encrypted_data_key FROM vault_entities WHERE reference_key = ?");
             ps.setObject(1, UUID.fromString(ref));
@@ -298,18 +342,41 @@ public class Vault implements Action {
                 byte[] decryptedBytes = kms.aesDecrypt(ciphertext, rawPlaintextKey);
                 String decrypted = new String(decryptedBytes, "UTF-8");
 
-                //logAudit(conn, apiKey, "FETCH", entityCode, ref, ip, ua);
+                 // Log to event_log table
+                logVaultEvent(
+                    conn,
+                    apiKey, 
+                    "FETCH", 
+                    ref, 
+                    ip, 
+                    ua, 
+                    "SUCCESS"
+                );
                 
                 JSONObject out = new JSONObject();
                 out.put("success", true);
                 out.put("value", decrypted);
                 OutputProcessor.send(res, 200, out);
             } else {
+                
+                  // Log to event_log table
+                logVaultEvent(
+                    conn,
+                    apiKey, 
+                    "FETCH", 
+                    ref, 
+                    ip, 
+                    ua, 
+                    "FAILURE"
+                );
+
                 OutputProcessor.sendError(res, 404, "Reference not found.");
             }
         } finally {
             pool.cleanup(rs, ps, conn);
         }
+
+       
     }
 
     private void handleCertGen(String ref, HttpServletResponse res) throws Exception {
@@ -340,17 +407,30 @@ public class Vault implements Action {
         certGenerator.streamSection63Certificate(forensicData, res.getOutputStream());
     }
 
-    private void logAudit(Connection conn, String apiKey, String action, String entity, String ref, String ip, String ua) throws SQLException {
-        String sql = "INSERT INTO vault_audit_logs (api_key, action_type, entity_code, reference_key, client_ip, user_agent) VALUES (?, ?, ?, ?, ?, ?)";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, apiKey);
-            ps.setString(2, action);
-            ps.setString(3, entity);
-            ps.setString(4, ref);
-            ps.setString(5, ip);
-            ps.setString(6, ua);
+    private void logVaultEvent(Connection conn, String actorKey, String op, String target, String ip, String ua, String outcome) {
+        PreparedStatement ps = null;
+        PoolDB pool = null;
+        String machineId = null;
+        try {
+            machineId = ForensicEngine.getMachineIdentifier(); // Anchors log to hardware
+             
+            // Using your existing event_log table structure
+            String sql = "INSERT INTO event_log (api_key, operation_type, client_ip, user_agent, machine_id, outcome, log_datetime) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            ps = conn.prepareStatement(sql);
+            
+            ps.setString(1, actorKey);
+            // Prefix with 'VAULT_' to distinguish data access from 'ADMIN_' UI actions
+            ps.setString(2, "VAULT_" + op); 
+            ps.setString(3, ip);
+            ps.setString(4, ua);
+            ps.setString(5, machineId);
+            ps.setString(6, "TARGET:" + target + " | " + outcome); // Store the resource ID in the outcome field
+            ps.setTimestamp(7, Timestamp.valueOf(LocalDateTime.now()));
+            
             ps.executeUpdate();
-        }
+        } catch (Exception e) {
+            System.err.println("CRITICAL: Vault Access Logging Failed: " + e.getMessage());
+        } 
     }
 
     private String computeHash(String input) throws Exception {
