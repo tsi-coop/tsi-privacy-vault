@@ -36,10 +36,10 @@
     <header class="flex justify-between items-end mb-10">
         <div>
             <h1 class="text-3xl font-black text-slate-900 tracking-tight uppercase italic">TSI <span class="text-[#006A67]">Vault</span></h1>
-            <p id="sessionDisplay" class="text-slate-500 text-[10px] font-mono mt-2 uppercase tracking-widest">Interface: store_data Protocol</p>
+            <p id="sessionDisplay" class="text-slate-500 text-[10px] font-mono mt-2 uppercase tracking-widest">Interface: Sovereign Layer</p>
         </div>
         <div class="bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm text-right">
-            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Sovereign Layer</p>
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Protocol Active</p>
             <p class="text-xs font-bold text-teal-600 uppercase tracking-tighter">● Online</p>
         </div>
     </header>
@@ -49,8 +49,8 @@
             <thead class="bg-slate-50 border-b border-slate-200">
                 <tr class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
                     <th class="px-8 py-5">Type</th>
-                    <th class="px-8 py-5">Entity Code (ID Type)</th>
-                    <th class="px-8 py-5 text-right">Identity Operations</th>
+                    <th class="px-8 py-5">Entity Code</th>
+                    <th class="px-8 py-5 text-right">Operations</th>
                 </tr>
             </thead>
             <tbody id="entityTable" class="divide-y divide-slate-100 text-sm"></tbody>
@@ -69,34 +69,43 @@
             <div id="fetchView" class="hidden space-y-4">
                 <div>
                     <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Reference Key</label>
-                    <input type="text" id="manualRefKey" class="w-full border border-slate-200 rounded-xl p-4 mt-1 font-mono text-sm outline-none focus:ring-2 focus:ring-teal-500" placeholder="Enter key to resolve...">
+                    <input type="text" id="manualRefKey" class="w-full border border-slate-200 rounded-xl p-4 mt-1 font-mono text-sm outline-none focus:ring-2 focus:ring-teal-500" placeholder="Enter UUID reference...">
                 </div>
-                <button onclick="executeFetch()" class="w-full bg-[#006A67] text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-teal-700">Fetch</button>
+                <button onclick="executeFetch()" class="w-full bg-[#006A67] text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-teal-700">Fetch & Resolve</button>
                 <div id="fetchResult" class="hidden">
-                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Resolved Entity ID</label>
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Resolution Result</label>
                     <div id="decryptedOutput" class="data-entry"></div>
                 </div>
             </div>
 
             <div id="storeView" class="hidden space-y-4">
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 gap-4">
                     <div>
-                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Entity Name (Code)</label>
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Entity Target</label>
                         <input type="text" id="storeEntityName" readonly class="w-full border border-slate-200 rounded-xl p-4 mt-1 font-mono text-sm outline-none">
                     </div>
-                    <div>
-                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Payload Content</label>
-                        <input type="text" id="storeContent" class="w-full border border-slate-200 rounded-xl p-4 mt-1 font-mono text-sm outline-none focus:ring-2 focus:ring-teal-500" placeholder="Enter content">
+                    
+                    <div id="textContentContainer">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Content Payload</label>
+                        <textarea id="storeContent" rows="3" class="w-full border border-slate-200 rounded-xl p-4 mt-1 font-mono text-sm outline-none focus:ring-2 focus:ring-teal-500" placeholder="Enter sensitive text..."></textarea>
+                    </div>
+
+                    <div id="fileContentContainer" class="hidden">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Select File for Vaulting</label>
+                        <input type="file" id="fileUploadInput" class="w-full border border-dashed border-slate-300 rounded-xl p-8 mt-1 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100">
                     </div>
                 </div>
-                <button id="execStoreBtn" class="w-full bg-[#006A67] text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-teal-800">Store Data</button>
+
+                <input type="hidden" id="storeEntityType">
+                <button id="execStoreBtn" class="w-full bg-[#006A67] text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-teal-800">Store Securely</button>
+                
                 <div id="storeResult" class="hidden">
                     <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Reference Receipt</label>
                     <div id="newRefOutput" class="data-entry text-teal-700 font-bold"></div>
                 </div>
             </div>
             
-            <button onclick="closeModal()" class="w-full mt-6 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition">Close</button>
+            <button onclick="closeModal()" class="w-full mt-6 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition">Cancel</button>
         </div>
     </div>
 </div>
@@ -127,7 +136,7 @@
         const data = await vaultRequest("get_authorized_entities");
         if(data && data.entities) {
             document.getElementById('authBarrier').classList.add('hidden');
-            document.getElementById('sessionDisplay').textContent = `Sync: ${CREDENTIALS.key}`;
+            document.getElementById('sessionDisplay').textContent = `Authenticated: ${CREDENTIALS.key}`;
             renderEntities(data.entities);
         }
     }
@@ -142,7 +151,7 @@
                 <td class="px-8 py-6 font-bold text-slate-700 font-mono text-xs">${e.entity_code}</td>
                 <td class="px-8 py-6 text-right space-x-2">
                     <button onclick="openFetchPopup()" class="px-4 py-2 text-[10px] font-black uppercase border border-slate-200 text-slate-600 rounded-md hover:bg-slate-100">Fetch</button>
-                    <button onclick="openStorePopup('${e.entity_code}')" class="px-4 py-2 text-[10px] font-black uppercase bg-[#006A67] text-white rounded-md hover:bg-teal-800">Store</button>
+                    <button onclick="openStorePopup('${e.entity_code}', '${e.flavor}')" class="px-4 py-2 text-[10px] font-black uppercase bg-[#006A67] text-white rounded-md hover:bg-teal-800">Store</button>
                 </td>
             </tr>
         `).join('');
@@ -152,64 +161,96 @@
         document.getElementById('opModal').style.display = 'flex';
         document.getElementById('fetchView').classList.remove('hidden');
         document.getElementById('storeView').classList.add('hidden');
-        document.getElementById('modalTitle').textContent = "Resolve Reference Key";
+        document.getElementById('modalTitle').textContent = "Vault Retrieval Protocol";
         document.getElementById('fetchResult').classList.add('hidden');
         document.getElementById('manualRefKey').value = '';
     }
 
     async function executeFetch() {
         const refKey = document.getElementById('manualRefKey').value;
-        if(!refKey) return alert("Key required");
+        if(!refKey) return alert("Reference Key required");
 
         const res = await vaultRequest("fetch_id_by_reference", { "reference-key": refKey });
         
-        // Fixed to use res.value to match backend response: {"success":true,"value":"..."}
         if(res.success && res.value) {
             try {
-                // Decoding Base64 content returned from the vault
-                document.getElementById('decryptedOutput').textContent = atob(res.value);
+                // Determine if binary content (based on flavor if available, or simple check)
+                const isLikelyFile = res.value.length > 200 || /^[A-Za-z0-9+/=]+$/.test(res.value);
+                
+                if (isLikelyFile) {
+                    const blobLink = document.createElement('a');
+                    blobLink.href = `data:application/octet-stream;base64,${res.value}`;
+                    blobLink.download = `vault_binary_${refKey.substring(0,8)}.dat`;
+                    blobLink.click();
+                    document.getElementById('decryptedOutput').textContent = "Binary detected: Download initiated.";
+                } else {
+                    document.getElementById('decryptedOutput').textContent = atob(res.value);
+                }
                 document.getElementById('fetchResult').classList.remove('hidden');
             } catch (e) {
-                // Fallback if content is already plain text
                 document.getElementById('decryptedOutput').textContent = res.value;
                 document.getElementById('fetchResult').classList.remove('hidden');
             }
         } else {
-            alert("Reference not found.");
+            alert("Reference not found or unauthorized.");
         }
     }
 
-    function openStorePopup(code) {
+    function openStorePopup(code, flavor) {
         document.getElementById('opModal').style.display = 'flex';
         document.getElementById('fetchView').classList.add('hidden');
         document.getElementById('storeView').classList.remove('hidden');
-        document.getElementById('modalTitle').textContent = "Vault Storage Protocol";
+        document.getElementById('modalTitle').textContent = `${flavor} Storage Protocol`;
         document.getElementById('storeResult').classList.add('hidden');
         
         document.getElementById('storeEntityName').value = code;
-        document.getElementById('storeContent').value = '';
+        document.getElementById('storeEntityType').value = flavor;
+        
+        // Toggle input UI based on flavor
+        if (flavor === 'FILE') {
+            document.getElementById('textContentContainer').classList.add('hidden');
+            document.getElementById('fileContentContainer').classList.remove('hidden');
+        } else {
+            document.getElementById('textContentContainer').classList.remove('hidden');
+            document.getElementById('fileContentContainer').classList.add('hidden');
+            document.getElementById('storeContent').value = '';
+        }
         
         document.getElementById('execStoreBtn').onclick = () => executeStore();
     }
 
     async function executeStore() {
         const entityCode = document.getElementById('storeEntityName').value;
-        const payloadContent = document.getElementById('storeContent').value;
-        
-        if(!payloadContent) return alert("Content is required.");
+        const flavor = document.getElementById('storeEntityType').value;
+        let base64Payload = "";
+
+        if (flavor === 'FILE') {
+            const fileInput = document.getElementById('fileUploadInput');
+            if (fileInput.files.length === 0) return alert("Please select a file.");
+            
+            const file = fileInput.files[0];
+            base64Payload = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]); 
+                reader.readAsDataURL(file);
+            });
+        } else {
+            const textContent = document.getElementById('storeContent').value;
+            if(!textContent) return alert("Content is required.");
+            base64Payload = btoa(textContent);
+        }
 
         const res = await vaultRequest("store_data", { 
-            "entityType": "ID", 
+            "entityType": flavor,
             "entityName": entityCode,
-            "content": btoa(payloadContent)
+            "content": base64Payload
         });
 
-        // Matches backend format: {"success":true, "reference_key": "UUID-STRING"}
         if(res.success && res.reference_key) {
             document.getElementById('newRefOutput').textContent = res.reference_key;
             document.getElementById('storeResult').classList.remove('hidden');
         } else {
-            alert("Storage failed: " + (res.message || "Unknown error"));
+            alert("Storage failed: " + (res.message || "Protocol Error"));
         }
     }
 
