@@ -282,7 +282,7 @@ public class Vault implements Action {
                 conn,
                 apiKey, 
                 "STORE", 
-                entityCode, 
+                entityType+":"+entityCode+":"+referenceKey, 
                 ip, 
                 ua, 
                 "SUCCESS"
@@ -298,7 +298,7 @@ public class Vault implements Action {
                 conn,
                 apiKey, 
                 "STORE", 
-                entityCode, 
+                entityType+":"+entityCode+":"+referenceKey, 
                 ip, 
                 ua, 
                 "FAILURE"
