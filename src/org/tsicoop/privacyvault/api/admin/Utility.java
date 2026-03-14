@@ -95,8 +95,7 @@ public class Utility implements Action {
             ps.setString(6, machineId);
             ps.executeUpdate();
 
-            logEvent(who, "ENROLL", utilityId, ip, ua, machineId, "SUCCESS", null);
-            
+           
             JSONObject out = new JSONObject();
             out.put("utility_id", utilityId);
             OutputProcessor.send(res, HttpServletResponse.SC_OK, out);
@@ -127,7 +126,6 @@ public class Utility implements Action {
 
                 // Hardware Anchor Validation
                 if (!storedMachineId.equals(currentMachineId)) {
-                    logEvent(who, "CHECKOUT", utilityId, ip, ua, currentMachineId, "DENIED", "Hardware mismatch");
                     OutputProcessor.sendError(res, HttpServletResponse.SC_FORBIDDEN, "Hardware anchor mismatch.");
                     return;
                 }
@@ -141,9 +139,7 @@ public class Utility implements Action {
                 byte[] encryptedBlob = Base64.getDecoder().decode(encryptedPayload);
                 byte[] cleartextBytes = kms.aesDecrypt(encryptedBlob, plaintextKey);
                 String cleartext = new String(cleartextBytes, "UTF-8");
-
-                logEvent(who, "CHECKOUT", utilityId, ip, ua, currentMachineId, "SUCCESS", null);
-                
+      
                 res.setContentType("text/plain");
                 res.getWriter().write(cleartext);
             } else {
@@ -204,39 +200,13 @@ public class Utility implements Action {
             ps.setString(4, utilityId);
             ps.executeUpdate();
 
-            logEvent(who, "ROTATE", utilityId, ip, ua, machineId, "SUCCESS", null);
             OutputProcessor.send(res, HttpServletResponse.SC_OK, new JSONObject());
         } finally {
             pool.cleanup(null, ps, conn);
         }
     }
 
-    private void logEvent(String who, String op, String utl, String ip, String ua, String mid, String outcome, String reason) {
-        Connection conn = null;
-        PreparedStatement ps = null;
-        PoolDB pool = null;
-        try {
-            pool = new PoolDB();
-            conn = pool.getConnection();
-            String sql = "INSERT INTO event_log (who, operation_type, utility_ref, client_ip, user_agent, machine_id, outcome, failure_reason, log_datetime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            ps = conn.prepareStatement(sql);
-            ps.setString(1, who);
-            ps.setString(2, op);
-            ps.setString(3, utl);
-            ps.setString(4, ip);
-            ps.setString(5, ua);
-            ps.setString(6, mid);
-            ps.setString(7, outcome);
-            ps.setString(8, reason);
-            ps.setTimestamp(9, Timestamp.valueOf(LocalDateTime.now()));
-            ps.executeUpdate();
-        } catch (Exception e) {
-            System.err.println("Audit Failure: " + e.getMessage());
-        } finally {
-            pool.cleanup(null, ps, conn);
-        }
-    }
-
+  
     @Override public boolean validate(String m, HttpServletRequest req, HttpServletResponse res) { return true; }
     @Override public void get(HttpServletRequest req, HttpServletResponse res) {}
     @Override public void delete(HttpServletRequest req, HttpServletResponse res) {}
