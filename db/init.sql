@@ -119,7 +119,7 @@ CREATE TABLE bsa_forensic_logs (
 CREATE TABLE IF NOT EXISTS event_log (
     log_id BIGSERIAL PRIMARY KEY,    
     who VARCHAR(255),    
-    operation_type VARCHAR(50) NOT NULL,    
+    operation_type VARCHAR(255) NOT NULL,    
     entity_code VARCHAR(50), 
     reference_key UUID,      -- Used by the Entity Master
     utility_ref UUID, -- Used by the Utility 

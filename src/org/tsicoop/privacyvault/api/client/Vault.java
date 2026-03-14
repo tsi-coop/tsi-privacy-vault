@@ -346,9 +346,9 @@ public class Vault implements Action {
                  // Log to event_log table
                 logVaultEvent(
                     conn,
-                    apiKey+":"+entityType+":"+entityCode, 
+                    apiKey, 
                     "FETCH", 
-                    ref, 
+                    entityType+":"+entityCode+":"+ref, 
                     ip, 
                     ua, 
                     "SUCCESS"
