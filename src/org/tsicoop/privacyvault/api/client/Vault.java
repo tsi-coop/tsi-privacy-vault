@@ -46,7 +46,9 @@ public class Vault implements Action {
                 case "store_data":
                     handleStore(input, apiKey, clientIp, userAgent, res);
                     break;
+                case "fetch_data":
                 case "fetch_id_by_reference":
+                case "fetch_data_by_reference":
                 case "fetch_file_by_reference":
                     handleFetch(input, apiKey, clientIp, userAgent, res);
                     break;

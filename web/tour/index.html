@@ -43,6 +43,7 @@
          <div class="h-2 w-2 rounded-full bg-green-500"></div>
          <div class="h-2 w-2 rounded-full bg-green-500"></div>
          <div class="h-2 w-2 rounded-full bg-green-500"></div>
+         <div class="h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></div>
       </div>
     </div>
 
@@ -54,7 +55,7 @@
           <td class="px-8 py-8 w-16 text-2xl font-black text-slate-200 group-hover:text-indigo-500">01</td>
           <td class="px-4 py-8">
             <div class="font-black text-slate-900 uppercase text-sm tracking-tight">Environment Setup</div>
-            <div class="text-[10px] text-slate-400 font-mono mt-1">init.html</div>
+            <div class="text-[10px] text-slate-400 font-mono mt-1">/init.html</div>
             <p class="text-sm text-slate-500 mt-2 max-w-md">Initialize the Sovereign Safe, define Master Keys, and establish the root hardware anchor for the vault instance.</p>
           </td>
           <td class="px-6 py-8"><span class="status-badge bg-blue-100 text-blue-700">Infrastructure</span></td>
@@ -89,6 +90,19 @@
           </td>
         </tr>
 
+        <tr class="tour-row transition-all group">
+            <td class="px-8 py-8 w-16 text-2xl font-black text-slate-200 group-hover:text-amber-500">04</td>
+            <td class="px-4 py-8">
+              <div class="font-black text-slate-900 uppercase text-sm tracking-tight">API Technical Tour</div>
+              <div class="text-[10px] text-slate-400 font-mono mt-1">api.html</div>
+              <p class="text-sm text-slate-500 mt-2 max-w-md">Developer deep-dive. Technical specifications for ID, DATA, and FILE flavors, request/response structures, and unified headers.</p>
+            </td>
+            <td class="px-6 py-8"><span class="status-badge bg-amber-100 text-amber-700">Documentation</span></td>
+            <td class="px-8 py-8 text-right">
+              <a href="api.html" class="inline-flex items-center px-6 py-2.5 bg-amber-500 text-white rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-colors">View API Specs</a>
+            </td>
+          </tr>
+
         </tbody>
       </table>
     </div>
@@ -101,7 +115,7 @@
       </div>
       <div>
         <h4 class="font-black text-slate-900 uppercase text-xs tracking-widest">Evidence Chain Active</h4>
-        <p class="text-sm text-slate-500 mt-1">All modules utilize the <code>/api/v1/forensic</code> endpoint to ensure every interaction is court-ready.</p>
+        <p class="text-sm text-slate-500 mt-1">All modules utilize the <code>/api/client/vault</code> endpoint to ensure every interaction is court-ready.</p>
       </div>
     </div>
     <div class="text-right">
