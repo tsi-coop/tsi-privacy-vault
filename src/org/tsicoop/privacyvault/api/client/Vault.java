@@ -324,6 +324,7 @@ public class Vault implements Action {
             rs = ps.executeQuery();
             
             if (rs.next()) {
+                String entityType = rs.getString("entity_type");
                 String entityCode = rs.getString("id_type_code");
                 if (!isAuthorized(apiKey, entityCode, "READ")) {
                     OutputProcessor.sendError(res, 403, "Read access denied.");
@@ -356,6 +357,7 @@ public class Vault implements Action {
                 JSONObject out = new JSONObject();
                 out.put("success", true);
                 out.put("value", decrypted);
+                out.put("flavor",entityType);
                 OutputProcessor.send(res, 200, out);
             } else {
                 
@@ -415,16 +417,16 @@ public class Vault implements Action {
             machineId = ForensicEngine.getMachineIdentifier(); // Anchors log to hardware
              
             // Using your existing event_log table structure
-            String sql = "INSERT INTO event_log (api_key, operation_type, client_ip, user_agent, machine_id, outcome, log_datetime) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO event_log (who, operation_type, client_ip, user_agent, machine_id, outcome, log_datetime) VALUES (?, ?, ?, ?, ?, ?, ?)";
             ps = conn.prepareStatement(sql);
             
-            ps.setString(1, actorKey);
+            ps.setString(1, actorKey+":"+target);
             // Prefix with 'VAULT_' to distinguish data access from 'ADMIN_' UI actions
             ps.setString(2, "VAULT_" + op); 
             ps.setString(3, ip);
             ps.setString(4, ua);
             ps.setString(5, machineId);
-            ps.setString(6, "TARGET:" + target + " | " + outcome); // Store the resource ID in the outcome field
+            ps.setString(6, outcome); 
             ps.setTimestamp(7, Timestamp.valueOf(LocalDateTime.now()));
             
             ps.executeUpdate();

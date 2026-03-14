@@ -170,26 +170,33 @@
         const refKey = document.getElementById('manualRefKey').value;
         if(!refKey) return alert("Reference Key required");
 
+        // The request now expects the flavor to be returned with the value
         const res = await vaultRequest("fetch_id_by_reference", { "reference-key": refKey });
         
         if(res.success && res.value) {
-            try {
-                // Determine if binary content (based on flavor if available, or simple check)
-                const isLikelyFile = res.value.length > 200 || /^[A-Za-z0-9+/=]+$/.test(res.value);
-                
-                if (isLikelyFile) {
+            document.getElementById('fetchResult').classList.remove('hidden');
+            const outputDiv = document.getElementById('decryptedOutput');
+            
+            // LOGIC CHANGE: Initiate download ONLY if flavor is strictly 'FILE'
+            if (res.flavor === 'FILE') {
+                try {
                     const blobLink = document.createElement('a');
                     blobLink.href = `data:application/octet-stream;base64,${res.value}`;
-                    blobLink.download = `vault_binary_${refKey.substring(0,8)}.dat`;
+                    blobLink.download = `vault_file_${refKey.substring(0,8)}.dat`;
                     blobLink.click();
-                    document.getElementById('decryptedOutput').textContent = "Binary detected: Download initiated.";
-                } else {
-                    document.getElementById('decryptedOutput').textContent = atob(res.value);
+                    
+                    outputDiv.innerHTML = `<span class="text-teal-600 font-bold">✓ Binary Download Initiated</span>`;
+                } catch (e) {
+                    alert("Download failed: Invalid Base64 data.");
                 }
-                document.getElementById('fetchResult').classList.remove('hidden');
-            } catch (e) {
-                document.getElementById('decryptedOutput').textContent = res.value;
-                document.getElementById('fetchResult').classList.remove('hidden');
+            } else {
+                // For all other flavors (TEXT, etc.), resolve as readable string
+                try {
+                    outputDiv.textContent = atob(res.value);
+                } catch (e) {
+                    // Fallback if not Base64 encoded
+                    outputDiv.textContent = res.value;
+                }
             }
         } else {
             alert("Reference not found or unauthorized.");
