@@ -346,7 +346,7 @@ public class Vault implements Action {
                  // Log to event_log table
                 logVaultEvent(
                     conn,
-                    apiKey, 
+                    apiKey+":"+entityType+":"+entityCode, 
                     "FETCH", 
                     ref, 
                     ip, 
@@ -366,7 +366,7 @@ public class Vault implements Action {
                     conn,
                     apiKey, 
                     "FETCH", 
-                    ref, 
+                    ref,  
                     ip, 
                     ua, 
                     "FAILURE"
@@ -420,9 +420,9 @@ public class Vault implements Action {
             String sql = "INSERT INTO event_log (who, operation_type, client_ip, user_agent, machine_id, outcome, log_datetime) VALUES (?, ?, ?, ?, ?, ?, ?)";
             ps = conn.prepareStatement(sql);
             
-            ps.setString(1, actorKey+":"+target);
+            ps.setString(1, "VAULT:"+actorKey);
             // Prefix with 'VAULT_' to distinguish data access from 'ADMIN_' UI actions
-            ps.setString(2, "VAULT_" + op); 
+            ps.setString(2, op+":"+target); 
             ps.setString(3, ip);
             ps.setString(4, ua);
             ps.setString(5, machineId);

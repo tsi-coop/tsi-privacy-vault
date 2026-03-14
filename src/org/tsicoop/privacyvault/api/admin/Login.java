@@ -117,7 +117,7 @@ public class Login implements Action {
             String sql = "INSERT INTO event_log (who, operation_type, client_ip, user_agent, machine_id, outcome, failure_reason, log_datetime) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             ps = conn.prepareStatement(sql);
             ps.setString(1, "ADMIN:" + email); 
-            ps.setString(2, "ADMIN_LOGIN");
+            ps.setString(2, "LOGIN");
             ps.setString(3, ip);
             ps.setString(4, ua);
             ps.setString(5, machineId);

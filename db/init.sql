@@ -114,15 +114,6 @@ CREATE TABLE bsa_forensic_logs (
     is_anchored BOOLEAN DEFAULT TRUE  -- Permanent record for evidence
 );
 
--- Audit Log for Access (Proves Lawful Control)
-CREATE TABLE vault_audit_trail (
-    audit_id BIGSERIAL PRIMARY KEY,
-    reference_key UUID,
-    action_type VARCHAR(20),         -- 'STORE', 'FETCH', 'PRINT'
-    api_key VARCHAR(100),            -- App or User ID
-    access_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    ip_address VARCHAR(45)
-);
 
 -- Create Table: event_log
 CREATE TABLE IF NOT EXISTS event_log (
