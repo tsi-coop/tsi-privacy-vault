@@ -15,8 +15,7 @@ import org.tsicoop.privacyvault.framework.*;
 public class Vault implements Action {
 
     private final KmsProvider kms; 
-    private final BSACertificateGenerator certGenerator = new BSACertificateGenerator();
-
+   
     public Vault() {
         String providerType = System.getProperty("vault.provider", "LOCAL");
         this.kms = "AWS".equalsIgnoreCase(providerType) ? new AwsKmsProvider() : new LocalKmsProvider();
@@ -52,12 +51,7 @@ public class Vault implements Action {
                 case "fetch_file_by_reference":
                     handleFetch(input, apiKey, clientIp, userAgent, res);
                     break;
-                case "generate_entity_bsa_certificate":
-                    handleEntityCertGen((String) input.get("reference_key"), res);
-                    break;
-                case "generate_utility_bsa_certificate":
-                    handleEntityCertGen((String) input.get("reference_key"), res);
-                    break;
+              
                 default:
                     OutputProcessor.sendError(res, 404, "Function not found.");
             }
@@ -400,34 +394,7 @@ public class Vault implements Action {
        
     }
 
-    private void handleEntityCertGen(String ref, HttpServletResponse res) throws Exception {
-        Connection conn = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        PoolDB pool = new PoolDB();
-        JSONObject forensicData = new JSONObject();
-        try {
-            conn = pool.getConnection();
-            String sql = "SELECT v.hashed_value_sha256, f.* FROM vault_entities v " +
-                         "JOIN bsa_forensic_logs f ON v.entity_ref = f.entity_ref " +
-                         "WHERE v.entity_ref = ?";
-            ps = conn.prepareStatement(sql);
-            ps.setString(1, ref);
-            rs = ps.executeQuery();
-            if (rs.next()) {
-                forensicData.put("sha256_hash", rs.getString("hashed_value_sha256"));
-                forensicData.put("machine_model", rs.getString("device_make_model"));
-                forensicData.put("health_status", rs.getString("system_status"));
-            }
-        } finally {
-            pool.cleanup(rs, ps, conn);
-        }
-        
-        if (forensicData.isEmpty()) throw new Exception("Forensic metadata missing.");
-        res.setContentType("application/pdf");
-        certGenerator.streamSection63Certificate(forensicData, res.getOutputStream());
-    }
-
+   
     private void logVaultEvent(Connection conn, String actorKey, String op, String target, String ip, String ua, String outcome, UUID referenceKey, UUID utilityRef) {
         PreparedStatement ps = null;
         String machineId = null;

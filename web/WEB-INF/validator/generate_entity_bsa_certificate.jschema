@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Generated Schema",
+  "type": "object",
+  "properties": {
+    "_func": {
+      "type": "string"
+    },
+    "referenceKey": {
+      "type": "string",
+      "format": "uuid"
+    }
+  },
+  "required": [
+    "_func",
+    "referenceKey"
+  ]
+}

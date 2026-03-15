@@ -73,7 +73,7 @@
 </main>
 
 <script>
-    const API_URL = 'api/admin/legal';
+    const LEGAL_API = 'api/admin/legal';
     const TOKEN = localStorage.getItem('vaultToken');
     const USER = localStorage.getItem('username') || 'LegalOfficer';
 
@@ -82,7 +82,6 @@
         document.getElementById('user-initials').textContent = USER.substring(0, 2).toUpperCase();
         fetchLegalLogs();
 
-        // Real-time client-side filter
         document.getElementById('legal-search').addEventListener('input', (e) => {
             const term = e.target.value.toLowerCase();
             const rows = document.querySelectorAll('#legal-table-body tr');
@@ -94,7 +93,7 @@
 
     async function fetchLegalLogs() {
         try {
-            const res = await fetch(API_URL, {
+            const res = await fetch(LEGAL_API, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
                 body: JSON.stringify({ 
@@ -107,12 +106,10 @@
             
             if (res.ok) {
                 const logs = data.content || []; 
-                
                 if (logs.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-10 text-center text-slate-400 italic">No certifiable evidence found.</td></tr>';
                     return;
                 }
-
                 if(data.totalElements) {
                     document.getElementById('pagination-info').textContent = `Showing ${logs.length} forensic records`;
                 }
@@ -124,9 +121,7 @@
                             <div class="text-[9px] text-indigo-500 font-bold uppercase tracking-tighter mt-1">${log.refType} SOURCE</div>
                         </td>
                         <td class="px-6 py-4">
-                            <span class="px-2 py-0.5 rounded text-[10px] font-black bg-slate-100 text-slate-600 uppercase">
-                                ${log.operationType}
-                            </span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-black bg-slate-100 text-slate-600 uppercase">${log.operationType}</span>
                             <div class="text-[10px] font-bold text-slate-400 mt-1 uppercase">${log.apiKey || 'System'}</div>
                         </td>
                         <td class="px-6 py-4">
@@ -137,7 +132,7 @@
                             ${new Date(log.logDatetime).toLocaleString()}
                         </td>
                         <td class="px-6 py-4 text-right">
-                            <button onclick="generateBSAEvidence('${log.referenceKey}')" 
+                            <button onclick="generateBSAEvidence('${log.referenceKey}', '${log.refType}')" 
                                     class="bg-slate-900 text-white px-3 py-1.5 rounded text-[9px] font-black uppercase tracking-widest hover:bg-indigo-600 transition shadow-sm">
                                 Generate Certificate
                             </button>
@@ -150,8 +145,37 @@
         }
     }
 
-    function generateBSAEvidence(refKey) {
-        window.location.href = `/api/client/vault/evidence?ref=${refKey}`;
+    async function generateBSAEvidence(refKey, refType) {
+        // Determine correct function based on source type
+        const func = refType === 'ENTITY' ? 'generate_entity_bsa_certificate' : 'generate_utility_bsa_certificate';
+        
+        try {
+            const response = await fetch(LEGAL_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+                body: JSON.stringify({ 
+                    "_func": func,
+                    "referenceKey": refKey 
+                })
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `BSA_Cert_${refKey}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } else {
+                alert("Error: Evidence cannot be generated for this record.");
+            }
+        } catch (err) {
+            console.error("Certificate generation error:", err);
+            alert("Error connecting to legal service.");
+        }
     }
 
     function handleLogout() { localStorage.clear(); window.location.href = "index.html"; }
