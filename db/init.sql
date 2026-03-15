@@ -41,7 +41,7 @@ CREATE TABLE api_user (
 
 -- Master Table for ID, DATA and File Records
 CREATE TABLE vault_entities (
-    reference_key UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    entity_ref UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     entity_type VARCHAR(20) NOT NULL, -- 'ID' or 'FILE'
     id_type_code VARCHAR(50),        -- Aadhaar, Voter, etc. (for IDs)
     file_name TEXT,                  -- Original name (for Files)
@@ -52,9 +52,9 @@ CREATE TABLE vault_entities (
 );
 
 CREATE TABLE vault_utilities (
-    utility_id VARCHAR(50) PRIMARY KEY,
+    utility_ref UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     flavor VARCHAR(20) NOT NULL, -- KEYS, CERT, SHARED_KEYS
-    label VARCHAR(255) NOT NULL,
+    label VARCHAR(255) NOT NULL UNIQUE,
     payload TEXT, -- Encrypted local secret
     metadata JSONB NOT NULL DEFAULT '{}', -- stores external_ref, alias, passphrase, k, n
     encrypted_key TEXT,  
@@ -97,7 +97,8 @@ CREATE TABLE permissions (
 -- BSA 2023 Forensic Metadata (The "Evidence Log")
 CREATE TABLE bsa_forensic_logs (
     log_id BIGSERIAL PRIMARY KEY,
-    reference_key UUID,    
+    entity_ref UUID,    
+    utility_ref UUID,
     -- PART A: User/Machine Details
     device_make_model VARCHAR(255),
     device_serial_number VARCHAR(100),
@@ -121,7 +122,7 @@ CREATE TABLE IF NOT EXISTS event_log (
     who VARCHAR(255),    
     operation_type VARCHAR(255) NOT NULL,    
     entity_code VARCHAR(50), 
-    reference_key UUID,      -- Used by the Entity Master
+    entity_ref UUID,      -- Used by the Entity Master
     utility_ref UUID, -- Used by the Utility 
     client_ip VARCHAR(45) NOT NULL, 
     user_agent TEXT,                

@@ -12,3 +12,4 @@
 /api/admin/entity=org.tsicoop.privacyvault.api.admin.Entity
 /api/admin/utility=org.tsicoop.privacyvault.api.admin.Utility
 /api/admin/audit=org.tsicoop.privacyvault.api.admin.Audit
+/api/admin/legal=org.tsicoop.privacyvault.api.admin.Legal

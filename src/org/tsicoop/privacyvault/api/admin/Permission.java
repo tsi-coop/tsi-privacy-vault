@@ -56,7 +56,7 @@ public class Permission implements Action {
             String sql = 
                 "SELECT 'ENTITY' as type, entity_code as id, entity_name as label FROM vault_entity_master WHERE active = true " +
                 "UNION ALL " +
-                "SELECT 'UTILITY' as type, utility_id as id, label FROM vault_utilities WHERE active = true " +
+                "SELECT 'UTILITY' as type, label as id, label FROM vault_utilities WHERE active = true " +
                 "ORDER BY type, label";
             
             pstmt = conn.prepareStatement(sql);
@@ -65,7 +65,7 @@ public class Permission implements Action {
             while (rs.next()) {
                 JSONObject item = new JSONObject();
                 item.put("type", rs.getString("type"));
-                item.put("id", rs.getString("id"));
+                item.put("id", rs.getObject("id").toString());
                 item.put("label", rs.getString("label"));
                 resources.add(item);
             }

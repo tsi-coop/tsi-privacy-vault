@@ -52,8 +52,11 @@ public class Vault implements Action {
                 case "fetch_file_by_reference":
                     handleFetch(input, apiKey, clientIp, userAgent, res);
                     break;
-                case "generate_bsa_certificate":
-                    handleCertGen((String) input.get("reference_key"), res);
+                case "generate_entity_bsa_certificate":
+                    handleEntityCertGen((String) input.get("reference_key"), res);
+                    break;
+                case "generate_utility_bsa_certificate":
+                    handleEntityCertGen((String) input.get("reference_key"), res);
                     break;
                 default:
                     OutputProcessor.sendError(res, 404, "Function not found.");
@@ -109,9 +112,9 @@ public class Vault implements Action {
         PoolDB pool = new PoolDB();
         
         // SQL updated to include can_read and can_write from the permissions table
-        String sql = "SELECT u.utility_id, u.flavor, u.label, p.can_read, p.can_write " +
+        String sql = "SELECT u.utility_ref, u.flavor, u.label, p.can_read, p.can_write " +
                      "FROM permissions p " +
-                     "JOIN vault_utilities u ON p.resource_id = u.utility_id " +
+                     "JOIN vault_utilities u ON p.resource_id = u.label " +
                      "WHERE p.api_key = ? AND p.resource_type = 'UTILITY' AND u.active = true";
                      
         JSONArray utilities = new JSONArray();
@@ -124,7 +127,7 @@ public class Vault implements Action {
             while (rs.next()) {
                 JSONObject util = new JSONObject();
                 // Core utility data
-                util.put("id", rs.getString("utility_id"));
+                util.put("id", rs.getString("label"));
                 util.put("flavor", rs.getString("flavor"));
                 util.put("label", rs.getString("label"));
                 
@@ -166,12 +169,13 @@ public class Vault implements Action {
         PreparedStatement ps = null;
         ResultSet rs = null;
         PoolDB pool = new PoolDB();
+        UUID utilityRef = null;
 
         // SQL joins permissions and vault_utilities to verify access and fetch the secret
-        String sql = "SELECT u.payload, u.encrypted_key, u.flavor " +
+        String sql = "SELECT u.utility_ref,u.payload, u.encrypted_key, u.flavor " +
                      "FROM permissions p " +
-                     "JOIN vault_utilities u ON p.resource_id = u.utility_id " +
-                     "WHERE p.api_key = ? AND u.utility_id = ? " +
+                     "JOIN vault_utilities u ON p.resource_id = u.label " +
+                     "WHERE p.api_key = ? AND u.label = ? " +
                      "AND p.resource_type = 'UTILITY' AND p.can_read = true AND u.active = true";
 
         try {
@@ -186,6 +190,7 @@ public class Vault implements Action {
                 String encryptedKey = rs.getString("encrypted_key");
                 
                 String resolvedValue = decryptUtilityPayload(encryptedKey, encryptedPayload);
+                utilityRef = (UUID) rs.getObject("utility_ref");
 
                 JSONObject output = new JSONObject();
                 output.put("success", true);
@@ -200,7 +205,9 @@ public class Vault implements Action {
                     utilityId, 
                     ip, 
                     ua, 
-                    "SUCCESS"
+                    "SUCCESS",
+                    null,
+                    utilityRef
                 );
                 
                 OutputProcessor.send(res, 200, output);
@@ -215,7 +222,9 @@ public class Vault implements Action {
                     utilityId, 
                     ip, 
                     ua, 
-                    "FAILURE"
+                    "FAILURE",
+                    null,
+                    utilityRef
                 );
                 OutputProcessor.sendError(res, 403, "Access Denied: Insufficient permissions to read this utility.");
             }
@@ -269,7 +278,7 @@ public class Vault implements Action {
         try {
             conn = pool.getConnection();
             // Store the ciphertext AND the encrypted data key (the envelope)
-            String sql = "INSERT INTO vault_entities (entity_type, id_type_code, reference_key, encrypted_content, encrypted_data_key, hashed_value_sha256) VALUES (?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO vault_entities (entity_type, id_type_code, entity_ref, encrypted_content, encrypted_data_key, hashed_value_sha256) VALUES (?, ?, ?, ?, ?, ?)";
             ps = conn.prepareStatement(sql);
             ps.setString(1, entityType);
             ps.setString(2, entityCode);
@@ -287,7 +296,9 @@ public class Vault implements Action {
                 entityType+":"+entityCode+":"+referenceKey, 
                 ip, 
                 ua, 
-                "SUCCESS"
+                "SUCCESS",
+                referenceKey,
+                null
             );
             
             JSONObject out = new JSONObject();
@@ -303,7 +314,9 @@ public class Vault implements Action {
                 entityType+":"+entityCode+":"+referenceKey, 
                 ip, 
                 ua, 
-                "FAILURE"
+                "FAILURE",
+                 referenceKey,
+                null
             );
         }finally {
             pool.cleanup(null, ps, conn);
@@ -321,7 +334,7 @@ public class Vault implements Action {
         try {
             pool = new PoolDB();
             conn = pool.getConnection();
-            ps = conn.prepareStatement("SELECT entity_type,id_type_code, encrypted_content, encrypted_data_key FROM vault_entities WHERE reference_key = ?");
+            ps = conn.prepareStatement("SELECT entity_type,id_type_code, encrypted_content, encrypted_data_key FROM vault_entities WHERE entity_ref = ?");
             ps.setObject(1, UUID.fromString(ref));
             rs = ps.executeQuery();
             
@@ -353,7 +366,9 @@ public class Vault implements Action {
                     entityType+":"+entityCode+":"+ref, 
                     ip, 
                     ua, 
-                    "SUCCESS"
+                    "SUCCESS",
+                    UUID.fromString(ref),
+                    null
                 );
                 
                 JSONObject out = new JSONObject();
@@ -371,7 +386,9 @@ public class Vault implements Action {
                     ref,  
                     ip, 
                     ua, 
-                    "FAILURE"
+                    "FAILURE",
+                     UUID.fromString(ref),
+                    null
                 );
 
                 OutputProcessor.sendError(res, 404, "Reference not found.");
@@ -383,7 +400,7 @@ public class Vault implements Action {
        
     }
 
-    private void handleCertGen(String ref, HttpServletResponse res) throws Exception {
+    private void handleEntityCertGen(String ref, HttpServletResponse res) throws Exception {
         Connection conn = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -392,8 +409,8 @@ public class Vault implements Action {
         try {
             conn = pool.getConnection();
             String sql = "SELECT v.hashed_value_sha256, f.* FROM vault_entities v " +
-                         "JOIN bsa_forensic_logs f ON v.reference_key = f.reference_key " +
-                         "WHERE v.reference_key = ?";
+                         "JOIN bsa_forensic_logs f ON v.entity_ref = f.entity_ref " +
+                         "WHERE v.entity_ref = ?";
             ps = conn.prepareStatement(sql);
             ps.setString(1, ref);
             rs = ps.executeQuery();
@@ -411,30 +428,37 @@ public class Vault implements Action {
         certGenerator.streamSection63Certificate(forensicData, res.getOutputStream());
     }
 
-    private void logVaultEvent(Connection conn, String actorKey, String op, String target, String ip, String ua, String outcome) {
+    private void logVaultEvent(Connection conn, String actorKey, String op, String target, String ip, String ua, String outcome, UUID referenceKey, UUID utilityRef) {
         PreparedStatement ps = null;
-        PoolDB pool = null;
         String machineId = null;
         try {
-            machineId = ForensicEngine.getMachineIdentifier(); // Anchors log to hardware
-             
-            // Using your existing event_log table structure
-            String sql = "INSERT INTO event_log (who, operation_type, client_ip, user_agent, machine_id, outcome, log_datetime) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            // Hardware anchor for BSA 2023 compliance
+            machineId = ForensicEngine.getMachineIdentifier(); 
+            
+            String sql = "INSERT INTO event_log (who, operation_type, client_ip, user_agent, machine_id, outcome, entity_ref, utility_ref, log_datetime) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            
             ps = conn.prepareStatement(sql);
             
-            ps.setString(1, "VAULT:"+actorKey);
-            // Prefix with 'VAULT_' to distinguish data access from 'ADMIN_' UI actions
-            ps.setString(2, op+":"+target); 
+            ps.setString(1, "VAULT:" + actorKey);
+            ps.setString(2, op + ":" + target); 
             ps.setString(3, ip);
             ps.setString(4, ua);
             ps.setString(5, machineId);
-            ps.setString(6, outcome); 
-            ps.setTimestamp(7, Timestamp.valueOf(LocalDateTime.now()));
+            ps.setString(6, outcome); // e.g., "SUCCESS" or "DECRYPTED"
+
+            // Pass UUIDs directly
+            ps.setObject(7, referenceKey); // If null, JDBC handles it
+            ps.setObject(8, utilityRef);   // If null, JDBC handles it
+            
+            ps.setTimestamp(9, Timestamp.valueOf(LocalDateTime.now()));
             
             ps.executeUpdate();
         } catch (Exception e) {
             System.err.println("CRITICAL: Vault Access Logging Failed: " + e.getMessage());
-        } 
+        } finally {
+            try { if (ps != null) ps.close(); } catch (Exception ignored) {}
+        }
     }
 
     private String computeHash(String input) throws Exception {

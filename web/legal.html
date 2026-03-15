@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSI Privacy Vault - Legal Evidence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root { --vault-primary: #0f172a; --vault-accent: #6366f1; --background: #f8fafc; }
+        body { background-color: var(--background); font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; }
+        .sidebar { width: 260px; background-color: var(--vault-primary); color: white; position: fixed; height: 100vh; z-index: 50; }
+        .nav-link { display: flex; align-items: center; padding: 12px 24px; color: #94a3b8; font-size: 0.875rem; font-weight: 500; }
+        .nav-link:hover, .nav-link.active { background-color: #1e293b; color: white; border-right: 4px solid var(--vault-accent); }
+        .card { background: white; border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        @media (min-width: 1024px) { main { padding-left: 260px; } }
+    </style>
+</head>
+<body class="flex">
+
+<aside class="sidebar hidden lg:flex flex-col">
+    <div class="p-8">
+        <h2 class="text-lg font-black tracking-tighter uppercase">TSI Privacy Vault</h2>
+        <p class="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">Secure Data Isolation</p>
+    </div>
+    <nav class="flex-1 mt-4">
+        <a href="dashboard.html" class="nav-link">Dashboard</a>
+        <a href="entities.html" class="nav-link">Entities</a>
+        <a href="utilities.html" class="nav-link">Utilities</a>
+        <a href="users.html" class="nav-link">Users</a>
+        <a href="apikeys.html" class="nav-link">API Keys</a>
+        <a href="audit.html" class="nav-link">Audit</a>
+        <a href="legal.html" class="nav-link active">Legal</a>
+    </nav>
+    <div class="p-6 border-t border-slate-800">
+        <div class="flex items-center gap-3">
+            <div class="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs" id="user-initials">LO</div>
+            <div>
+                <p class="text-xs font-bold" id="display-name">Legal Officer</p>
+                <a href="#" onclick="handleLogout()" class="text-[10px] text-red-400 font-bold uppercase hover:underline">Sign Out</a>
+            </div>
+        </div>
+    </div>
+</aside>
+
+<main class="flex-1 min-h-screen">
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-40">
+        <h1 class="text-sm font-bold text-slate-500 uppercase tracking-widest text-[10px]">BSA Forensic Evidence Ledger</h1>
+        <div class="flex gap-4">
+            <input type="text" id="legal-search" placeholder="Search UUID or Principal..." class="text-xs border rounded-lg px-4 py-2 w-64 outline-none focus:ring-2 focus:ring-indigo-500">
+            <button onclick="fetchLegalLogs()" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition">Refresh</button>
+        </div>
+    </header>
+
+    <div class="p-8">
+        <div class="card overflow-hidden">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
+                        <th class="px-6 py-4">Forensic Reference</th>
+                        <th class="px-6 py-4">Operation</th>
+                        <th class="px-6 py-4">Machine ID & IP</th>
+                        <th class="px-6 py-4">Timestamp</th>
+                        <th class="px-6 py-4 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="legal-table-body" class="text-sm divide-y divide-slate-100">
+                    <tr><td colspan="5" class="px-6 py-10 text-center text-slate-400 italic">Synchronizing legal ledger...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div id="pagination-info" class="mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest"></div>
+    </div>
+</main>
+
+<script>
+    const API_URL = 'api/admin/legal';
+    const TOKEN = localStorage.getItem('vaultToken');
+    const USER = localStorage.getItem('username') || 'LegalOfficer';
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('display-name').textContent = USER;
+        document.getElementById('user-initials').textContent = USER.substring(0, 2).toUpperCase();
+        fetchLegalLogs();
+
+        // Real-time client-side filter
+        document.getElementById('legal-search').addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('#legal-table-body tr');
+            rows.forEach(row => {
+                row.style.display = row.innerText.toLowerCase().includes(term) ? '' : 'none';
+            });
+        });
+    });
+
+    async function fetchLegalLogs() {
+        try {
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+                body: JSON.stringify({ 
+                    "_func": "get_legal_ledger",
+                    "search_term": document.getElementById('legal-search').value 
+                })
+            });
+            const data = await res.json();
+            const tbody = document.getElementById('legal-table-body');
+            
+            if (res.ok) {
+                const logs = data.content || []; 
+                
+                if (logs.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-10 text-center text-slate-400 italic">No certifiable evidence found.</td></tr>';
+                    return;
+                }
+
+                if(data.totalElements) {
+                    document.getElementById('pagination-info').textContent = `Showing ${logs.length} forensic records`;
+                }
+
+                tbody.innerHTML = logs.map(log => `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-6 py-4">
+                            <div class="font-mono text-[11px] font-bold text-slate-700">${log.referenceKey}</div>
+                            <div class="text-[9px] text-indigo-500 font-bold uppercase tracking-tighter mt-1">${log.refType} SOURCE</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-black bg-slate-100 text-slate-600 uppercase">
+                                ${log.operationType}
+                            </span>
+                            <div class="text-[10px] font-bold text-slate-400 mt-1 uppercase">${log.apiKey || 'System'}</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="text-[10px] font-mono text-indigo-600 font-bold">${log.machineId || 'N/A'}</div>
+                            <div class="text-[9px] text-slate-400">${log.clientIp}</div>
+                        </td>
+                        <td class="px-6 py-4 text-[11px] font-mono text-slate-500">
+                            ${new Date(log.logDatetime).toLocaleString()}
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <button onclick="generateBSAEvidence('${log.referenceKey}')" 
+                                    class="bg-slate-900 text-white px-3 py-1.5 rounded text-[9px] font-black uppercase tracking-widest hover:bg-indigo-600 transition shadow-sm">
+                                Generate Certificate
+                            </button>
+                        </td>
+                    </tr>`).join('');
+            }
+        } catch (err) { 
+            console.error("Forensic sync failed", err);
+            tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-10 text-center text-red-400">Connectivity Error: Failed to reach legal ledger.</td></tr>';
+        }
+    }
+
+    function generateBSAEvidence(refKey) {
+        window.location.href = `/api/client/vault/evidence?ref=${refKey}`;
+    }
+
+    function handleLogout() { localStorage.clear(); window.location.href = "index.html"; }
+</script>
+</body>
+</html>

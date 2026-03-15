@@ -68,7 +68,7 @@ public class Utility implements Action {
         if (label == null || payload == null) throw new Exception("Label and Payload are required.");
 
         String machineId = ForensicEngine.getMachineIdentifier();
-        String utilityId = "UTL-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        UUID utilityId = UUID.randomUUID();
 
         // 1. Generate Data Key via LocalKmsProvider
         LocalKmsProvider kms = new LocalKmsProvider();
@@ -85,9 +85,9 @@ public class Utility implements Action {
         PoolDB pool = new PoolDB();
         try {
             conn = pool.getConnection();
-            String sql = "INSERT INTO vault_utilities (utility_id, flavor, label, payload, encrypted_key, machine_id, active) VALUES (?, ?, ?, ?, ?, ?, TRUE)";
+            String sql = "INSERT INTO vault_utilities (utility_ref, flavor, label, payload, encrypted_key, machine_id, active) VALUES (?, ?, ?, ?, ?, ?, TRUE)";
             ps = conn.prepareStatement(sql);
-            ps.setString(1, utilityId);
+            ps.setObject(1, utilityId);
             ps.setString(2, category);
             ps.setString(3, label);
             ps.setString(4, encryptedPayload);
@@ -97,7 +97,7 @@ public class Utility implements Action {
 
            
             JSONObject out = new JSONObject();
-            out.put("utility_id", utilityId);
+            out.put("utility_id", utilityId.toString());
             OutputProcessor.send(res, HttpServletResponse.SC_OK, out);
         } finally {
             pool.cleanup(null, ps, conn);
@@ -114,8 +114,8 @@ public class Utility implements Action {
         PoolDB pool = new PoolDB();
         try {
             conn = pool.getConnection();
-            ps = conn.prepareStatement("SELECT payload, encrypted_key, machine_id FROM vault_utilities WHERE utility_id = ? AND active = TRUE");
-            ps.setString(1, utilityId);
+            ps = conn.prepareStatement("SELECT payload, encrypted_key, machine_id FROM vault_utilities WHERE utility_ref = ? AND active = TRUE");
+            ps.setObject(1, UUID.fromString(utilityId));
             rs = ps.executeQuery();
 
             if (rs.next()) {
@@ -158,11 +158,11 @@ public class Utility implements Action {
         PoolDB pool = new PoolDB();
         try {
             conn = pool.getConnection();
-            ps = conn.prepareStatement("SELECT utility_id, flavor, label FROM vault_utilities WHERE active = TRUE ORDER BY created_at DESC");
+            ps = conn.prepareStatement("SELECT utility_ref, flavor, label FROM vault_utilities WHERE active = TRUE ORDER BY created_at DESC");
             rs = ps.executeQuery();
             while (rs.next()) {
                 JSONObject obj = new JSONObject();
-                obj.put("id", rs.getString("utility_id"));
+                obj.put("id", rs.getString("utility_ref"));
                 obj.put("category", rs.getString("flavor"));
                 obj.put("label", rs.getString("label"));
                 array.add(obj);
@@ -193,7 +193,7 @@ public class Utility implements Action {
         PoolDB pool = new PoolDB();
         try {
             conn = pool.getConnection();
-            ps = conn.prepareStatement("UPDATE vault_utilities SET payload = ?, encrypted_key = ?, machine_id = ? WHERE utility_id = ?");
+            ps = conn.prepareStatement("UPDATE vault_utilities SET payload = ?, encrypted_key = ?, machine_id = ? WHERE utility_ref = ?");
             ps.setString(1, encryptedPayload);
             ps.setString(2, encryptedKey);
             ps.setString(3, machineId);

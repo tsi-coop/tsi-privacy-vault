@@ -73,7 +73,7 @@ public class Audit implements Action {
 
             // Revised SQL joining with vault_entity_master
             StringBuilder sqlBuilder = new StringBuilder("SELECT el.log_id, el.who,  el.operation_type, " +
-                    "el.entity_code, el.reference_key, el.client_ip, el.user_agent, el.machine_id, el.outcome, " +
+                    "el.entity_code, el.entity_ref,el.utility_ref el.client_ip, el.user_agent, el.machine_id, el.outcome, " +
                     "el.failure_reason, el.log_datetime FROM event_log el " +
                     "LEFT JOIN vault_entity_master vem ON el.entity_code = vem.entity_code WHERE 1=1");
 
@@ -136,7 +136,6 @@ public class Audit implements Action {
                 logEntry.put("apiKey", rs.getString("who"));
                 logEntry.put("operationType", rs.getString("operation_type"));
                 logEntry.put("entityCode", rs.getString("entity_code"));
-                logEntry.put("referenceKey", rs.getString("reference_key"));
                 logEntry.put("clientIp", rs.getString("client_ip"));
                 logEntry.put("userAgent", rs.getString("user_agent"));
                 logEntry.put("machineId", rs.getString("machine_id"));
