@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { --vault-teal: #006A67; }
-        body { background-color: #f8fafc; color: #1e293b; font-family: ui-sans-serif, system-ui, sans-serif; }
+        body { background-color: #f8fafc; color: #1e293b; font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; }
         .section-card { background: white; border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 2rem; margin-bottom: 2rem; }
         .code-block { background: #0f172a; color: #38bdf8; border-radius: 0.5rem; padding: 1.25rem; font-family: 'Fira Code', monospace; font-size: 0.825rem; overflow-x: auto; margin-top: 1rem; line-height: 1.6; }
         .flavor-tag { background: #f1f5f9; color: #006A67; padding: 2px 8px; border-radius: 4px; font-weight: 800; font-size: 11px; border: 1px solid #cbd5e1; }
@@ -54,15 +54,13 @@
         </section>
 
         <section class="mb-12">
-            <h2 class="text-xl font-bold text-slate-800 mb-6 uppercase tracking-tight">2. Entity Store & Flavors</h2>
-            <p class="text-sm text-slate-600 mb-8">The <code>store_data</code> function classifies information into three distinct flavors for optimized encryption and retrieval.</p>
-
-            
+            <h2 class="text-xl font-bold text-slate-800 mb-6 uppercase tracking-tight">2. Entity Store & Flavours</h2>
+            <p class="text-sm text-slate-600 mb-8">The <code>store_data</code> function classifies information into three distinct flavours for optimized encryption and retrieval.</p>
 
             <div class="space-y-6">
                 <div class="section-card shadow-sm border-t-2 border-t-blue-500 !p-6">
                     <div class="flex justify-between items-center mb-4">
-                        <span class="flavor-tag">Flavor: ID</span>
+                        <span class="flavor-tag">Flavour: ID</span>
                         <span class="text-[10px] font-bold text-slate-400">Example: Aadhaar, VoterId</span>
                     </div>
                     <p class="text-xs text-slate-500 mb-4">Secures official identifiers. High-integrity text-based resolution.</p>
@@ -71,14 +69,15 @@
   "_func": "store_data",
   "entityType": "ID",
   "entityName": "AADHAAR_NUM",
-  "content": "MTIzNCA1Njc4IDkxMDE=" // 1234 5678 9101
+  "content": "MTIzNCA1Njc4IDkxMDE=",
+  "fileName": "id_payload.txt"
 }
                     </div>
                 </div>
 
                 <div class="section-card shadow-sm border-t-2 border-t-emerald-500 !p-6">
                     <div class="flex justify-between items-center mb-4">
-                        <span class="flavor-tag">Flavor: DATA</span>
+                        <span class="flavor-tag">Flavour: DATA</span>
                         <span class="text-[10px] font-bold text-slate-400">Example: Name, Address</span>
                     </div>
                     <p class="text-xs text-slate-500 mb-4">Secures structured PII and profile records for readable resolution.</p>
@@ -87,23 +86,25 @@
   "_func": "store_data",
   "entityType": "DATA",
   "entityName": "RES_ADDR",
-  "content": "MTIzIFBhcmsgU3QsIENvbHBldHR5" // 123 Park St...
+  "content": "MTIzIFBhcmsgU3QsIENvbHBldHR5",
+  "fileName": "address_profile.txt"
 }
                     </div>
                 </div>
 
                 <div class="section-card shadow-sm border-t-2 border-t-amber-500 !p-6">
                     <div class="flex justify-between items-center mb-4">
-                        <span class="flavor-tag">Flavor: FILE</span>
+                        <span class="flavor-tag">Flavour: FILE</span>
                         <span class="text-[10px] font-bold text-slate-400">Example: Marksheet, PDF</span>
                     </div>
-                    <p class="text-xs text-slate-500 mb-4">Secures binary documents. Retrieval triggers browser download.</p>
+                    <p class="text-xs text-slate-500 mb-4">Secures binary documents. The <code>fileName</code> is preserved to restore extensions during fetch.</p>
                     <div class="code-block">
 {
   "_func": "store_data",
   "entityType": "FILE",
   "entityName": "MARK_SHEET_2023",
-  "content": "JVBERi0xLjQKJ..." // Base64 PDF stream
+  "content": "JVBERi0xLjQKJ...", 
+  "fileName": "Final_Marksheet_2023.pdf"
 }
                     </div>
                 </div>
@@ -114,13 +115,24 @@
             <h2 class="text-xl font-bold text-slate-800 mb-6 uppercase tracking-tight">3. Data Retrieval</h2>
             <div class="section-card shadow-sm">
                 <span class="method-label">Retrieval</span>
-                <h3 class="font-bold text-slate-800 italic">fetch_data</h3>
-                <p class="text-xs text-slate-600 mt-2">Retrieves authorized entities. Returns either a string (ID/DATA) or initiates a download (FILE).</p>
+                <h3 class="font-bold text-slate-800 italic">fetch_id_by_reference</h3>
+                <p class="text-xs text-slate-600 mt-2">Retrieves authorized entities. Returns content, flavour, and the original <code>fileName</code> for extension restoration.</p>
                 <div class="code-block">
 {
-  "_func": "fetch_data",
-  "resource_id": "AADHAAR_NUM"
+  "_func": "fetch_id_by_reference",
+  "reference-key": "550e8400-e29b-41d4-a716-446655440000"
 }
+                </div>
+                <div class="mt-4">
+                    <span class="method-label">Response Example</span>
+                    <div class="code-block !text-emerald-400">
+{
+  "success": true,
+  "value": "...",
+  "flavour": "FILE",
+  "fileName": "Final_Marksheet_2023.pdf"
+}
+                    </div>
                 </div>
             </div>
         </section>
@@ -144,7 +156,7 @@
             <div class="bg-slate-900 rounded-2xl p-6 text-white flex items-center justify-between">
                 <div>
                     <h4 class="text-xs font-black uppercase tracking-widest text-teal-400">Forensic Engine Active</h4>
-                    <p class="text-[11px] text-slate-400 mt-1 italic">Every Store, Fetch, and Resolve event is logged to the <code>event_log</code> table.</p>
+                    <p class="text-[11px] text-slate-400 mt-1 italic">Every Store, Fetch, and Resolve event is logged with Machine DNA to the <code>event_log</code>.</p>
                 </div>
                 <div class="flex gap-2">
                     <span class="text-[9px] border border-slate-700 px-2 py-1 rounded">VAULT_STORE</span>

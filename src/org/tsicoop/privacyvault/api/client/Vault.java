@@ -248,71 +248,48 @@ public class Vault implements Action {
         String entityType = (String) input.get("entityType");
         String entityCode = (String) input.get("entityName");
         String plainValue = (String) input.get("content");
+        String originalFileName = (String) input.get("fileName"); // Extracting the filename
 
         if (!isAuthorized(apiKey, entityCode, "WRITE")) {
             OutputProcessor.sendError(res, 403, "Write access denied.");
             return;
         }
 
-        // 1. Generate unique Data Key for this record via KMS
+        // Generate Data Key and Encrypt
         Map<String, String> dataKeyPack = kms.generateDataKey();
         byte[] rawPlaintextKey = Base64.getDecoder().decode(dataKeyPack.get("plaintextDataKey"));
         String encryptedDataKey = dataKeyPack.get("encryptedDataKey");
-
-        // 2. Encrypt value with the plaintext Data Key
         byte[] ciphertext = kms.aesEncrypt(plainValue.getBytes("UTF-8"), rawPlaintextKey);
         String ciphertextB64 = Base64.getEncoder().encodeToString(ciphertext);
 
         UUID referenceKey = UUID.randomUUID();
-        
         Connection conn = null;
         PreparedStatement ps = null;
         PoolDB pool = new PoolDB();
         
         try {
             conn = pool.getConnection();
-            // Store the ciphertext AND the encrypted data key (the envelope)
-            String sql = "INSERT INTO vault_entities (entity_type, id_type_code, entity_ref, encrypted_content, encrypted_data_key, hashed_value_sha256) VALUES (?, ?, ?, ?, ?, ?)";
+            // SQL updated to include the file_name column
+            String sql = "INSERT INTO vault_entities (entity_type, id_type_code, entity_ref, encrypted_content, encrypted_data_key, hashed_value_sha256, file_name) VALUES (?, ?, ?, ?, ?, ?, ?)";
             ps = conn.prepareStatement(sql);
             ps.setString(1, entityType);
             ps.setString(2, entityCode);
             ps.setObject(3, referenceKey);
             ps.setString(4, ciphertextB64);
-            ps.setString(5, encryptedDataKey); // Using kms_id column to store the encrypted data key
+            ps.setString(5, encryptedDataKey);
             ps.setString(6, computeHash(plainValue));
+            ps.setString(7, originalFileName); // Preserving the original extension
             ps.executeUpdate();
             
-              // Log to event_log table
-            logVaultEvent(
-                conn,
-                apiKey, 
-                "STORE", 
-                entityType+":"+entityCode+":"+referenceKey, 
-                ip, 
-                ua, 
-                "SUCCESS",
-                referenceKey,
-                null
-            );
+            logVaultEvent(conn, apiKey, "STORE", entityType+":"+entityCode+":"+referenceKey, ip, ua, "SUCCESS", referenceKey, null);
             
             JSONObject out = new JSONObject();
             out.put("success", true);
             out.put("reference_key", referenceKey.toString());
             OutputProcessor.send(res, 201, out);
         } catch(Exception e){
-                // Log to event_log table
-            logVaultEvent(
-                conn,
-                apiKey, 
-                "STORE", 
-                entityType+":"+entityCode+":"+referenceKey, 
-                ip, 
-                ua, 
-                "FAILURE",
-                 referenceKey,
-                null
-            );
-        }finally {
+            logVaultEvent(conn, apiKey, "STORE", entityType+":"+entityCode+":"+referenceKey, ip, ua, "FAILURE", referenceKey, null);
+        } finally {
             pool.cleanup(null, ps, conn);
         }
     }
@@ -323,75 +300,54 @@ public class Vault implements Action {
         PreparedStatement ps = null;
         ResultSet rs = null;
         PoolDB pool = null;
-        boolean result = false;
         
         try {
             pool = new PoolDB();
             conn = pool.getConnection();
-            ps = conn.prepareStatement("SELECT entity_type,id_type_code, encrypted_content, encrypted_data_key FROM vault_entities WHERE entity_ref = ?");
+            // SELECT now includes the file_name
+            ps = conn.prepareStatement("SELECT entity_type, id_type_code, encrypted_content, encrypted_data_key, file_name FROM vault_entities WHERE entity_ref = ?");
             ps.setObject(1, UUID.fromString(ref));
             rs = ps.executeQuery();
             
             if (rs.next()) {
                 String entityType = rs.getString("entity_type");
                 String entityCode = rs.getString("id_type_code");
+                String fileName = rs.getString("file_name"); // Retrieving preserved name
+
                 if (!isAuthorized(apiKey, entityCode, "READ")) {
                     OutputProcessor.sendError(res, 403, "Read access denied.");
                     return;
                 }
                 
+                // Decryption Logic
                 String ciphertextB64 = rs.getString("encrypted_content");
                 String encryptedDataKey = rs.getString("encrypted_data_key");
-
-                // 1. Decrypt the Data Key using the Master Key (KMS internal logic)
                 String plaintextDataKeyB64 = kms.decryptDataKey(encryptedDataKey);
                 byte[] rawPlaintextKey = Base64.getDecoder().decode(plaintextDataKeyB64);
-
-                // 2. Decrypt value with the retrieved plaintext Data Key
                 byte[] ciphertext = Base64.getDecoder().decode(ciphertextB64);
                 byte[] decryptedBytes = kms.aesDecrypt(ciphertext, rawPlaintextKey);
                 String decrypted = new String(decryptedBytes, "UTF-8");
 
-                 // Log to event_log table
-                logVaultEvent(
-                    conn,
-                    apiKey, 
-                    "FETCH", 
-                    entityType+":"+entityCode+":"+ref, 
-                    ip, 
-                    ua, 
-                    "SUCCESS",
-                    UUID.fromString(ref),
-                    null
-                );
+                logVaultEvent(conn, apiKey, "FETCH", entityType+":"+entityCode+":"+ref, ip, ua, "SUCCESS", UUID.fromString(ref), null);
                 
+                // Restore the original extension via headers
+                if (fileName != null && !fileName.isEmpty()) {
+                    res.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+                }
+
                 JSONObject out = new JSONObject();
                 out.put("success", true);
                 out.put("value", decrypted);
-                out.put("flavor",entityType);
+                out.put("flavor", entityType);
+                out.put("fileName", fileName); // Return filename in JSON for UI flexibility
                 OutputProcessor.send(res, 200, out);
             } else {
-                
-                  // Log to event_log table
-                logVaultEvent(
-                    conn,
-                    apiKey, 
-                    "FETCH", 
-                    ref,  
-                    ip, 
-                    ua, 
-                    "FAILURE",
-                     UUID.fromString(ref),
-                    null
-                );
-
+                logVaultEvent(conn, apiKey, "FETCH", ref, ip, ua, "FAILURE", UUID.fromString(ref), null);
                 OutputProcessor.sendError(res, 404, "Reference not found.");
             }
         } finally {
             pool.cleanup(rs, ps, conn);
         }
-
-       
     }
 
    

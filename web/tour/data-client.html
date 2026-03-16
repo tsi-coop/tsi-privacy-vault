@@ -166,35 +166,34 @@
         document.getElementById('manualRefKey').value = '';
     }
 
-    async function executeFetch() {
+   async function executeFetch() {
         const refKey = document.getElementById('manualRefKey').value;
         if(!refKey) return alert("Reference Key required");
 
-        // The request now expects the flavor to be returned with the value
         const res = await vaultRequest("fetch_id_by_reference", { "reference-key": refKey });
         
         if(res.success && res.value) {
             document.getElementById('fetchResult').classList.remove('hidden');
             const outputDiv = document.getElementById('decryptedOutput');
             
-            // LOGIC CHANGE: Initiate download ONLY if flavor is strictly 'FILE'
             if (res.flavor === 'FILE') {
                 try {
                     const blobLink = document.createElement('a');
                     blobLink.href = `data:application/octet-stream;base64,${res.value}`;
-                    blobLink.download = `vault_file_${refKey.substring(0,8)}.dat`;
-                    blobLink.click();
                     
-                    outputDiv.innerHTML = `<span class="text-teal-600 font-bold">✓ Binary Download Initiated</span>`;
+                    // FIX: Use the fileName from the response, fallback to .dat if missing
+                    const downloadName = res.fileName || `vault_file_${refKey.substring(0,8)}.dat`;
+                    blobLink.download = downloadName;
+                    
+                    blobLink.click();
+                    outputDiv.innerHTML = `<span class="text-teal-600 font-bold">✓ Downloaded: ${downloadName}</span>`;
                 } catch (e) {
                     alert("Download failed: Invalid Base64 data.");
                 }
             } else {
-                // For all other flavors (TEXT, etc.), resolve as readable string
                 try {
                     outputDiv.textContent = atob(res.value);
                 } catch (e) {
-                    // Fallback if not Base64 encoded
                     outputDiv.textContent = res.value;
                 }
             }
@@ -226,16 +225,19 @@
         document.getElementById('execStoreBtn').onclick = () => executeStore();
     }
 
-    async function executeStore() {
+   async function executeStore() {
         const entityCode = document.getElementById('storeEntityName').value;
         const flavor = document.getElementById('storeEntityType').value;
         let base64Payload = "";
+        let fileName = null; // Variable to hold the filename
 
         if (flavor === 'FILE') {
             const fileInput = document.getElementById('fileUploadInput');
             if (fileInput.files.length === 0) return alert("Please select a file.");
             
             const file = fileInput.files[0];
+            fileName = file.name; // Capture the actual filename with extension
+            
             base64Payload = await new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.onload = () => resolve(reader.result.split(',')[1]); 
@@ -245,12 +247,15 @@
             const textContent = document.getElementById('storeContent').value;
             if(!textContent) return alert("Content is required.");
             base64Payload = btoa(textContent);
+            fileName = "text_payload.txt"; // Default filename for text entries
         }
 
+        // Modified request to include fileName in the payload
         const res = await vaultRequest("store_data", { 
             "entityType": flavor,
             "entityName": entityCode,
-            "content": base64Payload
+            "content": base64Payload,
+            "fileName": fileName 
         });
 
         if(res.success && res.reference_key) {
