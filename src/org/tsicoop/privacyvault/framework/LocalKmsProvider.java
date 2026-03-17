@@ -1,6 +1,7 @@
 package org.tsicoop.privacyvault.framework;
 
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.HashMap;
@@ -17,9 +18,22 @@ public class LocalKmsProvider implements KmsProvider {
 
     private static final String ALGO = "AES/CBC/PKCS5Padding";
     
-    // In production, this Master Key would be loaded from a secure Environment Variable 
-    // or a hardware-protected file. For local dev, we use a fixed 32-byte key.
-    private static final byte[] MASTER_KEY = System.getenv("TSI_PRIVACY_VAULT_MASTER_KEY").getBytes(StandardCharsets.UTF_8);
+    // Normalize the environment variable or default string to exactly 32 bytes using SHA-256
+    private static final byte[] MASTER_KEY = initializeMasterKey();
+
+    private static byte[] initializeMasterKey() {
+        try {
+            String rawKey = System.getenv("TSI_PRIVACY_VAULT_MASTER_KEY");
+            if (rawKey == null || rawKey.isEmpty()) {
+                // Default fallback for dev path
+                rawKey = "tsi-vault-default-32-byte-master-key-seed"; 
+            }
+            MessageDigest sha = MessageDigest.getInstance("SHA-256");
+            return sha.digest(rawKey.getBytes(StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            throw new RuntimeException("KMS Initialization Failed", e);
+        }
+    }
 
     @Override
     public Map<String, String> generateDataKey() {
