@@ -71,13 +71,18 @@ public class OutputProcessor {
         res.setContentType(MEDIA_TYPE_JSON);
         res.setCharacterEncoding("UTF-8");
         res.setStatus(status);
+        
         JSONObject resp = new JSONObject();
         resp.put("status", status);
         resp.put("error", message);
+        resp.put("timestamp", ISO_INSTANT_FORMATTER.format(Instant.now())); // Added for consistency
+
         try {
             out = res.getOutputStream();
-            out.print(String.valueOf(out));
+            // FIX: Print the JSON string of the response object, NOT the stream object
+            out.print(resp.toJSONString()); 
         } catch (Exception e) {
+            e.printStackTrace(); // Log the actual failure to send
         } finally {
             if (out != null) {
                 try {

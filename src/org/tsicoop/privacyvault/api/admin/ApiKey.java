@@ -8,6 +8,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
+
+import java.security.MessageDigest;
 import java.sql.*;
 import java.util.UUID;
 
@@ -50,17 +52,18 @@ public class ApiKey implements Action {
     /**
      * Implements the generation pattern: UUID + UUID (no dashes).
      */
-    private JSONObject generateAndSaveApiKey(JSONObject input) throws SQLException {
+    private JSONObject generateAndSaveApiKey(JSONObject input) throws Exception {
         PoolDB pool = new PoolDB();
         Connection conn = null;
         PreparedStatement pstmt = null;
 
-        // 1. Generate Raw Key and Secret as per reference
+        // 1. Generate Raw Credentials
         String rawKey = UUID.randomUUID().toString().replace("-", "").toUpperCase();
         String rawSecret = UUID.randomUUID().toString() + UUID.randomUUID().toString().replace("-", "");
-        
-        // 2. Hash the secret for secure storage
-        String hashedSecret = "HASHED_" + rawSecret;
+    
+        // 2. Generate a salt and compute SHA-256 hash
+        String salt = UUID.randomUUID().toString().substring(0, 8);
+        String hashedSecret = computeSecureHash(rawSecret, salt);
 
         String sql = "INSERT INTO api_user (api_key, api_secret, client_name, active, created_datetime) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)";
 
@@ -88,6 +91,23 @@ public class ApiKey implements Action {
         } finally {
             pool.cleanup(null, pstmt, conn);
         }
+    }
+
+    private String computeSecureHash(String password, String salt) throws Exception {
+        // Combine secret and salt to prevent identical hashes for identical secrets
+        String saltedValue = salt + password;
+        
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] hash = digest.digest(saltedValue.getBytes("UTF-8"));
+        
+        // Convert byte array into Hexadecimal String
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : hash) {
+            String hex = Integer.toHexString(0xff & b);
+            if (hex.length() == 1) hexString.append('0');
+            hexString.append(hex);
+        }
+        return hexString.toString();
     }
 
     private JSONObject getAllKeys() throws SQLException {
