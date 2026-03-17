@@ -5,6 +5,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
@@ -13,7 +14,13 @@ import java.util.Map;
 public class JWTUtil {
 
     private static final long EXPIRATION_TIME = 864000000; // 10 days
-    private static final Key SECRET_KEY = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+    
+    // Persistent secret key derived from environment variable to ensure session persistence across restarts
+    private static final String JWT_SECRET = System.getenv("TSI_VAULT_JWT_SECRET") != null 
+        ? System.getenv("TSI_VAULT_JWT_SECRET") 
+        : "a-secure-persistent-32-byte-long-secret-key-default"; 
+
+    private static final Key SECRET_KEY = Keys.hmacShaKeyFor(JWT_SECRET.getBytes(StandardCharsets.UTF_8));
 
     public static String generateAppLoginToken(String email, String type, String username, String role, String state, String city) {
         Map<String, String> claims = new HashMap<String,String>();
@@ -50,8 +57,6 @@ public class JWTUtil {
             return false;
         }
     }
-
-
 
     public static String getEmailFromToken(String token) {
         Claims claims = Jwts.parserBuilder()
