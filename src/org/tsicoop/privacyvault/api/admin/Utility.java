@@ -46,7 +46,7 @@ public class Utility implements Action {
                 handleEnroll(input, who, clientIp, userAgent, res);
             } else if (func.equalsIgnoreCase("checkout")) {
                 handleCheckout(input, who, clientIp, userAgent, res);
-            } else if (func.equalsIgnoreCase("list")) {
+            } else if (func.equalsIgnoreCase("utility_list")) {
                 handleList(res);
             } else if (func.equalsIgnoreCase("rotate")) {
                 handleRotate(input, who, clientIp, userAgent, res);
@@ -124,6 +124,9 @@ public class Utility implements Action {
                 String storedMachineId = rs.getString("machine_id");
                 String currentMachineId = ForensicEngine.getMachineIdentifier();
 
+                System.out.println("Stored Machine Id:"+storedMachineId);
+                System.out.println("Current Machine Id:"+currentMachineId);
+
                 // Hardware Anchor Validation
                 if (!storedMachineId.equals(currentMachineId)) {
                     OutputProcessor.sendError(res, HttpServletResponse.SC_FORBIDDEN, "Hardware anchor mismatch.");
@@ -197,7 +200,7 @@ public class Utility implements Action {
             ps.setString(1, encryptedPayload);
             ps.setString(2, encryptedKey);
             ps.setString(3, machineId);
-            ps.setString(4, utilityId);
+            ps.setObject(4, UUID.fromString(utilityId));
             ps.executeUpdate();
 
             OutputProcessor.send(res, HttpServletResponse.SC_OK, new JSONObject());
@@ -207,7 +210,13 @@ public class Utility implements Action {
     }
 
   
-    @Override public boolean validate(String m, HttpServletRequest req, HttpServletResponse res) { return true; }
+    @Override public boolean validate(String m, HttpServletRequest req, HttpServletResponse res) { 
+        if (!"POST".equalsIgnoreCase(m)) {
+            OutputProcessor.errorResponse(res, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", "Use POST for login.", req.getRequestURI());
+            return false;
+        }
+        return InputProcessor.validate(req, res);
+    }
     @Override public void get(HttpServletRequest req, HttpServletResponse res) {}
     @Override public void delete(HttpServletRequest req, HttpServletResponse res) {}
     @Override public void put(HttpServletRequest req, HttpServletResponse res) {}

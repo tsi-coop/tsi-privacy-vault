@@ -414,7 +414,13 @@ public class Vault implements Action {
         }
     }
 
-    @Override public boolean validate(String m, HttpServletRequest q, HttpServletResponse s) { return true; }
+    @Override public boolean validate(String m, HttpServletRequest q, HttpServletResponse s) { 
+        if (!"POST".equalsIgnoreCase(m)) {
+            OutputProcessor.errorResponse(s, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", "Use POST for login.", q.getRequestURI());
+            return false;
+        }
+        return InputProcessor.validate(q, s);
+    }
     @Override public void get(HttpServletRequest q, HttpServletResponse s) {}
     @Override public void put(HttpServletRequest q, HttpServletResponse s) {}
     @Override public void delete(HttpServletRequest q, HttpServletResponse s) {}

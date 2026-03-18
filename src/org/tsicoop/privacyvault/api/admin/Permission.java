@@ -162,7 +162,13 @@ public class Permission implements Action {
         }
     }
 
-    @Override public boolean validate(String m, HttpServletRequest q, HttpServletResponse r) { return "POST".equalsIgnoreCase(m); }
+    @Override public boolean validate(String m, HttpServletRequest q, HttpServletResponse r) { 
+        if (!"POST".equalsIgnoreCase(m)) {
+            OutputProcessor.errorResponse(r, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", "Use POST for login.", q.getRequestURI());
+            return false;
+        }
+        return InputProcessor.validate(q, r);
+    }
     @Override public void get(HttpServletRequest q, HttpServletResponse r) {}
     @Override public void delete(HttpServletRequest q, HttpServletResponse r) {}
     @Override public void put(HttpServletRequest q, HttpServletResponse r) {}

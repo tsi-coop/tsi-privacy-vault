@@ -1,8 +1,14 @@
 package org.tsicoop.privacyvault.framework;
 import java.io.InputStream;
 import java.net.NetworkInterface;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Scanner;
+import java.util.Collections;
+import java.util.List;
 
 import org.json.simple.JSONObject;
 
@@ -56,35 +62,33 @@ public class ForensicEngine {
     }
 
     /**
-     * Retrieves a unique identifier for the physical server.
-     * Combines MAC address and hardware serial where possible.
+  /**
+     * Generates a unique identifier for the machine.
+     * Prioritizes the mandatory environment variable for stable forensic anchoring.
      */
     public static String getMachineIdentifier() {
-        StringBuilder sb = new StringBuilder();
         try {
-            // 1. Capture the primary MAC Address
-            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
-            while (interfaces.hasMoreElements()) {
-                NetworkInterface nif = interfaces.nextElement();
-                byte[] mac = nif.getHardwareAddress();
-                if (mac != null) {
-                    for (int i = 0; i < mac.length; i++) {
-                        sb.append(String.format("%02X%s", mac[i], (i < mac.length - 1) ? "-" : ""));
-                    }
-                    break; // Use the first available hardware interface
+            // 1. Mandatory Environment Anchor (Best for Docker/Cloud)
+            String nodeId = System.getenv("TSI_PRIVACY_VAULT_NODE_ID");
+            if (nodeId != null && !nodeId.trim().isEmpty()) {
+                return "NODE:" + nodeId.trim().toUpperCase();
+            }
+
+            // 2. Fallback: Standard Linux machine-id (if volume mounted)
+            Path path = Paths.get("/etc/machine-id");
+            if (Files.exists(path)) {
+                String fileId = new String(Files.readAllBytes(path)).trim();
+                if (!fileId.isEmpty()) {
+                    return "HWID:" + fileId;
                 }
             }
-
-            // 2. Append System Serial Number (OS-dependent fallback)
-            String serial = getSystemSerialNumber();
-            if (!serial.isEmpty()) {
-                sb.append(" | SN:").append(serial);
-            }
-
         } catch (Exception e) {
-            return "UNKNOWN-HW-ID-" + System.getProperty("os.name");
+            // Log locally if needed, but do not throw to avoid breaking the calling action
+            System.err.println("ForensicEngine: Error reading hardware identifiers: " + e.getMessage());
         }
-        return sb.toString();
+
+        // 3. Last Resort Fallback (Warning: This may cause 403s on restart)
+        return "UNIDENTIFIED-NODE-" + System.getProperty("os.name").toUpperCase();
     }
 
     /**
@@ -112,4 +116,4 @@ public class ForensicEngine {
         } catch (Exception e) { /* Fallback to empty if shell access is restricted */ }
         return sn.trim();
     }
-}
+}   

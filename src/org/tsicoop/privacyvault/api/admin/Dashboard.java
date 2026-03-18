@@ -101,7 +101,13 @@ public class Dashboard implements Action {
         return logs;
     }
 
-    @Override public boolean validate(String method, HttpServletRequest req, HttpServletResponse res) { return "POST".equalsIgnoreCase(method); }
+    @Override public boolean validate(String method, HttpServletRequest req, HttpServletResponse res) { 
+        if (!"POST".equalsIgnoreCase(method)) {
+            OutputProcessor.errorResponse(res, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", "Use POST for login.", req.getRequestURI());
+            return false;
+        }
+        return InputProcessor.validate(req, res);
+    }
     @Override public void get(HttpServletRequest req, HttpServletResponse res) {}
     @Override public void delete(HttpServletRequest req, HttpServletResponse res) {}
     @Override public void put(HttpServletRequest req, HttpServletResponse res) {}

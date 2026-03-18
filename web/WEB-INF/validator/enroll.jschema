@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "properties": {
+    "category": {
+      "type": "string"
+    },
+    "label": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "string"
+    },
+    "_func": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "category",
+    "label",
+    "payload",
+    "_func"
+  ]
+}

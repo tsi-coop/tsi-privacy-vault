@@ -139,7 +139,7 @@
                     'Authorization': `Bearer ${TOKEN}`,
                     'Content-Type': 'application/json' 
                 },
-                body: JSON.stringify({ "_func": "list" })
+                body: JSON.stringify({ "_func": "utility_list" })
             });
             
             if (!response.ok) throw new Error("Connection failed");

@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "properties": {
+    "payload": {
+      "type": "string"
+    },
+    "utility_id": {
+      "type": "string"
+    },
+    "_func": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "payload",
+    "utility_id",
+    "_func"
+  ]
+}
