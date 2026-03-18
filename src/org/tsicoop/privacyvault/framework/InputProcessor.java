@@ -9,6 +9,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.Set;
 import java.util.StringTokenizer;
 
@@ -46,6 +49,34 @@ public class InputProcessor {
             }
         }catch (Exception e){}
         return validheader;
+    }
+
+    public static boolean processClientHeader(HttpServletRequest req, HttpServletResponse res) {
+        String apiKey = req.getHeader("X-API-Key");
+        if (apiKey == null || apiKey.trim().isEmpty()) return false;
+
+        Connection conn = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        PoolDB pool = null;
+
+        try {
+            pool = new PoolDB();
+            conn = pool.getConnection();
+            // Check both existence and active status in the consolidated api_user table
+            ps = conn.prepareStatement("SELECT active FROM api_user WHERE api_key = ?");
+            ps.setString(1, apiKey);
+            rs = ps.executeQuery();
+
+            if (rs.next()) {
+                return rs.getBoolean("active"); // Returns true only if the key is active
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            pool.cleanup(rs, ps, conn);
+        }
+        return false; // Key does not exist
     }
 
     public static String getEmail(HttpServletRequest req){

@@ -73,7 +73,7 @@ public class InterceptingFilter implements Filter {
                          && !servletPath.contains("api/admin/setup")) {
                      validheader = InputProcessor.processAdminHeader(req, res);
                  }else if(servletPath.contains("api/client")) {
-                     validheader = true;
+                     validheader = InputProcessor.processClientHeader(req, res);
                  }
                  //System.out.println(servletPath+" "+validheader);
                  if(!validheader) {
