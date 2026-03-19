@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Generated schema for Root",
+  "type": "object",
+  "properties": {
+    "api_key": {
+      "type": "string"
+    },
+    "can_read": {
+      "type": "boolean"
+    },
+    "can_write": {
+      "type": "boolean"
+    },
+    "granted_by": {
+      "type": "string"
+    },
+    "resource_id": {
+      "type": "string"
+    },
+    "resource_type": {
+      "type": "string"
+    },
+    "_func": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "api_key",
+    "can_read",
+    "can_write",
+    "granted_by",
+    "resource_id",
+    "resource_type",
+    "_func"
+  ]
+}

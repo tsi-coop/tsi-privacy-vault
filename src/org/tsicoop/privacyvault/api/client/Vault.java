@@ -233,13 +233,12 @@ public class Vault implements Action {
      * Placeholder for the Vault's internal decryption logic.
      */
     private String decryptUtilityPayload(String encryptedKey, String encryptedData) throws Exception {
-        LocalKmsProvider kms = new LocalKmsProvider();
-        String plaintextKeyB64 = kms.decryptDataKey(encryptedKey);
+        String plaintextKeyB64 = this.kms.decryptDataKey(encryptedKey);
         byte[] plaintextKey = Base64.getDecoder().decode(plaintextKeyB64);
 
         // 2. Decrypt the Payload
         byte[] encryptedBlob = Base64.getDecoder().decode(encryptedData);
-        byte[] cleartextBytes = kms.aesDecrypt(encryptedBlob, plaintextKey);
+        byte[] cleartextBytes = this.kms.aesDecrypt(encryptedBlob, plaintextKey);
         String cleartext = new String(cleartextBytes, "UTF-8");
         return cleartext; 
     }
