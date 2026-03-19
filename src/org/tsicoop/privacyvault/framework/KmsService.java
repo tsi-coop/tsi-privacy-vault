@@ -47,7 +47,6 @@ public class KmsService {
     // For this example, we'll simulate generating it once.
     public void loadMasterAESTransientKey() {
         if (masterAESTransientKey == null) {
-            System.out.println("KmsService: Loading master AES key for client-side encryption...");
             try {
                 // Generate a data key from KMS to be used as our master AES key
                 GenerateDataKeyResponse response = kmsClient.generateDataKey(GenerateDataKeyRequest.builder()
@@ -58,9 +57,7 @@ public class KmsService {
                 // WARNING: The encrypted counterpart (response.ciphertextBlob()) should be stored
                 // and the plaintext used only temporarily in memory for real envelope encryption.
                 // This is a simplification for the 'master key once' scenario.
-                System.out.println("KmsService: Master AES key loaded successfully.");
             } catch (KmsException e) {
-                System.err.println("KmsService: Error loading master AES key from KMS: " + e.getMessage());
                 // In production, this should be a critical startup failure
                 throw new RuntimeException("Failed to load master AES key from KMS", e);
             }
@@ -200,13 +197,11 @@ public class KmsService {
 
         byte[] encryptedData = cipher.doFinal(data);
         // This 'encryptedData' should always be a multiple of 16 if padding is used.
-        System.out.println("DEBUG_ENCRYPT: Ciphertext length before IV prepend: " + encryptedData.length); // ADD THIS
-
+     
         // Prepend IV to encrypted data so it can be used for decryption
         byte[] encryptedDataWithIv = new byte[iv.length + encryptedData.length];
         System.arraycopy(iv, 0, encryptedDataWithIv, 0, iv.length);
         System.arraycopy(encryptedData, 0, encryptedDataWithIv, iv.length, encryptedData.length);
-        System.out.println("DEBUG_ENCRYPT: Final blob length (IV+Ciphertext): " + encryptedDataWithIv.length); // ADD THIS
         return encryptedDataWithIv;
     }
 
@@ -215,12 +210,6 @@ public class KmsService {
 
         byte[] iv = Arrays.copyOfRange(encryptedDataWithIv, 0, IV_LENGTH);
         byte[] encryptedData = Arrays.copyOfRange(encryptedDataWithIv, IV_LENGTH, encryptedDataWithIv.length);
-
-        System.out.println("DEBUG: encryptedDataWithIv length: " + encryptedDataWithIv.length);
-
-        System.out.println("DEBUG: IV length: " + iv.length);
-
-        System.out.println("DEBUG: Ciphertext length (after IV extraction): " + encryptedData.length);
 
         Cipher cipher = Cipher.getInstance(AES_ALGORITHM);
         cipher.init(Cipher.DECRYPT_MODE, secretKey, new IvParameterSpec(iv));
@@ -240,7 +229,6 @@ public class KmsService {
             kmsService = new KmsService(awsRegion, kmsKeyIdentifier);
 
             // 1. Load the master AES transient key from KMS (as assumed by the Vault class)
-            System.out.println("--- Loading Master AES Key ---");
             kmsService.loadMasterAESTransientKey(); // This populates masterAESTransientKey
 
             byte[] masterKey = kmsService.getMasterAESTransientKey();
@@ -248,56 +236,39 @@ public class KmsService {
                 System.err.println("Failed to load master AES key. Exiting test.");
                 return;
             }
-            System.out.println("Master AES Key loaded (length: " + masterKey.length + " bytes)");
-
+           
             // --- Test Case 1: Client-Side AES Encryption/Decryption ---
-            System.out.println("\n--- Testing Client-Side AES Encryption/Decryption ---");
             String originalSensitiveData = "This is a sensitive Aadhaar number: 1234 5678 9012. It should be kept secret.";
 
             // Encrypt using the master AES key
             byte[] encryptedDataBytes = kmsService.aesEncrypt(originalSensitiveData.getBytes(StandardCharsets.UTF_8), masterKey);
             String encryptedDataB64 = Base64.getEncoder().encodeToString(encryptedDataBytes);
-            System.out.println("Original Data: " + originalSensitiveData);
-            System.out.println("Encrypted Data (Base64): " + encryptedDataB64);
-
+           
             // Decrypt using the same master AES key
             byte[] decryptedDataBytes = kmsService.aesDecrypt(encryptedDataBytes, masterKey);
             String decryptedData = new String(decryptedDataBytes, StandardCharsets.UTF_8);
-            System.out.println("Decrypted Data: " + decryptedData);
-            System.out.println("Data Match: " + originalSensitiveData.equals(decryptedData));
-
+           
 
             // --- Test Case 2: Direct KMS Encryption/Decryption (for comparison, though not primary for Vault data) ---
-            System.out.println("\n--- Testing Direct KMS Encryption/Decryption (for small data <= 4KB) ---");
             String smallSecret = "My small secret";
             Map<String, String> encryptionContext = new HashMap<>();
             encryptionContext.put("app_id", "TSI_Vault_Plus");
             encryptionContext.put("data_type", "small_secret");
 
             String kmsEncryptedB64 = kmsService.encryptDataWithKms(smallSecret, encryptionContext);
-            System.out.println("Original Small Secret: " + smallSecret);
-            System.out.println("KMS Encrypted (Base64): " + kmsEncryptedB64);
-
+           
             String kmsDecrypted = kmsService.decryptDataWithKms(kmsEncryptedB64, encryptionContext);
-            System.out.println("KMS Decrypted: " + kmsDecrypted);
-            System.out.println("Small Secret Match: " + smallSecret.equals(kmsDecrypted));
-
+           
 
             // --- Test Case 3: Generate and Decrypt Data Key (Envelope Encryption Pattern) ---
-            System.out.println("\n--- Testing KMS GenerateDataKey and DecryptDataKey (Envelope Encryption) ---");
             Map<String, String> generatedKeys = kmsService.generateDataKey();
             String plaintextGeneratedKeyB64 = generatedKeys.get("plaintextDataKey");
             String encryptedGeneratedKeyB64 = generatedKeys.get("encryptedDataKey");
 
-            System.out.println("Generated Plaintext Data Key (Base64): " + plaintextGeneratedKeyB64);
-            System.out.println("Generated Encrypted Data Key (Base64): " + encryptedGeneratedKeyB64);
-
+           
             String decryptedGeneratedKeyB64 = kmsService.decryptDataKey(encryptedGeneratedKeyB64);
-            System.out.println("Decrypted Plaintext Data Key (Base64): " + decryptedGeneratedKeyB64);
-            System.out.println("Generated Key Match: " + plaintextGeneratedKeyB64.equals(decryptedGeneratedKeyB64));
-
+           
         } catch (Exception e) {
-            System.err.println("\nAn error occurred during KMS service test:");
             e.printStackTrace();
         } finally {
             if (kmsService != null) {

@@ -111,7 +111,7 @@ public class Legal implements Action {
     }
 
 
-    /**
+   /**
      * Retrieves only certifiable audit logs containing Reference Keys or Utility Refs.
      */
     private JSONObject getLegalLedger(JSONObject input) throws Exception {
@@ -131,21 +131,15 @@ public class Legal implements Action {
             if (input.get("size") != null) size = ((Long) input.get("size")).intValue();
 
             // SQL specifically filters for entries that have a forensic anchor (UUID)
-            // It excludes general logs that only have "SUCCESS" in the outcome field.
             StringBuilder sqlBuilder = new StringBuilder(
                 "SELECT log_id, who, operation_type, entity_ref, utility_ref, client_ip, machine_id, log_datetime " +
-                "FROM event_log WHERE (entity_ref IS NOT NULL)"
+                "FROM event_log WHERE (entity_ref IS NOT NULL OR utility_ref IS NOT NULL)"
             );
 
-            List<Object> sqlParams = new ArrayList<>();
-
-            // Dynamic Search for UUIDs
+            // Dynamic Search for UUIDs or Identities
             if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+                // FIX: Added explicit column names and correct parameter placeholders
                 sqlBuilder.append(" AND (entity_ref::text LIKE ? OR utility_ref::text LIKE ? OR who LIKE ?)");
-                String likePattern = "%" + searchTerm.trim() + "%";
-                sqlParams.add(likePattern);
-                sqlParams.add(likePattern);
-                sqlParams.add(likePattern);
             }
 
             sqlBuilder.append(" ORDER BY log_datetime DESC LIMIT ? OFFSET ?");
@@ -154,7 +148,13 @@ public class Legal implements Action {
             pstmt = conn.prepareStatement(sqlBuilder.toString());
 
             int idx = 1;
-            for (Object param : sqlParams) pstmt.setObject(idx++, param);
+            if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+                String likePattern = "%" + searchTerm.trim() + "%";
+                pstmt.setString(idx++, likePattern); // For entity_ref::text
+                pstmt.setString(idx++, likePattern); // For utility_ref::text
+                pstmt.setString(idx++, likePattern); // For who
+            }
+
             pstmt.setInt(idx++, size);
             pstmt.setInt(idx++, page * size);
 
