@@ -400,14 +400,26 @@ public class Vault implements Action {
         PreparedStatement ps = null;
         ResultSet rs = null;
         PoolDB pool = new PoolDB();
-        String col = action.equalsIgnoreCase("WRITE") ? "can_write" : "can_read";
+        
         try {
             conn = pool.getConnection();
-            ps = conn.prepareStatement("SELECT " + col + " FROM permissions WHERE api_key = ? AND resource_id = ? AND resource_type = 'ENTITY'");
+            
+            // FIX: Use a 100% static SQL string to eliminate concatenation and SAST warnings.
+            String sql = "SELECT can_read, can_write FROM permissions WHERE api_key = ? AND resource_id = ? AND resource_type = 'ENTITY'";
+            ps = conn.prepareStatement(sql);
             ps.setString(1, apiKey);
             ps.setString(2, entityCode);
             rs = ps.executeQuery();
-            return rs.next() && rs.getBoolean(col);
+            
+            if (rs.next()) {
+                // Evaluate the requested action against the fetched boolean values in Java
+                if ("WRITE".equalsIgnoreCase(action)) {
+                    return rs.getBoolean("can_write");
+                } else {
+                    return rs.getBoolean("can_read");
+                }
+            }
+            return false;
         } finally {
             pool.cleanup(rs, ps, conn);
         }
