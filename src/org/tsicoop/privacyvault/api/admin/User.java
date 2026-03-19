@@ -209,6 +209,10 @@ public class User implements Action {
 
     @Override
     public boolean validate(String method, HttpServletRequest req, HttpServletResponse res) {
-        return "POST".equalsIgnoreCase(method);
+        if (!"POST".equalsIgnoreCase(method)) {
+            OutputProcessor.errorResponse(res, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", "Use POST for login.", req.getRequestURI());
+            return false;
+        }
+        return InputProcessor.validate(req, res);
     }
 }

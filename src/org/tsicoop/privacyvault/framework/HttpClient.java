@@ -14,30 +14,6 @@ public class HttpClient {
             .version(java.net.http.HttpClient.Version.HTTP_2)
             .build();
 
-    public static void main(String[] args) throws Exception {
-        HttpClient obj = new HttpClient();
-        String authorization = "Zoho-enczapikey wSsVR61/+xT0WK11zjb/ce0wmwlcBFnxR0l+3wSh4nWvHPnB9MdtkUzOBgeuGqVNGW9oEDpErLkrkB4AhDNYh4glzlBSCiiF9mqRe1U4J3x17qnvhDzDXGhVlxqLK4INww5om2lnG8gl+g== ";
-        JSONObject test = new JSONObject();
-        JSONObject fromOb = new JSONObject();
-        fromOb.put("address","noreply@tsicoop.org");
-        fromOb.put("name","TSI Coop Notification");
-        test.put("from",fromOb);
-        JSONObject address = new JSONObject();
-        address.put("address","satish@tsiconsulting.in");
-        address.put("name","Satish");
-        JSONObject toAddress = new JSONObject();
-        toAddress.put("email_address",address);
-        JSONArray toArray = new JSONArray();
-        toArray.add(toAddress);
-        test.put("to",toArray);
-        test.put("subject","Your Login Password");
-        test.put("htmlbody","<div><b> Test email sent successfully. </b></div>");
-        //System.out.println(test);
-        JSONObject output = obj.sendPost("https://api.zeptomail.com/v1.1/email", authorization,test);
-        System.out.println(output);
-    }
-
-
     public void sendGet(String url) throws Exception {
 
         HttpRequest request = HttpRequest.newBuilder()

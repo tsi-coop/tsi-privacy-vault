@@ -74,7 +74,7 @@ public class BSACertificateGenerator {
                 contentStream.newLineAtOffset(0, -leading);
                 contentStream.showText("Verified Hash: " + data.get("sha256_hash"));
                 contentStream.newLineAtOffset(0, -leading);
-                contentStream.showText("Software Source: " + data.get("software_version"));
+                contentStream.showText("Software Source: " + System.getenv("TSI_PRIVACY_VAULT_SOFTWARE_VERSION"));
                 contentStream.newLineAtOffset(0, -leading);
                 contentStream.showText("Timestamp (IST): " + data.get("anchor_time"));
                 contentStream.endText();
