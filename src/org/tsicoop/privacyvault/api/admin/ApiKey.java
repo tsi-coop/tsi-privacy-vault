@@ -9,13 +9,17 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
-import java.security.MessageDigest;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+import java.security.SecureRandom;
+import java.security.spec.KeySpec;
 import java.sql.*;
+import java.util.Base64;
 import java.util.UUID;
 
 /**
  * Enhanced ApiKey service for TSI Privacy Vault.
- * Implements the multi-part key generation and hashing pattern from the reference.
+ * Implements the multi-part key generation and enterprise-grade PBKDF2 hashing pattern.
  */
 public class ApiKey implements Action {
 
@@ -61,9 +65,8 @@ public class ApiKey implements Action {
         String rawKey = UUID.randomUUID().toString().replace("-", "").toUpperCase();
         String rawSecret = UUID.randomUUID().toString() + UUID.randomUUID().toString().replace("-", "");
     
-        // 2. Generate a salt and compute SHA-256 hash
-        String salt = UUID.randomUUID().toString().substring(0, 8);
-        String hashedSecret = computeSecureHash(rawSecret, salt);
+        // 2. Generate a secure salt and compute PBKDF2 hash
+        String hashedSecret = computeSecureHash(rawSecret);
 
         String sql = "INSERT INTO api_user (api_key, api_secret, client_name, active, created_datetime) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)";
 
@@ -93,21 +96,25 @@ public class ApiKey implements Action {
         }
     }
 
-    private String computeSecureHash(String password, String salt) throws Exception {
-        // Combine secret and salt to prevent identical hashes for identical secrets
-        String saltedValue = salt + password;
-        
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        byte[] hash = digest.digest(saltedValue.getBytes("UTF-8"));
-        
-        // Convert byte array into Hexadecimal String
-        StringBuilder hexString = new StringBuilder();
-        for (byte b : hash) {
-            String hex = Integer.toHexString(0xff & b);
-            if (hex.length() == 1) hexString.append('0');
-            hexString.append(hex);
-        }
-        return hexString.toString();
+    private String computeSecureHash(String password) throws Exception {
+        // 1. Generate a cryptographically secure 16-byte salt
+        SecureRandom random = new SecureRandom();
+        byte[] salt = new byte[16];
+        random.nextBytes(salt);
+
+        // 2. Define PBKDF2 parameters (OWASP recommended minimums)
+        int iterations = 65536;
+        int keyLength = 256;
+
+        // 3. Generate the hash
+        KeySpec spec = new PBEKeySpec(password.toCharArray(), salt, iterations, keyLength);
+        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+        byte[] hash = factory.generateSecret(spec).getEncoded();
+
+        // 4. Return combined string: "iterations:salt_base64:hash_base64"
+        // This securely stores the salt alongside the hash in your single DB column.
+        Base64.Encoder encoder = Base64.getEncoder();
+        return iterations + ":" + encoder.encodeToString(salt) + ":" + encoder.encodeToString(hash);
     }
 
     private JSONObject getAllKeys() throws SQLException {
