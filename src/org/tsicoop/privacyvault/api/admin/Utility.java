@@ -124,9 +124,6 @@ public class Utility implements Action {
                 String storedMachineId = rs.getString("machine_id");
                 String currentMachineId = ForensicEngine.getMachineIdentifier();
 
-                System.out.println("Stored Machine Id:"+storedMachineId);
-                System.out.println("Current Machine Id:"+currentMachineId);
-
                 // Hardware Anchor Validation
                 if (!storedMachineId.equals(currentMachineId)) {
                     OutputProcessor.sendError(res, HttpServletResponse.SC_FORBIDDEN, "Hardware anchor mismatch.");

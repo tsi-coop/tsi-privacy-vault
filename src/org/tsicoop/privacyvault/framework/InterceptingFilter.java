@@ -75,20 +75,17 @@ public class InterceptingFilter implements Filter {
                  }else if(servletPath.contains("api/client")) {
                      validheader = InputProcessor.processClientHeader(req, res);
                  }
-                 //System.out.println(servletPath+" "+validheader);
                  if(!validheader) {
                      res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
                  }else{
                      InputProcessor.processInput(req, res);
                      operation = strTok.nextToken();
                      classname = apiRegistry.getProperty(servletPath.trim());
-                     System.out.println("operation:" + operation + " classname:" + classname);
                      if (classname == null || method == null) res.sendError(400);
 
                    
                      Action action = ((Action) Class.forName(classname).getConstructor().newInstance());
                      validrequest = action.validate(method, req, res);
-                     System.out.println("validrequest:" + validrequest);
                      if (validrequest) {
                          if (method.equalsIgnoreCase("GET")) {
                              res.setContentType("application/json");
@@ -116,7 +113,6 @@ public class InterceptingFilter implements Filter {
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
-        //System.out.println("Inside Init");
         SystemConfig.loadProcessors(filterConfig.getServletContext());
         System.out.println("Loaded TSI Processor Config");
         SystemConfig.loadAppConfig(filterConfig.getServletContext());
