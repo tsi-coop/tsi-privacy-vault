@@ -254,6 +254,23 @@ public class Vault implements Action {
             return;
         }
 
+        // --- SYSTEM ENV FILE SIZE VALIDATION ---
+        // Read from System Env, fallback to 5120 KB (5MB) if not set
+        String maxKbEnv = System.getenv("VAULT_MAX_UPLOAD_KB");
+        long maxUploadKb = maxKbEnv != null ? Long.parseLong(maxKbEnv) : 5120L;
+        long maxUploadBytes = maxUploadKb * 1024L;
+
+        // Calculate the byte size of the incoming content
+        // Note: If content is Base64, the actual decoded file is slightly smaller, 
+        // but checking the raw transmission size is safest for memory protection.
+        long payloadSizeBytes = plainValue.getBytes("UTF-8").length;
+
+        if (payloadSizeBytes > maxUploadBytes) {
+            OutputProcessor.sendError(res, 413, "Payload Too Large: File exceeds the system limit of " + maxUploadKb + " KB.");
+            return;
+        }
+        // --- END VALIDATION ---
+
         // Generate Data Key and Encrypt
         Map<String, String> dataKeyPack = kms.generateDataKey();
         byte[] rawPlaintextKey = Base64.getDecoder().decode(dataKeyPack.get("plaintextDataKey"));
