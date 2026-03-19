@@ -42,7 +42,6 @@ public class LocalKmsProvider implements KmsProvider {
             byte[] rawDataKey = new byte[32];
             new SecureRandom().nextBytes(rawDataKey);
             
-            System.out.println("Master Key:"+MASTER_KEY);
             // 2. Wrap (Encrypt) the Data Key using the Master Key
             byte[] wrappedKey = aesEncrypt(rawDataKey, MASTER_KEY);
             

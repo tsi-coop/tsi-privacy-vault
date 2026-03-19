@@ -62,6 +62,15 @@ public class User implements Action {
                         return;
                     }
 
+                    // Prevent multiple SYSTEM_ADMIN accounts
+                    if ("SYSTEM_ADMIN".equalsIgnoreCase(role)) {
+                        if (isSystemAdminPresent()) {
+                            failureReason = "Setup Phase Expired: A SYSTEM_ADMIN already exists.";
+                            OutputProcessor.sendError(res, HttpServletResponse.SC_FORBIDDEN, failureReason);
+                            return;
+                        }
+                    }
+
                     if (isUserPresent(username)) {
                         failureReason = "Username '" + username + "' is already taken.";
                         OutputProcessor.errorResponse(res, HttpServletResponse.SC_BAD_REQUEST, "Bad Request", failureReason, req.getRequestURI());
@@ -87,6 +96,30 @@ public class User implements Action {
         }
 
         OutputProcessor.send(res, HttpServletResponse.SC_OK, output);
+    }
+
+    /**
+     * Checks if at least one active SYSTEM_ADMIN is already registered.
+     */
+    private boolean isSystemAdminPresent() throws SQLException {
+        boolean present = false;
+        Connection conn = null;
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+        PoolDB pool = new PoolDB();
+        String sql = "SELECT 1 FROM admin_user WHERE role = 'SYSTEM_ADMIN' AND active = true LIMIT 1";
+        
+        try {
+            conn = pool.getConnection();
+            pstmt = conn.prepareStatement(sql);
+            rs = pstmt.executeQuery();
+            if (rs.next()) {
+                present = true;
+            }
+        } finally {
+            pool.cleanup(rs, pstmt, conn);
+        }
+        return present;
     }
 
     /**
