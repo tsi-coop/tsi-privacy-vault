@@ -38,7 +38,6 @@ public class SystemConfig {
         if (appConfig == null) {
             appConfig = new Properties();
         }
-        System.out.println("DB:"+System.getenv("POSTGRES_DB"));
         appConfig.setProperty("framework.db.name",System.getenv("POSTGRES_DB"));
         appConfig.setProperty("framework.db.user",System.getenv("POSTGRES_USER"));
         appConfig.setProperty("framework.db.password",System.getenv("POSTGRES_PASSWD"));

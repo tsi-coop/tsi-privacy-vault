@@ -43,8 +43,7 @@ public class User implements Action {
                 OutputProcessor.errorResponse(res, HttpServletResponse.SC_BAD_REQUEST, "Bad Request", "Missing _func parameter", req.getRequestURI());
                 return;
             }
-            System.out.println(input);
-
+          
             switch (func.toLowerCase()) {
                 case "list_users": //
                     output = listUsers();

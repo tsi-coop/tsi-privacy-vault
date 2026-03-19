@@ -205,7 +205,6 @@ public class Utility implements Action {
             pool.cleanup(null, ps, conn);
         }
     }
-
   
     @Override public boolean validate(String m, HttpServletRequest req, HttpServletResponse res) { 
         if (!"POST".equalsIgnoreCase(m)) {
@@ -214,7 +213,16 @@ public class Utility implements Action {
         }
         return InputProcessor.validate(req, res);
     }
-    @Override public void get(HttpServletRequest req, HttpServletResponse res) {}
-    @Override public void delete(HttpServletRequest req, HttpServletResponse res) {}
-    @Override public void put(HttpServletRequest req, HttpServletResponse res) {}
+
+    @Override public void get(HttpServletRequest req, HttpServletResponse res) {
+        OutputProcessor.errorResponse(res, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", "GET method not supported.", req.getRequestURI());
+    }
+
+    @Override public void delete(HttpServletRequest req, HttpServletResponse res) {
+        OutputProcessor.errorResponse(res, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", "DELETE method not supported.", req.getRequestURI());
+    }
+
+    @Override public void put(HttpServletRequest req, HttpServletResponse res) {
+        OutputProcessor.errorResponse(res, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", "PUT method not supported.", req.getRequestURI());
+    }
 }

@@ -89,6 +89,5 @@ public class JSONSchemaValidator {
         JsonSchema jsonSchema = factory.getSchema(JSONSchemaValidator.class.getResourceAsStream("proto-get-los-workflow-schema.json"));
         JsonNode jsonNode = jsv.mapper.readTree(JSONSchemaValidator.class.getResourceAsStream(("proto-get-los-workflow.json")));
         Set<ValidationMessage> errors = jsonSchema.validate(jsonNode);
-        System.out.println(errors);
     }
 }

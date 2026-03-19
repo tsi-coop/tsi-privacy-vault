@@ -273,7 +273,6 @@ public class KmsService {
         } finally {
             if (kmsService != null) {
                 kmsService.close(); // Close the KMS client
-                System.out.println("\nKmsClient closed.");
             }
         }
     }

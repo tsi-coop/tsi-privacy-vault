@@ -71,7 +71,6 @@ public class DateUtil {
         } else if (period.equalsIgnoreCase("Year")) {
             timeperiod = (1900 + start.getYear()) + "";
         }
-        System.out.println("timeperiod:" + timeperiod);
         return timeperiod;
     }
 
@@ -154,17 +153,14 @@ public class DateUtil {
         }
         // now is the date you want
         Date end = now.getTime();
-        System.out.println(end);
         return end;
     }
 
     private static Date getNextWeekStart(Date date) {
-        System.out.println("Inside Next Week Start");
         Calendar now = new GregorianCalendar();
         now.setTime(date);
         int weekday = now.get(Calendar.DAY_OF_WEEK);
-        System.out.println("weekday:" + weekday);
-
+       
         if (weekday != Calendar.MONDAY) {
             // calculate how much to add
             // the 2 is the difference between Saturday and Monday
@@ -175,7 +171,6 @@ public class DateUtil {
         }
         // now is the date you want
         Date start = now.getTime();
-        System.out.println(start);
         return start;
     }
 

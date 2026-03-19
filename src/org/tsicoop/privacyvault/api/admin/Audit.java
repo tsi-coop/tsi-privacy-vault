@@ -123,7 +123,6 @@ public class Audit implements Action {
             // Paginated Results
             sqlBuilder.append(" ORDER BY el.log_datetime DESC LIMIT ? OFFSET ?");
             pstmt = conn.prepareStatement(sqlBuilder.toString());
-            System.out.println(sqlBuilder.toString());
             int idx = 1;
             for (Object param : sqlParams) pstmt.setObject(idx++, param);
             pstmt.setInt(idx++, size);

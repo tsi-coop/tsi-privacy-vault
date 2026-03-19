@@ -169,7 +169,16 @@ public class Permission implements Action {
         }
         return InputProcessor.validate(q, r);
     }
-    @Override public void get(HttpServletRequest q, HttpServletResponse r) {}
-    @Override public void delete(HttpServletRequest q, HttpServletResponse r) {}
-    @Override public void put(HttpServletRequest q, HttpServletResponse r) {}
+
+    @Override public void get(HttpServletRequest q, HttpServletResponse r) {
+        OutputProcessor.errorResponse(r, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", "GET method not supported.", q.getRequestURI());
+    }
+
+    @Override public void delete(HttpServletRequest q, HttpServletResponse r) {
+        OutputProcessor.errorResponse(r, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", "DELETE method not supported.", q.getRequestURI());
+    }
+
+    @Override public void put(HttpServletRequest q, HttpServletResponse r) {
+        OutputProcessor.errorResponse(r, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method Not Allowed", "PUT method not supported.", q.getRequestURI());
+    }
 }

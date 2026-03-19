@@ -24,7 +24,6 @@ public class InterceptingFilter implements Filter {
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
-        //System.out.println("Inside controller");
         String responseJson = "";
         HttpServletRequest req = (HttpServletRequest) request;
         HttpServletResponse res = (HttpServletResponse) response;
@@ -38,17 +37,6 @@ public class InterceptingFilter implements Filter {
         boolean validrequest = true;
         boolean validheader = true;
 
-        // set response header
-        /*String origin = req.getHeader("Origin");
-        if if (origin != null && (origin.contains("localhost"))) {
-            res.setHeader("Access-Control-Allow-Origin", origin); // Echo back the origin
-            res.setHeader("Access-Control-Allow-Credentials", "true"); // Allow credentials
-        }*/
-        /* res.setHeader("Access-Control-Allow-Origin", "http://localhost:3000"); // Echo back the origin
-        res.setHeader("Access-Control-Allow-Credentials", "true"); // Allow credentials
-        res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-        res.setHeader("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, Access-Control-Allow-Headers, access-control-allow-origin, access-control-allow-credentials, access-control-allow-methods");
-        res.setHeader("Access-Control-Max-Age", "3600");*/
         res.setCharacterEncoding("UTF-8");
         res.setContentType("application/json");
 
@@ -59,15 +47,13 @@ public class InterceptingFilter implements Filter {
             StringTokenizer strTok = new StringTokenizer(servletPath, URL_DELIMITER);
             strTok.nextToken(); // skip api keyword
             String uriIdentifier = strTok.nextToken();
-            //System.out.println("uriIdentifier:"+uriIdentifier);
             if (!(uriIdentifier.equalsIgnoreCase(ADMIN_URI)||uriIdentifier.equalsIgnoreCase(CLIENT_URI))){
                 res.sendError(400);
                 return;
             }
 
             // Check
-            System.out.println("servletPath:"+servletPath);
-             try {
+            try {
                  if(servletPath.contains("api/admin")
                          && !servletPath.contains("api/admin/login")
                          && !servletPath.contains("api/admin/setup")) {

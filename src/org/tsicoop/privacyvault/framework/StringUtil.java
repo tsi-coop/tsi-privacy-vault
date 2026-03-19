@@ -52,8 +52,7 @@ public class StringUtil {
         StringBuffer result = new StringBuffer();
         while (matcher.find()) {
             String url = matcher.group(); // Get the entire matched string
-            //System.out.println(url);
-
+          
             // Prepend "http://" if the URL doesn't already have a protocol
             if (!url.startsWith("http://") && !url.startsWith("https://")) {
                 url = "http://" + url; // Default to http://
@@ -65,9 +64,5 @@ public class StringUtil {
         matcher.appendTail(result); // Append the rest of the string
 
         return result.toString();
-    }
-
-    public static void main(String[] args){
-        System.out.println(StringUtil.linkifyUrls("sandbox.tsicoop.com"));
     }
 }

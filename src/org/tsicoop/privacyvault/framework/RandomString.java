@@ -32,9 +32,4 @@ public class RandomString {
         return new String(buf);
     }
 	
-	/*public static void main(String[] args){
-		RandomString rndm = new RandomString(6);
-		System.out.println(rndm.nextString());
-	}*/
-
 }
