@@ -141,7 +141,7 @@ public class Legal implements Action {
 
             // Dynamic Search for UUIDs
             if (searchTerm != null && !searchTerm.trim().isEmpty()) {
-                sqlBuilder.append(" AND (entity_ref::text LIKE OR who LIKE ?)");
+                sqlBuilder.append(" AND (entity_ref::text LIKE ? OR utility_ref::text LIKE ? OR who LIKE ?)");
                 String likePattern = "%" + searchTerm.trim() + "%";
                 sqlParams.add(likePattern);
                 sqlParams.add(likePattern);

@@ -16,7 +16,7 @@ public class JWTUtil {
     private static final long EXPIRATION_TIME = 864000000; // 10 days
     
     // Persistent secret key derived from environment variable to ensure session persistence across restarts
-    private static final String JWT_SECRET = System.getenv("TSI_VAULT_JWT_SECRET"); 
+    private static final String JWT_SECRET = System.getenv("TSI_PRIVACY_VAULT_JWT_SECRET"); 
 
     private static final Key SECRET_KEY = Keys.hmacShaKeyFor(JWT_SECRET.getBytes(StandardCharsets.UTF_8));
 
