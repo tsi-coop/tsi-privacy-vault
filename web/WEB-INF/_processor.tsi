@@ -4,6 +4,7 @@
 # Admin Handlers
 /api/admin/setup=org.tsicoop.privacyvault.api.admin.User
 /api/admin/login=org.tsicoop.privacyvault.api.admin.Login
+/api/admin/resetpass=org.tsicoop.privacyvault.api.admin.User
 /api/admin/user=org.tsicoop.privacyvault.api.admin.User
 /api/admin/apikey=org.tsicoop.privacyvault.api.admin.ApiKey
 /api/admin/permission=org.tsicoop.privacyvault.api.admin.Permission

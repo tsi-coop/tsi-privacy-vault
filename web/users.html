@@ -119,6 +119,24 @@
     </div>
 </div>
 
+<div id="recoveryModal" class="modal-overlay">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div class="p-6 bg-amber-600 text-white">
+            <h3 class="text-lg font-black uppercase tracking-tight">Master Recovery Key</h3>
+            <p class="text-[10px] text-amber-100 uppercase font-bold tracking-widest mt-1">One-time break-glass credential</p>
+        </div>
+        <div class="p-8 space-y-4">
+            <p class="text-xs text-slate-600 leading-relaxed">Please store this key securely offline. It is the only way to recover this account if the password is lost. <strong>This will not be shown again.</strong></p>
+            <div class="bg-slate-50 border-2 border-dashed border-slate-200 p-4 rounded-lg text-center">
+                <code id="recovery-key-display" class="text-lg font-black font-mono text-indigo-600 tracking-wider"></code>
+            </div>
+            <div class="flex justify-center pt-4">
+                <button onclick="closeRecoveryModal()" class="bg-slate-900 text-white px-8 py-2 rounded font-bold text-xs uppercase tracking-widest shadow-lg">I have saved this key</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     const API_URL = 'api/admin/user';
     const TOKEN = localStorage.getItem('vaultToken');
@@ -135,7 +153,7 @@
             const response = await fetch(API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
-                body: JSON.stringify({ "_func": "list_users" }) // Aligned with User.java
+                body: JSON.stringify({ "_func": "list_users" })
             });
             const data = await response.json();
             const tbody = document.getElementById('user-table-body');
@@ -158,8 +176,9 @@
                                 ${user.active ? 'Active' : 'Disabled'}
                             </span>
                         </td>
-                        <td class="px-6 py-4 text-right">
-                            <button onclick='loadEdit(${JSON.stringify(user)})' class="text-indigo-600 hover:underline text-xs font-bold uppercase">Modify</button>
+                        <td class="px-6 py-4 text-right space-x-3">
+                            <button onclick='generateRecoveryKey("${user.email}")' class="text-amber-600 hover:underline text-xs font-bold uppercase">Recovery</button>
+                            <button style="display:none" onclick='loadEdit(${JSON.stringify(user)})' class="text-indigo-600 hover:underline text-xs font-bold uppercase">Modify</button>
                         </td>
                     </tr>
                 `).join('');
@@ -167,11 +186,33 @@
         } catch (err) { console.error("Directory Sync Failed", err); }
     }
 
+    async function generateRecoveryKey(email) {
+        if (!confirm(`Generate a new Master Recovery Key for ${email}? This will invalidate any existing recovery key for this account.`)) return;
+
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+                body: JSON.stringify({ 
+                    "_func": "generate_master_recovery_key",
+                    "email": email 
+                })
+            });
+            const data = await response.json();
+            if (response.ok && data.raw_recovery_key) {
+                document.getElementById('recovery-key-display').textContent = data.raw_recovery_key;
+                document.getElementById('recoveryModal').style.display = 'flex';
+            } else {
+                alert(data.message || "Failed to generate recovery key");
+            }
+        } catch (err) { console.error("Recovery Generation Error", err); }
+    }
+
     document.getElementById('user-form').onsubmit = async (e) => {
         e.preventDefault();
         const isEdit = document.getElementById('is-edit').value === "true";
         const payload = {
-            "_func": isEdit ? "update_user" : "create_user", //
+            "_func": isEdit ? "update_user" : "create_user",
             "email": document.getElementById('email').value,
             "username": document.getElementById('username').value,
             "role": document.getElementById('role').value,
@@ -205,7 +246,7 @@
         document.getElementById('username').value = user.username;
         document.getElementById('role').value = user.role;
         document.getElementById('active').value = user.active.toString();
-        document.getElementById('password').value = ""; // Leave blank if not changing
+        document.getElementById('password').value = "";
         document.getElementById('password-group').querySelector('label').textContent = "New Password (Leave blank to keep current)";
         document.getElementById('userModal').style.display = 'flex';
     }
@@ -220,6 +261,7 @@
     }
 
     function closeModal() { document.getElementById('userModal').style.display = 'none'; }
+    function closeRecoveryModal() { document.getElementById('recoveryModal').style.display = 'none'; }
     function handleLogout() { localStorage.clear(); window.location.href = "index.html"; }
 </script>
 </body>

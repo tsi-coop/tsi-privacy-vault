@@ -56,6 +56,7 @@ public class InterceptingFilter implements Filter {
             try {
                  if(servletPath.contains("api/admin")
                          && !servletPath.contains("api/admin/login")
+                         && !servletPath.contains("api/admin/resetpass")
                          && !servletPath.contains("api/admin/setup")) {
                      validheader = InputProcessor.processAdminHeader(req, res);
                  }else if(servletPath.contains("api/client")) {

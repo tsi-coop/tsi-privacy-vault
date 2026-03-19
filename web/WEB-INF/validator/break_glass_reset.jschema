@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Break-Glass Password Reset Request",
+  "type": "object",
+  "properties": {
+    "_func": {
+      "type": "string",
+      "const": "break_glass_reset"
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "description": "The email of the locked-out account."
+    },
+    "recovery_key": {
+      "type": "string",
+      "description": "The 24-character high-entropy alphanumeric recovery key."
+    },
+    "new_password": {
+      "type": "string",
+      "minLength": 12,
+      "description": "The new password to be hashed using SHA-256."
+    }
+  },
+  "required": ["_func", "email", "recovery_key", "new_password"],
+  "additionalProperties": false
+}

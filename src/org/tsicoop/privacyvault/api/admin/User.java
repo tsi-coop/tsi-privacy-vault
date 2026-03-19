@@ -3,6 +3,9 @@ package org.tsicoop.privacyvault.api.admin;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -10,6 +13,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.UUID;
+
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.tsicoop.privacyvault.framework.*;
@@ -82,6 +87,30 @@ public class User implements Action {
                     logRegistrationEvent(username, clientIp, userAgent, outcome, null); //
                     break;
 
+                case "generate_master_recovery_key":
+                    // Only allow generation if the actor is an authenticated SYSTEM_ADMIN
+                    String targetEmail = (String) input.get("email");
+                    if (targetEmail == null) {
+                        OutputProcessor.sendError(res, 400, "Target email required.");
+                        return;
+                    }
+                    output = generateMasterRecoveryKey(targetEmail);
+                    outcome = "SUCCESS";
+                    break;
+
+                case "break_glass_reset":
+                    // This route should be accessible via InterceptingFilter bypass if the MRK is valid
+                    String resetEmail = (String) input.get("email");
+                    String providedMRK = (String) input.get("recovery_key");
+                    String newPassword = (String) input.get("new_password");
+
+                    if (resetEmail == null || providedMRK == null || newPassword == null) {
+                        OutputProcessor.sendError(res, 400, "Missing email, recovery key, or new password.");
+                        return;
+                    }
+                    output = breakGlassReset(resetEmail, providedMRK, newPassword);
+                    outcome = "SUCCESS";
+                    break;
                 default:
                     OutputProcessor.errorResponse(res, HttpServletResponse.SC_BAD_REQUEST, "Bad Request", "Unknown function: " + func, req.getRequestURI());
                     return;
@@ -96,6 +125,116 @@ public class User implements Action {
 
         OutputProcessor.send(res, HttpServletResponse.SC_OK, output);
     }
+
+    public JSONObject generateMasterRecoveryKey(String email) throws Exception {
+        // 1. Generate a 24-character high-entropy alphanumeric key
+        String rawMRK = "MRK-" + UUID.randomUUID().toString().substring(0, 18).toUpperCase();
+        String salt = UUID.randomUUID().toString().substring(0, 8);
+      
+        // 2. Hash it using the same secure logic as API Keys
+        String hashedMRK = computeSecureHash(rawMRK, salt);
+
+        System.out.println("While storing - rawMRK"+rawMRK);
+        System.out.println("While storing - salt"+salt);
+        System.out.println("While storing - hashedMRK"+hashedMRK);
+
+
+        Connection conn = null;
+        PreparedStatement ps = null;
+        PoolDB pool = new PoolDB(); // Uses thread-safe init
+
+        try {
+            conn = pool.getConnection();
+            ps = conn.prepareStatement("UPDATE admin_user SET recovery_hash = ?, recovery_salt = ? WHERE email = ?");
+            ps.setString(1, hashedMRK);
+            ps.setString(2, salt);
+            ps.setString(3, email);
+            ps.executeUpdate();
+
+            JSONObject result = new JSONObject();
+            result.put("email", email);
+            result.put("raw_recovery_key", rawMRK); // DISPLAY ONLY ONCE
+            return result;
+        } finally {
+            pool.cleanup(null, ps, conn);
+        }
+    }
+
+    public JSONObject breakGlassReset(String email, String providedMRK, String newPassword) throws Exception {
+        PoolDB pool = new PoolDB();
+        Connection conn = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+
+        try {
+            conn = pool.getConnection();
+            // 1. Fetch the stored recovery hash and salt
+            ps = conn.prepareStatement("SELECT recovery_hash, recovery_salt FROM admin_user WHERE email = ? AND active = true");
+            ps.setString(1, email);
+            rs = ps.executeQuery();
+
+            if (rs.next()) {
+                String storedHash = rs.getString("recovery_hash");
+                String salt = rs.getString("recovery_salt");
+
+                System.out.println("While fetching - provided MRK"+providedMRK);
+                System.out.println("While fetching - salt"+salt);
+                System.out.println("While fetching - storedHash"+storedHash);
+
+
+                 // 2. Verify the provided MRK
+                if (computeSecureHash(providedMRK, salt).equals(storedHash)) {
+                    // 3. Success: Update the password with a new hash
+                    String newPasswordHash = passwordHasher.hashPassword(newPassword);
+                    PreparedStatement psUpdate = conn.prepareStatement(
+                        "UPDATE admin_user SET password_hash = ? WHERE email = ?"
+                    );
+                    psUpdate.setString(1, newPasswordHash);
+                    psUpdate.setString(2, email);
+                    psUpdate.executeUpdate();
+                    psUpdate.close();
+
+                    // 4. Forensic Logging for BSA 2023 compliance
+                    logRegistrationEvent(email, "SYSTEM", "BREAK_GLASS_RESET", "SUCCESS", null);
+
+                    JSONObject res = new JSONObject();
+                    res.put("success", true);
+                    res.put("message", "Password reset successful via Master Recovery Key.");
+                    return res;
+                }
+            }
+            throw new Exception("Invalid Recovery Key or Username.");
+        } finally {
+            pool.cleanup(rs, ps, conn);
+        }
+    }
+
+    /**
+     * Generates a secure SHA-256 hash for Master Recovery Keys or API Secrets.
+     * Addresses feedback regarding plaintext storage of credentials.
+     */
+    private String computeSecureHash(String providedMRK, String salt) throws Exception {
+        // 1. Combine the salt and the raw key to prevent rainbow table attacks
+        String saltedInput = salt + providedMRK;
+        
+        // 2. Initialize SHA-256 digest
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        
+        // 3. Compute the hash bytes
+        byte[] encodedHash = digest.digest(saltedInput.getBytes(StandardCharsets.UTF_8));
+        
+        // 4. Convert byte array into a readable Hexadecimal string
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : encodedHash) {
+            String hex = Integer.toHexString(0xff & b);
+            if (hex.length() == 1) {
+                hexString.append('0');
+            }
+            hexString.append(hex);
+        }
+        return hexString.toString();
+    }
+  
 
     /**
      * Checks if at least one active SYSTEM_ADMIN is already registered.

@@ -9,6 +9,8 @@ CREATE TABLE admin_user (
     email VARCHAR(255) UNIQUE,
     role VARCHAR(50) NOT NULL DEFAULT 'AUDIT_VIEWER',
     active BOOLEAN DEFAULT TRUE,
+    recovery_hash TEXT,
+    recovery_salt TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     last_login_at TIMESTAMP WITH TIME ZONE
 );
@@ -93,28 +95,6 @@ CREATE TABLE permissions (
     -- Prevent duplicate rule definitions
     UNIQUE(api_key, resource_type, resource_id)
 );
-
--- BSA 2023 Forensic Metadata (The "Evidence Log")
-CREATE TABLE bsa_forensic_logs (
-    log_id BIGSERIAL PRIMARY KEY,
-    entity_ref UUID,    
-    utility_ref UUID,
-    -- PART A: User/Machine Details
-    device_make_model VARCHAR(255),
-    device_serial_number VARCHAR(100),
-    device_mac_address VARCHAR(50),
-    device_imei_uid VARCHAR(100),    -- For mobile/tablet sources
-    system_status VARCHAR(50),       -- Must prove "Operating Properly"
-    system_health_snapshot JSONB,    -- RAM, CPU, Disk health at time of capture    
-    -- PART B: Expert/Chain of Custody
-    hash_algorithm VARCHAR(20) DEFAULT 'SHA256',
-    output_source_app VARCHAR(255),  -- e.g., "TSI Privacy Vault v1.2"
-    captured_by_user_id VARCHAR(100),
-    timestamp_ist TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, -- Time in IST 24-hr format   
-    -- Final Certificate Linkage
-    is_anchored BOOLEAN DEFAULT TRUE  -- Permanent record for evidence
-);
-
 
 -- Create Table: event_log
 CREATE TABLE IF NOT EXISTS event_log (
