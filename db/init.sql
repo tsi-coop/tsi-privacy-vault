@@ -53,6 +53,30 @@ CREATE TABLE vault_entities (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create the Inverted Index Table
+CREATE TABLE vault_search_index (
+    index_id SERIAL PRIMARY KEY,
+    
+    -- The deterministic SHA-256 hash of the PII attribute (Blind Index)
+    index_hash VARCHAR(64) NOT NULL,
+    
+    -- Foreign key linking to the actual encrypted record in vault_entities
+    entity_ref UUID NOT NULL,
+    
+    -- Metadata to identify what part of the PII this hash represents
+    -- Examples: 'FULL', 'PART' (for name segments), 'PREFIX' (for mobile/IDs)
+    attribute_type VARCHAR(20),
+    
+    -- Forensic timestamp for BSA 2023 compliance
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    -- Constraints
+    CONSTRAINT fk_vault_entity 
+        FOREIGN KEY(entity_ref) 
+        REFERENCES vault_entities(entity_ref) 
+        ON DELETE CASCADE
+);
+
 CREATE TABLE vault_utilities (
     utility_ref UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     flavor VARCHAR(20) NOT NULL, -- KEYS, CERT, SHARED_KEYS

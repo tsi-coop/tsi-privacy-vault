@@ -14,6 +14,8 @@
         .data-entry { border-left: 3px solid #006A67; margin-top: 10px; padding: 12px; background: #f1f5f9; border-radius: 0 8px 8px 0; font-family: monospace; font-size: 13px; }
         .flavor-tag { font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 9999px; text-transform: uppercase; }
         input[readonly] { background-color: #f1f5f9; color: #64748b; cursor: not-allowed; }
+        .search-result-item { transition: all 0.2s; border: 1px solid #e2e8f0; }
+        .search-result-item:hover { border-color: #006A67; background: #f0fdfa; }
     </style>
 </head>
 <body class="p-6 md:p-12">
@@ -104,6 +106,23 @@
                     <div id="newRefOutput" class="data-entry text-teal-700 font-bold"></div>
                 </div>
             </div>
+
+            <div id="searchView" class="hidden space-y-4">
+                <div class="relative">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Encrypted Discovery</label>
+                    <input type="text" id="searchInput" onkeyup="if(event.key==='Enter')executeSearch()" class="w-full border border-slate-200 rounded-xl p-4 pr-12 mt-1 font-mono text-sm outline-none focus:ring-2 focus:ring-teal-500" placeholder="Search by name, ID or prefix...">
+                    <button onclick="executeSearch()" class="absolute right-3 bottom-3 text-teal-600 hover:text-teal-800">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <div id="searchStatus" class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center hidden">Searching Blind Index...</div>
+                
+                <div id="searchResults" class="max-h-60 overflow-y-auto space-y-2 mt-4 custom-scrollbar">
+                    </div>
+            </div>
             
             <button onclick="closeModal()" class="w-full mt-6 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition">Cancel</button>
         </div>
@@ -150,6 +169,7 @@
                 </td>
                 <td class="px-8 py-6 font-bold text-slate-700 font-mono text-xs">${e.entity_code}</td>
                 <td class="px-8 py-6 text-right space-x-2">
+                    <button onclick="openSearchPopup()" class="px-4 py-2 text-[10px] font-black uppercase border border-teal-200 text-teal-600 rounded-md hover:bg-teal-50">Search</button>
                     <button onclick="openFetchPopup()" class="px-4 py-2 text-[10px] font-black uppercase border border-slate-200 text-slate-600 rounded-md hover:bg-slate-100">Fetch</button>
                     <button onclick="openStorePopup('${e.entity_code}', '${e.flavor}')" class="px-4 py-2 text-[10px] font-black uppercase bg-[#006A67] text-white rounded-md hover:bg-teal-800">Store</button>
                 </td>
@@ -157,20 +177,64 @@
         `).join('');
     }
 
-    function openFetchPopup() {
+    function openSearchPopup() {
+        resetModal();
         document.getElementById('opModal').style.display = 'flex';
-        document.getElementById('fetchView').classList.remove('hidden');
-        document.getElementById('storeView').classList.add('hidden');
-        document.getElementById('modalTitle').textContent = "Vault Retrieval Protocol";
-        document.getElementById('fetchResult').classList.add('hidden');
-        document.getElementById('manualRefKey').value = '';
+        document.getElementById('searchView').classList.remove('hidden');
+        document.getElementById('modalTitle').textContent = "Encrypted Search Index";
+        document.getElementById('searchInput').focus();
     }
 
-   async function executeFetch() {
+    async function executeSearch() {
+        const term = document.getElementById('searchInput').value;
+        if(term.length < 3) return alert("Search term must be at least 3 characters.");
+
+        const status = document.getElementById('searchStatus');
+        const resultsContainer = document.getElementById('searchResults');
+        
+        status.classList.remove('hidden');
+        resultsContainer.innerHTML = '';
+
+        const res = await vaultRequest("search_data", { "searchTerm": term });
+        status.classList.add('hidden');
+
+        if(res.success && res.results && res.results.length > 0) {
+            resultsContainer.innerHTML = res.results.map(r => `
+                <div onclick="autoFetch('${r.reference_key}')" class="search-result-item p-4 rounded-xl cursor-pointer flex justify-between items-center group">
+                    <div>
+                        <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">${r.flavor} Match</div>
+                        <div class="font-mono text-xs font-bold text-slate-700">${r.reference_key}</div>
+                    </div>
+                    <div class="text-teal-600 opacity-0 group-hover:opacity-100 transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            resultsContainer.innerHTML = `<div class="text-center p-8 text-slate-400 italic text-xs">No matching encrypted anchors found.</div>`;
+        }
+    }
+
+    function autoFetch(refKey) {
+        openFetchPopup();
+        document.getElementById('manualRefKey').value = refKey;
+        executeFetch();
+    }
+
+    function openFetchPopup() {
+        resetModal();
+        document.getElementById('opModal').style.display = 'flex';
+        document.getElementById('fetchView').classList.remove('hidden');
+        document.getElementById('modalTitle').textContent = "Vault Retrieval Protocol";
+    }
+
+    async function executeFetch() {
         const refKey = document.getElementById('manualRefKey').value;
         if(!refKey) return alert("Reference Key required");
 
-        const res = await vaultRequest("fetch_id_by_reference", { "reference-key": refKey });
+        const res = await vaultRequest("fetch_data", { "reference-key": refKey });
         
         if(res.success && res.value) {
             document.getElementById('fetchResult').classList.remove('hidden');
@@ -180,15 +244,12 @@
                 try {
                     const blobLink = document.createElement('a');
                     blobLink.href = `data:application/octet-stream;base64,${res.value}`;
-                    
-                    // FIX: Use the fileName from the response, fallback to .dat if missing
                     const downloadName = res.fileName || `vault_file_${refKey.substring(0,8)}.dat`;
                     blobLink.download = downloadName;
-                    
                     blobLink.click();
                     outputDiv.innerHTML = `<span class="text-teal-600 font-bold">✓ Downloaded: ${downloadName}</span>`;
                 } catch (e) {
-                    alert("Download failed: Invalid Base64 data.");
+                    alert("Download failed: Invalid data.");
                 }
             } else {
                 try {
@@ -203,41 +264,36 @@
     }
 
     function openStorePopup(code, flavor) {
+        resetModal();
         document.getElementById('opModal').style.display = 'flex';
-        document.getElementById('fetchView').classList.add('hidden');
         document.getElementById('storeView').classList.remove('hidden');
         document.getElementById('modalTitle').textContent = `${flavor} Storage Protocol`;
-        document.getElementById('storeResult').classList.add('hidden');
         
         document.getElementById('storeEntityName').value = code;
         document.getElementById('storeEntityType').value = flavor;
         
-        // Toggle input UI based on flavor
         if (flavor === 'FILE') {
             document.getElementById('textContentContainer').classList.add('hidden');
             document.getElementById('fileContentContainer').classList.remove('hidden');
         } else {
             document.getElementById('textContentContainer').classList.remove('hidden');
             document.getElementById('fileContentContainer').classList.add('hidden');
-            document.getElementById('storeContent').value = '';
         }
         
         document.getElementById('execStoreBtn').onclick = () => executeStore();
     }
 
-   async function executeStore() {
+    async function executeStore() {
         const entityCode = document.getElementById('storeEntityName').value;
         const flavor = document.getElementById('storeEntityType').value;
         let base64Payload = "";
-        let fileName = null; // Variable to hold the filename
+        let fileName = null;
 
         if (flavor === 'FILE') {
             const fileInput = document.getElementById('fileUploadInput');
             if (fileInput.files.length === 0) return alert("Please select a file.");
-            
             const file = fileInput.files[0];
-            fileName = file.name; // Capture the actual filename with extension
-            
+            fileName = file.name;
             base64Payload = await new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.onload = () => resolve(reader.result.split(',')[1]); 
@@ -247,10 +303,9 @@
             const textContent = document.getElementById('storeContent').value;
             if(!textContent) return alert("Content is required.");
             base64Payload = btoa(textContent);
-            fileName = "text_payload.txt"; // Default filename for text entries
+            fileName = "text_payload.txt";
         }
 
-        // Modified request to include fileName in the payload
         const res = await vaultRequest("store_data", { 
             "entityType": flavor,
             "entityName": entityCode,
@@ -264,6 +319,16 @@
         } else {
             alert("Storage failed: " + (res.message || "Protocol Error"));
         }
+    }
+
+    function resetModal() {
+        document.getElementById('fetchView').classList.add('hidden');
+        document.getElementById('storeView').classList.add('hidden');
+        document.getElementById('searchView').classList.add('hidden');
+        document.getElementById('fetchResult').classList.add('hidden');
+        document.getElementById('storeResult').classList.add('hidden');
+        document.getElementById('searchResults').innerHTML = '';
+        document.getElementById('searchInput').value = '';
     }
 
     function closeModal() { document.getElementById('opModal').style.display = 'none'; }

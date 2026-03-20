@@ -51,13 +51,66 @@ public class Vault implements Action {
                 case "fetch_file_by_reference":
                     handleFetch(input, apiKey, clientIp, userAgent, res);
                     break;
-              
+                case "search_data":
+                    handleSearch(input, apiKey, res);
+                    break;              
                 default:
                     OutputProcessor.sendError(res, 404, "Function not found.");
             }
         } catch (Exception e) {
             e.printStackTrace();
             OutputProcessor.sendError(res, 500, "Vault processing error: " + e.getMessage());
+        }
+    }
+
+    private void handleSearch(JSONObject input, String apiKey, HttpServletResponse res) throws Exception {
+        String searchTerm = (String) input.get("searchTerm");
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            OutputProcessor.sendError(res, 400, "Missing search term.");
+            return;
+        }
+
+        Connection conn = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        PoolDB pool = new PoolDB();
+
+        try {
+            // 1. Generate the deterministic hash for the query
+            String indexSecret = System.getenv("TSI_VAULT_INDEX_SECRET");
+            if (indexSecret == null) indexSecret = "fallback-dev-secret-32-chars-long";
+            String queryHash = computeSecureHash(searchTerm.toUpperCase().trim(), indexSecret);
+
+            conn = pool.getConnection();
+            // 2. Query the inverted index joined with the master for authorization
+            String sql = "SELECT s.entity_ref, m.flavor, m.entity_code " +
+                         "FROM vault_search_index s " +
+                         "JOIN vault_entities e ON s.entity_ref = e.entity_ref " +
+                         "JOIN vault_entity_master m ON e.id_type_code = m.entity_code " +
+                         "WHERE s.index_hash = ? AND m.active = true";
+            
+            ps = conn.prepareStatement(sql);
+            ps.setString(1, queryHash);
+            rs = ps.executeQuery();
+
+            JSONArray results = new JSONArray();
+            while (rs.next()) {
+                String entityCode = rs.getString("entity_code");
+                // 3. Filter results based on API Key authorization
+                if (isAuthorized(apiKey, entityCode, "READ")) {
+                    JSONObject match = new JSONObject();
+                    match.put("reference_key", rs.getString("entity_ref"));
+                    match.put("flavor", rs.getString("flavor"));
+                    results.add(match);
+                }
+            }
+
+            JSONObject out = new JSONObject();
+            out.put("success", true);
+            out.put("results", results);
+            OutputProcessor.send(res, 200, out);
+        } finally {
+            pool.cleanup(rs, ps, conn);
         }
     }
 
@@ -296,6 +349,38 @@ public class Vault implements Action {
             ps.setString(6, computeHash(plainValue));
             ps.setString(7, originalFileName); // Preserving the original extension
             ps.executeUpdate();
+
+            // --- NEW: INVERTED INDEXING ---
+            if (originalFileName != null && !originalFileName.isEmpty()) {
+                // 1. Index the full filename
+                updateSearchIndex(conn, referenceKey, originalFileName, "FILE_NAME");
+
+                // 2. Index the extension for type-based filtering
+                if (originalFileName.contains(".")) {
+                    String extension = originalFileName.substring(originalFileName.lastIndexOf(".") + 1);
+                    updateSearchIndex(conn, referenceKey, extension, "FILE_EXT");
+                    
+                    String baseName = originalFileName.substring(0, originalFileName.lastIndexOf("."));
+                    updateSearchIndex(conn, referenceKey, baseName, "FILE_BASE");
+                }
+            }else{
+                // Generate indices for the full value, and shards for partial search
+                updateSearchIndex(conn, referenceKey, plainValue, "FULL");
+                
+                // Multi-part search: Index individual words (e.g., First/Last names)
+                String[] parts = plainValue.split("\\s+");
+                if (parts.length > 1) {
+                    for (String part : parts) {
+                        updateSearchIndex(conn, referenceKey, part, "PART");
+                    }
+                }
+                
+                // Partial search: Index first 3 characters (e.g., Mobile Prefix)
+                if (plainValue.length() >= 3) {
+                    updateSearchIndex(conn, referenceKey, plainValue.substring(0, 3), "PREFIX");
+                }
+            }
+            // --- END INDEXING ---
             
             logVaultEvent(conn, apiKey, "STORE", entityType+":"+entityCode+":"+referenceKey, ip, ua, "SUCCESS", referenceKey, null);
             
@@ -308,6 +393,40 @@ public class Vault implements Action {
         } finally {
             pool.cleanup(null, ps, conn);
         }
+    }
+
+    private void updateSearchIndex(Connection conn, UUID entityRef, String value, String type) throws Exception {
+        PreparedStatement ps = null;
+        try {
+            String indexSecret = System.getenv("TSI_VAULT_INDEX_SECRET");
+            if (indexSecret == null) indexSecret = "fallback-dev-secret-32-chars-long";
+            
+            // Generate deterministic SHA-256 hash
+            String deterministicHash = computeSecureHash(value.toUpperCase().trim(), indexSecret);
+
+            String sql = "INSERT INTO vault_search_index (index_hash, entity_ref, attribute_type) VALUES (?, ?, ?)";
+            ps = conn.prepareStatement(sql);
+            ps.setString(1, deterministicHash);
+            ps.setObject(2, entityRef);
+            ps.setString(3, type);
+            ps.executeUpdate();
+        } catch (Exception e) {
+            System.err.println("Indexing failed for " + type + ": " + e.getMessage());
+        } finally {
+            if (ps != null) ps.close();
+        }
+    }
+
+    private String computeSecureHash(String input, String salt) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] hash = digest.digest((salt + input).getBytes("UTF-8"));
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : hash) {
+            String hex = Integer.toHexString(0xff & b);
+            if (hex.length() == 1) hexString.append('0');
+            hexString.append(hex);
+        }
+        return hexString.toString();
     }
 
     private void handleFetch(JSONObject input, String apiKey, String ip, String ua, HttpServletResponse res) throws Exception {
