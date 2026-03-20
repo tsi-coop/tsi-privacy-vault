@@ -77,8 +77,7 @@ public class Vault implements Action {
 
         try {
             // 1. Generate the deterministic hash for the query
-            String indexSecret = System.getenv("TSI_VAULT_INDEX_SECRET");
-            if (indexSecret == null) indexSecret = "fallback-dev-secret-32-chars-long";
+            String indexSecret = System.getenv("TSI_PRIVACY_VAULT_INDEX_SECRET");
             String queryHash = computeSecureHash(searchTerm.toUpperCase().trim(), indexSecret);
 
             conn = pool.getConnection();
@@ -351,11 +350,11 @@ public class Vault implements Action {
             ps.executeUpdate();
 
             // --- NEW: INVERTED INDEXING ---
-            if (originalFileName != null && !originalFileName.isEmpty()) {
-                // 1. Index the full filename
+            if (entityType.equalsIgnoreCase("FILE")) {
+                // Index the full filename
                 updateSearchIndex(conn, referenceKey, originalFileName, "FILE_NAME");
 
-                // 2. Index the extension for type-based filtering
+                // Index the extension for type-based filtering
                 if (originalFileName.contains(".")) {
                     String extension = originalFileName.substring(originalFileName.lastIndexOf(".") + 1);
                     updateSearchIndex(conn, referenceKey, extension, "FILE_EXT");
@@ -364,7 +363,14 @@ public class Vault implements Action {
                     updateSearchIndex(conn, referenceKey, baseName, "FILE_BASE");
                 }
             }else{
-                // Generate indices for the full value, and shards for partial search
+
+                try {
+                    // Decode the Base64 payload from the frontend to get the actual PII
+                    byte[] decodedBytes = Base64.getDecoder().decode(plainValue);
+                    plainValue = new String(decodedBytes, "UTF-8");
+                } catch (Exception e) {}
+
+               // Generate indices for the full value, and shards for partial search
                 updateSearchIndex(conn, referenceKey, plainValue, "FULL");
                 
                 // Multi-part search: Index individual words (e.g., First/Last names)
@@ -398,8 +404,7 @@ public class Vault implements Action {
     private void updateSearchIndex(Connection conn, UUID entityRef, String value, String type) throws Exception {
         PreparedStatement ps = null;
         try {
-            String indexSecret = System.getenv("TSI_VAULT_INDEX_SECRET");
-            if (indexSecret == null) indexSecret = "fallback-dev-secret-32-chars-long";
+            String indexSecret = System.getenv("TSI_PRIVACY_VAULT_INDEX_SECRET");
             
             // Generate deterministic SHA-256 hash
             String deterministicHash = computeSecureHash(value.toUpperCase().trim(), indexSecret);

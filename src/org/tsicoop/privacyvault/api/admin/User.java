@@ -134,11 +134,6 @@ public class User implements Action {
         // 2. Hash it using the same secure logic as API Keys
         String hashedMRK = computeSecureHash(rawMRK, salt);
 
-        System.out.println("While storing - rawMRK"+rawMRK);
-        System.out.println("While storing - salt"+salt);
-        System.out.println("While storing - hashedMRK"+hashedMRK);
-
-
         Connection conn = null;
         PreparedStatement ps = null;
         PoolDB pool = new PoolDB(); // Uses thread-safe init
@@ -176,11 +171,6 @@ public class User implements Action {
             if (rs.next()) {
                 String storedHash = rs.getString("recovery_hash");
                 String salt = rs.getString("recovery_salt");
-
-                System.out.println("While fetching - provided MRK"+providedMRK);
-                System.out.println("While fetching - salt"+salt);
-                System.out.println("While fetching - storedHash"+storedHash);
-
 
                  // 2. Verify the provided MRK
                 if (computeSecureHash(providedMRK, salt).equals(storedHash)) {
