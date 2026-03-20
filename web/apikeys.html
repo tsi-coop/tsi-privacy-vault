@@ -170,22 +170,55 @@
     document.getElementById('user-initials').textContent = USER.substring(0, 2).toUpperCase();
 
     async function fetchKeys() {
-        const res = await fetch(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
-            body: JSON.stringify({ "_func": "get_all_keys" })
-        });
-        const data = await res.json();
-        if (res.ok) {
-            document.getElementById('key-table-body').innerHTML = (data.keys || []).map(key => `
-                <tr class="hover:bg-slate-50 transition border-b border-slate-50">
-                    <td class="px-6 py-4 font-bold text-slate-700 uppercase text-xs">${key.label}</td>
-                    <td class="px-6 py-4 font-mono text-[11px] text-slate-400">${key.api_key_id}</td>
-                    <td class="px-6 py-4"><span class="px-2 py-1 rounded text-[9px] font-black uppercase ${key.active ? 'bg-green-100 text-green-700' : 'bg-rose-50 text-rose-600'}">${key.active ? 'Active' : 'Revoked'}</span></td>
-                    <td class="px-6 py-4 text-right">
-                        <button onclick='openPermissions("${key.api_key_id}")' class="text-indigo-600 hover:underline text-[10px] font-black uppercase">Permissions</button>
-                    </td>
-                </tr>`).join('');
+        try {
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+                body: JSON.stringify({ "_func": "get_all_keys" })
+            });
+            const data = await res.json();
+            const tbody = document.getElementById('key-table-body');
+            
+            if (res.ok) {
+                const keys = data.keys || [];
+                
+                // Handle Empty State
+                if (keys.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="4" class="px-6 py-20">
+                                <div class="flex flex-col items-center justify-center text-center">
+                                    <div class="bg-slate-50 p-4 rounded-full mb-4 border border-slate-100">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                        </svg>
+                                    </div>
+                                    <p class="text-sm font-black text-slate-500 uppercase tracking-widest">No API Keys Found</p>
+                                    <p class="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-tight">The machine access registry is currently empty.</p>
+                                    <button onclick="openModal()" class="mt-6 text-indigo-600 hover:text-indigo-800 text-[10px] font-black uppercase tracking-widest border border-indigo-100 px-4 py-2 rounded-lg bg-indigo-50/50">
+                                        + Generate First Key
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>`;
+                    return;
+                }
+
+                // Render Table Rows
+                tbody.innerHTML = keys.map(key => `
+                    <tr class="hover:bg-slate-50 transition border-b border-slate-50">
+                        <td class="px-6 py-4 font-bold text-slate-700 uppercase text-xs">${key.label}</td>
+                        <td class="px-6 py-4 font-mono text-[11px] text-slate-400">${key.api_key_id}</td>
+                        <td class="px-6 py-4"><span class="px-2 py-1 rounded text-[9px] font-black uppercase ${key.active ? 'bg-green-100 text-green-700' : 'bg-rose-50 text-rose-600'}">${key.active ? 'Active' : 'Revoked'}</span></td>
+                        <td class="px-6 py-4 text-right">
+                            <button onclick='openPermissions("${key.api_key_id}")' class="text-indigo-600 hover:underline text-[10px] font-black uppercase">Permissions</button>
+                        </td>
+                    </tr>`).join('');
+            }
+        } catch (err) { 
+            console.error(err);
+            document.getElementById('key-table-body').innerHTML = `
+                <tr><td colspan="4" class="px-6 py-10 text-center text-red-400 font-bold uppercase text-[10px]">Registry Sync Failed: Connection Error</td></tr>`;
         }
     }
 

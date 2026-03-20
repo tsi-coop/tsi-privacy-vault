@@ -134,12 +134,37 @@
             const response = await fetch(API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
-                body: JSON.stringify({ "_func": "get_all_entities" }) //
+                body: JSON.stringify({ "_func": "get_all_entities" })
             });
             const data = await response.json();
             const tbody = document.getElementById('entity-table-body');
+            
             if (response.ok) {
-                const entities = data.entities || data;
+                const entities = data.entities || [];
+
+                // Handle Empty State
+                if (entities.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="px-6 py-20">
+                                <div class="flex flex-col items-center justify-center text-center">
+                                    <div class="bg-slate-50 p-4 rounded-full mb-4 border border-slate-100">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                        </svg>
+                                    </div>
+                                    <p class="text-sm font-black text-slate-500 uppercase tracking-widest">No Entities Registered</p>
+                                    <p class="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-tight">The Vault Master registry is currently empty.</p>
+                                    <button onclick="openModal()" class="mt-6 text-indigo-600 hover:text-indigo-800 text-[10px] font-black uppercase tracking-widest border border-indigo-100 px-4 py-2 rounded-lg bg-indigo-50/50">
+                                        + Initialize First Entity
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>`;
+                    return;
+                }
+
+                // Render Table Rows
                 tbody.innerHTML = entities.map(entity => `
                     <tr class="hover:bg-slate-50 transition">
                         <td class="px-6 py-4 font-mono text-xs font-bold text-slate-700">${entity.entity_code}</td>
@@ -152,9 +177,13 @@
                     </tr>
                 `).join('');
             }
-        } catch (err) { console.error(err); }
+        } catch (err) { 
+            console.error(err); 
+            document.getElementById('entity-table-body').innerHTML = `
+                <tr><td colspan="5" class="px-6 py-10 text-center text-red-400 font-bold uppercase text-[10px]">Registry Sync Failed: Connection Error</td></tr>`;
+        }
     }
-
+    
     document.getElementById('entity-form').onsubmit = async (e) => {
         e.preventDefault();
         const isEdit = document.getElementById('is-edit').value === "true";
