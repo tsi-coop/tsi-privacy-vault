@@ -18,7 +18,7 @@ An open-source digital safe that isolates personal and sensitive data for effort
 
 [Court Ready Evidence](https://youtu.be/oRfr3wVTWnw)
 
-## Prior Work
+## References
 
 [Aadhaar Vault](https://techadvisory.substack.com/p/solution-explainer-aadhaar-vault)
 
