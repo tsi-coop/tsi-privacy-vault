@@ -121,7 +121,7 @@
                 <div id="searchStatus" class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center hidden">Searching Blind Index...</div>
                 
                 <div id="searchResults" class="max-h-60 overflow-y-auto space-y-2 mt-4 custom-scrollbar">
-                    </div>
+                </div>
             </div>
             
             <button onclick="closeModal()" class="w-full mt-6 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition">Cancel</button>
@@ -322,13 +322,30 @@
     }
 
     function resetModal() {
+        // Hide all views
         document.getElementById('fetchView').classList.add('hidden');
         document.getElementById('storeView').classList.add('hidden');
         document.getElementById('searchView').classList.add('hidden');
+        
+        // Hide result sections
         document.getElementById('fetchResult').classList.add('hidden');
         document.getElementById('storeResult').classList.add('hidden');
-        document.getElementById('searchResults').innerHTML = '';
+        document.getElementById('searchStatus').classList.add('hidden');
+        
+        // Clear Search Inputs and Results
         document.getElementById('searchInput').value = '';
+        document.getElementById('searchResults').innerHTML = '';
+        
+        // Clear Fetch Inputs and Results
+        document.getElementById('manualRefKey').value = '';
+        document.getElementById('decryptedOutput').innerHTML = '';
+        
+        // Clear Store Inputs and Results
+        document.getElementById('storeContent').value = '';
+        document.getElementById('fileUploadInput').value = '';
+        document.getElementById('newRefOutput').textContent = '';
+        document.getElementById('storeEntityName').value = '';
+        document.getElementById('storeEntityType').value = '';
     }
 
     function closeModal() { document.getElementById('opModal').style.display = 'none'; }
