@@ -137,3 +137,28 @@ CREATE TABLE IF NOT EXISTS event_log (
     log_datetime TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+
+-- Indexes
+
+-- Critical for isAuthorized() checks and permission resolution
+CREATE UNIQUE INDEX idx_permissions_composite ON permissions(api_key, resource_id, resource_type);
+
+-- Supports listing all keys by creation date for the dashboard
+CREATE INDEX idx_api_user_created ON api_user(created_datetime DESC);
+
+-- Support for the Inverted Index (Deterministic Blind Index)
+CREATE INDEX idx_search_index_hash ON vault_search_index(index_hash);
+CREATE INDEX idx_search_index_ref ON vault_search_index(entity_ref);
+
+-- Unique index for the master record retrieval
+CREATE UNIQUE INDEX idx_vault_entities_ref ON vault_entities(entity_ref);
+
+-- Supports entity master lookups and active flavor checks
+CREATE UNIQUE INDEX idx_vault_master_code ON vault_entity_master(entity_code);
+
+-- Supports utility resolution by label (API ID)
+CREATE INDEX idx_vault_utilities_label ON vault_utilities(label, active) WHERE active = true;
+
+-- Supports utility lookup by UUID reference
+CREATE UNIQUE INDEX idx_vault_utilities_ref ON vault_utilities(utility_ref);
+

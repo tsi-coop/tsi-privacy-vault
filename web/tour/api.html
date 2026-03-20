@@ -115,11 +115,11 @@
             <h2 class="text-xl font-bold text-slate-800 mb-6 uppercase tracking-tight">3. Data Retrieval</h2>
             <div class="section-card shadow-sm">
                 <span class="method-label">Retrieval</span>
-                <h3 class="font-bold text-slate-800 italic">fetch_id_by_reference</h3>
-                <p class="text-xs text-slate-600 mt-2">Retrieves authorized entities. Returns content, flavour, and the original <code>fileName</code> for extension restoration.</p>
+                <h3 class="font-bold text-slate-800 italic">fetch_data</h3>
+                <p class="text-xs text-slate-600 mt-2">Retrieves authorized entities using a UUID reference. Returns content, flavour, and the original <code>fileName</code> for extension restoration.</p>
                 <div class="code-block">
 {
-  "_func": "fetch_id_by_reference",
+  "_func": "fetch_data",
   "reference-key": "550e8400-e29b-41d4-a716-446655440000"
 }
                 </div>
@@ -138,7 +138,36 @@
         </section>
 
         <section class="mb-12">
-            <h2 class="text-xl font-bold text-slate-800 mb-6 uppercase tracking-tight">4. Utility Resolution</h2>
+            <h2 class="text-xl font-bold text-slate-800 mb-6 uppercase tracking-tight">4. Encrypted Search Protocol</h2>
+            <div class="section-card shadow-sm border-l-4 border-l-teal-600">
+                <span class="method-label">Search</span>
+                <h3 class="font-bold text-slate-800 italic">search_data</h3>
+                <p class="text-xs text-slate-600 mt-2 leading-relaxed">Uses a <strong>Deterministic Blind Index</strong> to find records without decrypting PII. Supports full name, word segments, and 3-character prefixes.</p>
+                <div class="code-block">
+{
+  "_func": "search_data",
+  "searchTerm": "Satish"
+}
+                </div>
+                <div class="mt-4">
+                    <span class="method-label">Response Example</span>
+                    <div class="code-block !text-teal-400">
+{
+  "success": true,
+  "results": [
+    {
+      "reference_key": "550e8400-e29b-41d4-a716-446655440000",
+      "flavor": "DATA"
+    }
+  ]
+}
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-12">
+            <h2 class="text-xl font-bold text-slate-800 mb-6 uppercase tracking-tight">5. Utility Resolution</h2>
             <div class="section-card shadow-sm bg-teal-50/30">
                 <span class="method-label">Resolution</span>
                 <h3 class="font-bold text-slate-800 italic">resolve_utility</h3>
@@ -162,6 +191,7 @@
                     <span class="text-[9px] border border-slate-700 px-2 py-1 rounded">VAULT_STORE</span>
                     <span class="text-[9px] border border-slate-700 px-2 py-1 rounded">VAULT_FETCH</span>
                     <span class="text-[9px] border border-slate-700 px-2 py-1 rounded">VAULT_RESOLVE</span>
+                    <span class="text-[9px] border border-slate-700 px-2 py-1 rounded">VAULT_SEARCH</span>
                 </div>
             </div>
         </section>
