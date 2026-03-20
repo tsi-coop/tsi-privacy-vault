@@ -1,7 +1,0 @@
-{
-  "_func": "register_admin",
-  "username": "admin",
-  "password": "admin@123",
-  "email": "admin@tsicoop.org",
-  "role": "SYSTEM_ADMIN"
-}
