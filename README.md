@@ -12,7 +12,7 @@ An open-source digital safe that isolates personal and sensitive data for effort
 
 [Data Client Tour](https://youtu.be/jvI_LD-pSfQ)
 
-[Utility Tour](https://youtu.be/HBa32fdSJ60)
+[Utility Client Tour](https://youtu.be/HBa32fdSJ60)
 
 [Court Ready Evidence](https://youtu.be/oRfr3wVTWnw)
 
