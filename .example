@@ -7,21 +7,24 @@
 
 # --- Database Configuration ---
 # Recommended: A strong, random password.
-POSTGRES_DB=
-POSTGRES_USER=
-POSTGRES_PASSWD=
+POSTGRES_DB=tsi_privacy_vault
+POSTGRES_USER=tsi_admin
+POSTGRES_PASSWD=secure_dev_password
 
 # --- Application Configuration---
-TSI_LOOKUP_SALT= # A global, fixed, and secret salt used for deterministic hashing of ID numbers
+# Environment
 TSI_PRIVACY_VAULT_ENV=local
-
-# --- AWS KMS Configuration ---
-# Your AWS Access Key ID (e.g., AKIA...)
-AWS_ACCESS_KEY_ID=
-# Your AWS Secret Access Key (e.g., wJalrXUtn...)
-AWS_SECRET_ACCESS_KEY=
-# The AWS region where your KMS key exists (e.g., ap-south-1)
-AWS_REGION=
-# The ARN or Alias ARN of your KMS Key (e.g., alias/your-aadhaar-vault-key or arn:aws:kms:region:account-id:key/key-id)
-AWS_KMS_KEY_IDENTIFIER=
-
+# Machine Name
+TSI_PRIVACY_VAULT_NODE_ID=MUMBAI_DC_RACK04_SRV01
+# 32 byte Master Key 
+TSI_PRIVACY_VAULT_MASTER_KEY=6S6vH7pW2zN9kX4jR8mB3vC5xZ1aQ7yP0oL9iK2uJ4M
+# JWT Secret 
+TSI_PRIVACY_VAULT_JWT_SECRET=v7N2xQ9mR4kL1jP8bW5tZ3yX6sC0vA2d
+# Software Version
+TSI_PRIVACY_VAULT_SOFTWARE_VERSION=TSI PRIVACY VAULT v0.1
+# Max upload size (in KB)
+TSI_PRIVACY_VAULT_MAX_UPLOAD_KB=5120
+# Search Index Secret Key
+TSI_PRIVACY_VAULT_INDEX_SECRET=k9#z!L2@P$5m*N8^qV1&bX7*jR3+fW0_
+# Data Export Path
+ TSI_EXPORT_PATH=/var/lib/tsi/exports/

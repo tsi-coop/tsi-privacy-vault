@@ -24,7 +24,14 @@ An open-source digital safe that isolates personal and sensitive data for effort
    ```bash
    git clone https://github.com/tsi-coop/tsi-privacy-vault.git tsi-privacy-vault-eval
    ```
-2.  **Start the TSI Privacy Vault service**
+
+2. **Create .env File:** This file stores sensitive configurations (passwords, API keys, etc.) and is NOT committed to Git.
+```bash
+   cp .example .env
+```
+   Now, edit the newly created .env file and fill in the placeholder values.
+
+3.  **Start the TSI Privacy Vault service**
    ```bash
    cd tsi-privacy-vault-eval
    sudo docker compose up -d
@@ -34,7 +41,7 @@ An open-source digital safe that isolates personal and sensitive data for effort
 
 The system includes a pre-configured interactive tour designed for evaluators and administrators to explore the Sovereign Data Isolation capabilities.
 
-Access the Tour: Open your browser and navigate to: http://localhost:8080/tour.
+Access the Tour: Open your browser and navigate to: http://localhost:8081/tour.
 
 Follow the Guided Journey:
 
