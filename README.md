@@ -30,6 +30,22 @@ An open-source digital safe that isolates personal and sensitive data for effort
    sudo docker compose up -d
    ```
 
+## Post-Installation Steps
+
+The system includes a pre-configured interactive tour designed for evaluators and administrators to explore the Sovereign Data Isolation capabilities.
+
+Access the Tour: Open your browser and navigate to: http://localhost:8080/tour.
+
+Follow the Guided Journey:
+
+1. Environment Setup: Initialize the Sovereign Safe, define Master Keys, and establish the root hardware anchor for the vault instance.
+
+2. Data Client: Ingest, store, and retrieve records across ID, DATA, and FILE flavors using integrated forensic hashing.
+
+3. Utility Client: Perform handshakes to fetch authorized cryptographic assets, system keys, and SSL certificates.
+
+4. API Technical Tour: Review technical specifications, request/response structures, and unified headers for all data flavors.
+
 ## References
 
 [Aadhaar Vault](https://techadvisory.substack.com/p/solution-explainer-aadhaar-vault)
