@@ -24,7 +24,7 @@ An open-source digital safe that isolates personal and sensitive data for effort
    ```bash
    git clone https://github.com/tsi-coop/tsi-privacy-vault.git tsi-privacy-vault-eval
    ```
-2. **Change directory:** 
+2. **Change directory** 
 ```bash
 cd tsi-privacy-vault-eval
 ```
