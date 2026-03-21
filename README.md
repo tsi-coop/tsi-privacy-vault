@@ -27,7 +27,7 @@ An open-source digital safe that isolates personal and sensitive data for effort
 
 2. **Create .env File:** This file stores sensitive configurations (passwords, API keys, etc.) and is NOT committed to Git.
 ```bash
-   cp .example .env
+cp .example .env
 ```
    Now, edit the newly created .env file and fill in the placeholder values.
 
