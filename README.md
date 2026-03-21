@@ -44,7 +44,7 @@ Now, edit the newly created .env file and fill in the placeholder values.
 
 The system includes a pre-configured interactive tour designed for evaluators and administrators to explore the Sovereign Data Isolation capabilities.
 
-Access the Tour: Open your browser and navigate to: http://localhost:8081/tour.
+Access the Tour: Open your browser and navigate to: http://localhost:8080/tour.
 
 Follow the Guided Journey:
 
