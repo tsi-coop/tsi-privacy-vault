@@ -23,6 +23,7 @@ An open-source digital safe that isolates personal and sensitive data for effort
 1.  **Clone the repository to a separate folder**
    ```bash
    git clone https://github.com/tsi-coop/tsi-privacy-vault.git tsi-privacy-vault-eval
+   cd tsi-privacy-vault-eval
    ```
 
 2. **Create .env File:** This file stores sensitive configurations (passwords, API keys, etc.) and is NOT committed to Git.
@@ -32,8 +33,7 @@ cp .example .env
    Now, edit the newly created .env file and fill in the placeholder values.
 
 3.  **Start the TSI Privacy Vault service**
-   ```bash
-   cd tsi-privacy-vault-eval
+   ```bash   
    sudo docker compose up -d
    ```
 
