@@ -14,7 +14,7 @@ services:
     environment:
       <<: *db-credentials
     ports:
-      - "${DB_PORT_MAP:-5432:5432}"
+      - "${DB_PORT_MAP:-5433:5432}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db:/docker-entrypoint-initdb.d:ro
@@ -41,7 +41,7 @@ services:
     restart: unless-stopped
     
     ports:
-      - "${APP_PORT_MAP:-8080:8080}"
+      - "${APP_PORT_MAP:-8081:8080}"
     
     environment:
       POSTGRES_HOST: "jdbc:postgresql://postgres_db:5432"
