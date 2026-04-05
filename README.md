@@ -64,4 +64,4 @@ Follow the Guided Journey:
 
 ## License
 
-TSI Privacy Vault is licensed under AGPL v3 license
+TSI Privacy Vault is licensed under Apache 2.0 license
