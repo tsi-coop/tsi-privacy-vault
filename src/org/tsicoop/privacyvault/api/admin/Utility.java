@@ -13,7 +13,7 @@ import java.util.UUID;
 
 /**
  * Secret Management.
- * Implements hardware-anchored envelope encryption using LocalKmsProvider.
+ * Implements hardware-anchored envelope encryption via the configured KmsProvider.
  */
 public class Utility implements Action {
 
@@ -70,11 +70,13 @@ public class Utility implements Action {
         String machineId = ForensicEngine.getMachineIdentifier();
         UUID utilityId = UUID.randomUUID();
 
-        // 1. Generate Data Key via LocalKmsProvider
-        LocalKmsProvider kms = new LocalKmsProvider();
+        // 1. Generate Data Key via the active key anchor
+        KmsProvider kms = KmsProviderFactory.getProvider();
         Map<String, String> keys = kms.generateDataKey();
         byte[] plaintextKey = Base64.getDecoder().decode(keys.get("plaintextDataKey"));
         String encryptedKey = keys.get("encryptedDataKey");
+        int keyVersion = Integer.parseInt(keys.getOrDefault("keyVersion", "1"));
+        String payloadCipher = keys.getOrDefault("payloadCipher", CipherUtil.AES_CBC_PKCS5);
 
         // 2. Encrypt Payload (Envelope Encryption)
         byte[] encryptedBlob = kms.aesEncrypt(payload.getBytes("UTF-8"), plaintextKey);
@@ -85,7 +87,7 @@ public class Utility implements Action {
         PoolDB pool = new PoolDB();
         try {
             conn = pool.getConnection();
-            String sql = "INSERT INTO vault_utilities (utility_ref, flavor, label, payload, encrypted_key, machine_id, active) VALUES (?, ?, ?, ?, ?, ?, TRUE)";
+            String sql = "INSERT INTO vault_utilities (utility_ref, flavor, label, payload, encrypted_key, machine_id, active, key_version, payload_cipher) VALUES (?, ?, ?, ?, ?, ?, TRUE, ?, ?)";
             ps = conn.prepareStatement(sql);
             ps.setObject(1, utilityId);
             ps.setString(2, category);
@@ -93,6 +95,8 @@ public class Utility implements Action {
             ps.setString(4, encryptedPayload);
             ps.setString(5, encryptedKey);
             ps.setString(6, machineId);
+            ps.setInt(7, keyVersion);
+            ps.setString(8, payloadCipher);
             ps.executeUpdate();
 
            
@@ -114,7 +118,7 @@ public class Utility implements Action {
         PoolDB pool = new PoolDB();
         try {
             conn = pool.getConnection();
-            ps = conn.prepareStatement("SELECT payload, encrypted_key, machine_id FROM vault_utilities WHERE utility_ref = ? AND active = TRUE");
+            ps = conn.prepareStatement("SELECT payload, encrypted_key, machine_id, key_version, payload_cipher FROM vault_utilities WHERE utility_ref = ? AND active = TRUE");
             ps.setObject(1, UUID.fromString(utilityId));
             rs = ps.executeQuery();
 
@@ -130,14 +134,16 @@ public class Utility implements Action {
                     return;
                 }
 
-                // 1. Decrypt the Data Key
-                LocalKmsProvider kms = new LocalKmsProvider();
-                String plaintextKeyB64 = kms.decryptDataKey(encryptedKey);
+                // 1. Decrypt the Data Key (using the key-ring version that wrapped it)
+                int keyVersion = rs.getInt("key_version");
+                String payloadCipher = rs.getString("payload_cipher");
+                KmsProvider kms = KmsProviderFactory.getProvider();
+                String plaintextKeyB64 = kms.decryptDataKey(encryptedKey, keyVersion);
                 byte[] plaintextKey = Base64.getDecoder().decode(plaintextKeyB64);
 
                 // 2. Decrypt the Payload
                 byte[] encryptedBlob = Base64.getDecoder().decode(encryptedPayload);
-                byte[] cleartextBytes = kms.aesDecrypt(encryptedBlob, plaintextKey);
+                byte[] cleartextBytes = kms.aesDecrypt(encryptedBlob, plaintextKey, payloadCipher);
                 String cleartext = new String(cleartextBytes, "UTF-8");
       
                 res.setContentType("text/plain");
@@ -178,11 +184,13 @@ public class Utility implements Action {
         String newPayload = (String) input.get("payload");
         String machineId = ForensicEngine.getMachineIdentifier();
 
-        // 1. Generate New Data Key
-        LocalKmsProvider kms = new LocalKmsProvider();
+        // 1. Generate New Data Key via the active key anchor
+        KmsProvider kms = KmsProviderFactory.getProvider();
         Map<String, String> keys = kms.generateDataKey();
         byte[] plaintextKey = Base64.getDecoder().decode(keys.get("plaintextDataKey"));
         String encryptedKey = keys.get("encryptedDataKey");
+        int keyVersion = Integer.parseInt(keys.getOrDefault("keyVersion", "1"));
+        String payloadCipher = keys.getOrDefault("payloadCipher", CipherUtil.AES_CBC_PKCS5);
 
         // 2. Re-encrypt with new key
         byte[] encryptedBlob = kms.aesEncrypt(newPayload.getBytes("UTF-8"), plaintextKey);
@@ -193,11 +201,13 @@ public class Utility implements Action {
         PoolDB pool = new PoolDB();
         try {
             conn = pool.getConnection();
-            ps = conn.prepareStatement("UPDATE vault_utilities SET payload = ?, encrypted_key = ?, machine_id = ? WHERE utility_ref = ?");
+            ps = conn.prepareStatement("UPDATE vault_utilities SET payload = ?, encrypted_key = ?, machine_id = ?, key_version = ?, payload_cipher = ? WHERE utility_ref = ?");
             ps.setString(1, encryptedPayload);
             ps.setString(2, encryptedKey);
             ps.setString(3, machineId);
-            ps.setObject(4, UUID.fromString(utilityId));
+            ps.setInt(4, keyVersion);
+            ps.setString(5, payloadCipher);
+            ps.setObject(6, UUID.fromString(utilityId));
             ps.executeUpdate();
 
             OutputProcessor.send(res, HttpServletResponse.SC_OK, new JSONObject());

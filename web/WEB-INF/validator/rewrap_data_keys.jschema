@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Re-wrap Data Keys Request",
+  "type": "object",
+  "properties": {
+    "_func": {
+      "type": "string",
+      "const": "rewrap_data_keys"
+    },
+    "batch_size": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5000,
+      "description": "Rows to re-wrap per table in this pass (default 500). Call repeatedly until remaining counts reach zero."
+    }
+  },
+  "required": ["_func"],
+  "additionalProperties": false
+}

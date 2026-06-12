@@ -17,8 +17,7 @@ public class Vault implements Action {
     private final KmsProvider kms; 
    
     public Vault() {
-        String providerType = System.getProperty("vault.provider", "LOCAL");
-        this.kms = "AWS".equalsIgnoreCase(providerType) ? new AwsKmsProvider() : new LocalKmsProvider();
+        this.kms = KmsProviderFactory.getProvider();
     }
 
     @Override
@@ -218,7 +217,7 @@ public class Vault implements Action {
         UUID utilityRef = null;
 
         // SQL joins permissions and vault_utilities to verify access and fetch the secret
-        String sql = "SELECT u.utility_ref,u.payload, u.encrypted_key, u.flavor " +
+        String sql = "SELECT u.utility_ref,u.payload, u.encrypted_key, u.flavor, u.key_version, u.payload_cipher " +
                      "FROM permissions p " +
                      "JOIN vault_utilities u ON p.resource_id = u.label " +
                      "WHERE p.api_key = ? AND u.label = ? " +
@@ -234,8 +233,10 @@ public class Vault implements Action {
             if (rs.next()) {
                 String encryptedPayload = rs.getString("payload");
                 String encryptedKey = rs.getString("encrypted_key");
-                
-                String resolvedValue = decryptUtilityPayload(encryptedKey, encryptedPayload);
+                int keyVersion = rs.getInt("key_version");
+                String payloadCipher = rs.getString("payload_cipher");
+
+                String resolvedValue = decryptUtilityPayload(encryptedKey, encryptedPayload, keyVersion, payloadCipher);
                 utilityRef = (UUID) rs.getObject("utility_ref");
 
                 JSONObject output = new JSONObject();
@@ -284,15 +285,15 @@ public class Vault implements Action {
     /**
      * Placeholder for the Vault's internal decryption logic.
      */
-    private String decryptUtilityPayload(String encryptedKey, String encryptedData) throws Exception {
-        String plaintextKeyB64 = this.kms.decryptDataKey(encryptedKey);
+    private String decryptUtilityPayload(String encryptedKey, String encryptedData, int keyVersion, String payloadCipher) throws Exception {
+        String plaintextKeyB64 = this.kms.decryptDataKey(encryptedKey, keyVersion);
         byte[] plaintextKey = Base64.getDecoder().decode(plaintextKeyB64);
 
         // 2. Decrypt the Payload
         byte[] encryptedBlob = Base64.getDecoder().decode(encryptedData);
-        byte[] cleartextBytes = this.kms.aesDecrypt(encryptedBlob, plaintextKey);
+        byte[] cleartextBytes = this.kms.aesDecrypt(encryptedBlob, plaintextKey, payloadCipher);
         String cleartext = new String(cleartextBytes, "UTF-8");
-        return cleartext; 
+        return cleartext;
     }
 
     private void handleStore(JSONObject input, String apiKey, String ip, String ua, HttpServletResponse res) throws Exception {
@@ -327,6 +328,8 @@ public class Vault implements Action {
         Map<String, String> dataKeyPack = kms.generateDataKey();
         byte[] rawPlaintextKey = Base64.getDecoder().decode(dataKeyPack.get("plaintextDataKey"));
         String encryptedDataKey = dataKeyPack.get("encryptedDataKey");
+        int keyVersion = Integer.parseInt(dataKeyPack.getOrDefault("keyVersion", "1"));
+        String payloadCipher = dataKeyPack.getOrDefault("payloadCipher", CipherUtil.AES_CBC_PKCS5);
         byte[] ciphertext = kms.aesEncrypt(plainValue.getBytes("UTF-8"), rawPlaintextKey);
         String ciphertextB64 = Base64.getEncoder().encodeToString(ciphertext);
 
@@ -338,7 +341,7 @@ public class Vault implements Action {
         try {
             conn = pool.getConnection();
             // SQL updated to include the file_name column
-            String sql = "INSERT INTO vault_entities (entity_type, id_type_code, entity_ref, encrypted_content, encrypted_data_key, hashed_value_sha256, file_name) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO vault_entities (entity_type, id_type_code, entity_ref, encrypted_content, encrypted_data_key, hashed_value_sha256, file_name, key_version, payload_cipher) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
             ps = conn.prepareStatement(sql);
             ps.setString(1, entityType);
             ps.setString(2, entityCode);
@@ -347,6 +350,8 @@ public class Vault implements Action {
             ps.setString(5, encryptedDataKey);
             ps.setString(6, computeHash(plainValue));
             ps.setString(7, originalFileName); // Preserving the original extension
+            ps.setInt(8, keyVersion);
+            ps.setString(9, payloadCipher);
             ps.executeUpdate();
 
             // --- NEW: INVERTED INDEXING ---
@@ -445,7 +450,7 @@ public class Vault implements Action {
             pool = new PoolDB();
             conn = pool.getConnection();
             // SELECT now includes the file_name
-            ps = conn.prepareStatement("SELECT entity_type, id_type_code, encrypted_content, encrypted_data_key, file_name FROM vault_entities WHERE entity_ref = ?");
+            ps = conn.prepareStatement("SELECT entity_type, id_type_code, encrypted_content, encrypted_data_key, file_name, key_version, payload_cipher FROM vault_entities WHERE entity_ref = ?");
             ps.setObject(1, UUID.fromString(ref));
             rs = ps.executeQuery();
             
@@ -462,10 +467,12 @@ public class Vault implements Action {
                 // Decryption Logic
                 String ciphertextB64 = rs.getString("encrypted_content");
                 String encryptedDataKey = rs.getString("encrypted_data_key");
-                String plaintextDataKeyB64 = kms.decryptDataKey(encryptedDataKey);
+                int keyVersion = rs.getInt("key_version");
+                String payloadCipher = rs.getString("payload_cipher");
+                String plaintextDataKeyB64 = kms.decryptDataKey(encryptedDataKey, keyVersion);
                 byte[] rawPlaintextKey = Base64.getDecoder().decode(plaintextDataKeyB64);
                 byte[] ciphertext = Base64.getDecoder().decode(ciphertextB64);
-                byte[] decryptedBytes = kms.aesDecrypt(ciphertext, rawPlaintextKey);
+                byte[] decryptedBytes = kms.aesDecrypt(ciphertext, rawPlaintextKey, payloadCipher);
                 String decrypted = new String(decryptedBytes, "UTF-8");
 
                 logVaultEvent(conn, apiKey, "FETCH", entityType+":"+entityCode+":"+ref, ip, ua, "SUCCESS", UUID.fromString(ref), null);

@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Get Key Anchor Status Request",
+  "type": "object",
+  "properties": {
+    "_func": {
+      "type": "string",
+      "const": "get_key_anchor_status"
+    }
+  },
+  "required": ["_func"],
+  "additionalProperties": false
+}

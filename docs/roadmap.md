@@ -27,7 +27,7 @@ abstraction, which gives us a clean seam for every roadmap item:
 | `framework/KmsService.java` | Older AWS KMS prototype | Duplicates `AwsKmsProvider`; contains a hard-coded sample key ARN and a `main()` test harness. Candidate for removal. |
 | `api/client/Vault.java` | Data plane (store/fetch/search/resolve) | Selects provider via system property `vault.provider` (`LOCAL`/`AWS`). |
 | `api/admin/Utility.java` | Utility secret storage | **Hard-codes `new LocalKmsProvider()`** in three places - bypasses provider selection. Data stored under one provider cannot be resolved if another is active. |
-| `db/init.sql` | Schema | `vault_entities` and `vault_utilities` store `encrypted_data_key` alongside ciphertext, but record **no metadata about which key/provider/version wrapped it**. |
+| `db/00_init.sql` | Schema | `vault_entities` and `vault_utilities` store `encrypted_data_key` alongside ciphertext, but record **no metadata about which key/provider/version wrapped it**. |
 
 ### Gaps the roadmap must close
 

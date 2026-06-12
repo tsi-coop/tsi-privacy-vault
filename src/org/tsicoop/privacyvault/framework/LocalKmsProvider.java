@@ -12,27 +12,40 @@ import javax.crypto.spec.SecretKeySpec;
 
 /**
  * Local implementation of KmsProvider using a fixed Master Key.
- * Replaces mock prefixes with actual AES-256 wrapping of Data Keys.
+ * Legacy (key_version 1) anchor: DEKs are wrapped with AES-256-CBC under a
+ * Master Key derived from TSI_PRIVACY_VAULT_MASTER_KEY. Fails closed when the
+ * environment variable is absent - there is no default key (roadmap Phase 0).
  */
 public class LocalKmsProvider implements KmsProvider {
 
     private static final String ALGO = "AES/CBC/PKCS5Padding";
-    
-    // Normalize the environment variable or default string to exactly 32 bytes using SHA-256
-    private static final byte[] MASTER_KEY = initializeMasterKey();
 
-    private static byte[] initializeMasterKey() {
-        try {
-            String rawKey = System.getenv("TSI_PRIVACY_VAULT_MASTER_KEY");
-            if (rawKey == null || rawKey.isEmpty()) {
-                // Default fallback for dev path
-                rawKey = "tsi-vault-default-32-byte-master-key-seed"; 
+    // Lazily initialized so deployments that have retired the LOCAL anchor
+    // can run without the env var; fails closed on first use if missing.
+    private static volatile byte[] masterKey = null;
+
+    private static byte[] getMasterKey() {
+        byte[] key = masterKey;
+        if (key == null) {
+            synchronized (LocalKmsProvider.class) {
+                if (masterKey == null) {
+                    String rawKey = System.getenv("TSI_PRIVACY_VAULT_MASTER_KEY");
+                    if (rawKey == null || rawKey.trim().isEmpty()) {
+                        throw new IllegalStateException(
+                                "TSI_PRIVACY_VAULT_MASTER_KEY is not set. The LOCAL anchor cannot operate without it.");
+                    }
+                    try {
+                        // Normalize the configured value to exactly 32 bytes using SHA-256
+                        MessageDigest sha = MessageDigest.getInstance("SHA-256");
+                        masterKey = sha.digest(rawKey.getBytes(StandardCharsets.UTF_8));
+                    } catch (Exception e) {
+                        throw new RuntimeException("KMS Initialization Failed", e);
+                    }
+                }
+                key = masterKey;
             }
-            MessageDigest sha = MessageDigest.getInstance("SHA-256");
-            return sha.digest(rawKey.getBytes(StandardCharsets.UTF_8));
-        } catch (Exception e) {
-            throw new RuntimeException("KMS Initialization Failed", e);
         }
+        return key;
     }
 
     @Override
@@ -41,10 +54,10 @@ public class LocalKmsProvider implements KmsProvider {
             // 1. Generate a new random 32-byte Data Key
             byte[] rawDataKey = new byte[32];
             new SecureRandom().nextBytes(rawDataKey);
-            
+
             // 2. Wrap (Encrypt) the Data Key using the Master Key
-            byte[] wrappedKey = aesEncrypt(rawDataKey, MASTER_KEY);
-            
+            byte[] wrappedKey = aesEncrypt(rawDataKey, getMasterKey());
+
             Map<String, String> keys = new HashMap<>();
             keys.put("plaintextDataKey", Base64.getEncoder().encodeToString(rawDataKey));
             keys.put("encryptedDataKey", Base64.getEncoder().encodeToString(wrappedKey));
@@ -59,11 +72,22 @@ public class LocalKmsProvider implements KmsProvider {
         try {
             // Unwrap (Decrypt) the Data Key using the Master Key
             byte[] encryptedBytes = Base64.getDecoder().decode(encryptedDataKeyB64);
-            byte[] decryptedKey = aesDecrypt(encryptedBytes, MASTER_KEY);
-            
+            byte[] decryptedKey = aesDecrypt(encryptedBytes, getMasterKey());
+
             return Base64.getEncoder().encodeToString(decryptedKey);
         } catch (Exception e) {
             throw new RuntimeException("Local KMS Failure: Could not decrypt data key", e);
+        }
+    }
+
+    @Override
+    public String wrapDataKey(String plaintextDataKeyB64) {
+        try {
+            byte[] rawDataKey = Base64.getDecoder().decode(plaintextDataKeyB64);
+            byte[] wrappedKey = aesEncrypt(rawDataKey, getMasterKey());
+            return Base64.getEncoder().encodeToString(wrappedKey);
+        } catch (Exception e) {
+            throw new RuntimeException("Local KMS Failure: Could not wrap data key", e);
         }
     }
 
@@ -72,10 +96,10 @@ public class LocalKmsProvider implements KmsProvider {
         Cipher cipher = Cipher.getInstance(ALGO);
         byte[] iv = new byte[16];
         new SecureRandom().nextBytes(iv); // Generate unique IV for this operation
-        
+
         cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, "AES"), new IvParameterSpec(iv));
         byte[] encrypted = cipher.doFinal(data);
-        
+
         // Prepend IV for storage
         byte[] result = new byte[iv.length + encrypted.length];
         System.arraycopy(iv, 0, result, 0, iv.length);
@@ -88,10 +112,10 @@ public class LocalKmsProvider implements KmsProvider {
         // Extract the 16-byte IV from the front of the blob
         byte[] iv = new byte[16];
         System.arraycopy(data, 0, iv, 0, 16);
-        
+
         byte[] encrypted = new byte[data.length - 16];
         System.arraycopy(data, 16, encrypted, 0, encrypted.length);
-        
+
         Cipher cipher = Cipher.getInstance(ALGO);
         cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"), new IvParameterSpec(iv));
         return cipher.doFinal(encrypted);

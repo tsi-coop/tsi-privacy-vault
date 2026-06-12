@@ -28,3 +28,18 @@ TSI_PRIVACY_VAULT_MAX_UPLOAD_KB=5120
 TSI_PRIVACY_VAULT_INDEX_SECRET=k9#z!L2@P$5m*N8^qV1&bX7*jR3+fW0_
 # Data Export Path
  TSI_EXPORT_PATH=/var/lib/tsi/exports/
+
+# --- Key Management (docs/roadmap.md) ---
+# Intended root key anchor: LOCAL | AWS_KMS
+# Note: the wrapping anchor is switched via the activate_key_anchor admin API;
+# this variable declares operator intent and gates AWS configuration.
+TSI_PRIVACY_VAULT_KMS_PROVIDER=LOCAL
+# AWS KMS anchor (required when activating AWS_KMS)
+#TSI_PRIVACY_VAULT_AWS_REGION=ap-south-1
+#TSI_PRIVACY_VAULT_AWS_KMS_KEY_ID=arn:aws:kms:ap-south-1:111122223333:key/your-key-id
+# Optional endpoint override for testing (e.g., LocalStack http://localstack:4566)
+#TSI_PRIVACY_VAULT_AWS_ENDPOINT=
+# AWS credentials resolve via the default chain (IAM role preferred).
+# Only set these when no instance role/profile is available:
+#AWS_ACCESS_KEY_ID=
+#AWS_SECRET_ACCESS_KEY=

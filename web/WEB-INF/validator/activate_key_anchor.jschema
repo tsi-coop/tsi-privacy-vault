@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Activate Key Anchor Request",
+  "type": "object",
+  "properties": {
+    "_func": {
+      "type": "string",
+      "const": "activate_key_anchor"
+    },
+    "anchor_type": {
+      "type": "string",
+      "enum": ["LOCAL", "AWS_KMS"],
+      "description": "Root key anchor to activate. Creates a new ACTIVE vault_key_ring version; the previous version becomes DECRYPT_ONLY."
+    }
+  },
+  "required": ["_func", "anchor_type"],
+  "additionalProperties": false
+}

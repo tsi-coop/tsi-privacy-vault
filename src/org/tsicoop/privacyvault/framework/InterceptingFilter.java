@@ -52,6 +52,14 @@ public class InterceptingFilter implements Filter {
                 return;
             }
 
+            // Fail closed (docs/roadmap.md 4.1): refuse data-plane traffic while
+            // the key anchor is unhealthy. Admin login/status stay reachable.
+            if (isDataPlane(servletPath) && !KmsProviderFactory.isHealthy()) {
+                OutputProcessor.sendError(res, HttpServletResponse.SC_SERVICE_UNAVAILABLE,
+                        "Vault key anchor unavailable: " + KmsProviderFactory.getHealthError());
+                return;
+            }
+
             // Check
             try {
                  if(servletPath.contains("api/admin")
@@ -98,6 +106,10 @@ public class InterceptingFilter implements Filter {
         }
     }
 
+    private static boolean isDataPlane(String servletPath) {
+        return servletPath.contains("api/client") || servletPath.contains("api/admin/utility");
+    }
+
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
         SystemConfig.loadProcessors(filterConfig.getServletContext());
@@ -107,6 +119,7 @@ public class InterceptingFilter implements Filter {
         System.out.println("Loaded TSI App Config");
         JSONSchemaValidator.createInstance(filterConfig.getServletContext());
         System.out.println("Loaded TSI Schema Validator");
+        KmsProviderFactory.healthCheck();
         System.out.println("TSI Privacy Vault started in "+System.getenv("TSI_PRIVACY_VAULT_ENV")+" environment");
     }
 }
