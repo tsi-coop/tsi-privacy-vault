@@ -29,10 +29,17 @@ In the AWS Console, using an account-admin identity:
 3. Use the same region as the vault deployment (e.g. `ap-south-1`) to
    minimize latency.
 4. Add an alias, e.g. `tsi-privacy-vault`, for readability.
-5. On the key's detail page, enable **Automatic key rotation** - it is
+5. On the **Define key administrative permissions** / **Define key usage
+   permissions** pages, accept the defaults (the account root keeps `kms:*`
+   via IAM). **Do not paste the policy JSON from step 3 here** - that is an
+   IAM identity policy meant for the vault's runtime role, not a KMS key
+   policy. Key policies require a `Principal` on every statement, so reusing
+   that JSON as the key policy fails with `MalformedPolicyDocumentException:
+   Policy contains a statement with no principal`.
+6. On the key's detail page, enable **Automatic key rotation** - it is
    transparent to the vault (old ciphertext remains decryptable; no re-wrap
    needed).
-6. Record the **key ARN** (or alias ARN) shown on the detail page. You will
+7. Record the **key ARN** (or alias ARN) shown on the detail page. You will
    configure it in step 5.
 
 ## 3. Minimal IAM policy
@@ -184,6 +191,7 @@ The vault now has no local root key material; the AWS CMK is the sole anchor.
 | Data plane returns 503 `Vault key anchor unavailable` | Boot health check failed (KMS unreachable, credentials expired). Fix the cause, then click **Refresh** on the Key Anchor page - it re-runs the check and reopens the data plane without a restart. |
 | `AccessDeniedException` in logs | IAM policy not attached, or missing `kms:Encrypt` during re-wrap (step 3). |
 | `AccessDeniedException ... not authorized to perform: kms:CreateKey` | The signed-in identity is the vault's least-privilege runtime user, not an account admin. Use an account-admin identity in the console for step 2, then attach the step 3 policy to the runtime identity. |
+| `MalformedPolicyDocumentException: Policy contains a statement with no principal` on `CreateKey` | The step 3 IAM policy was pasted into the key's policy field during step 2. Key policies require a `Principal` per statement; accept the default key policy in step 2 and attach the step 3 policy to the runtime identity separately. |
 | `InvalidCiphertextException` on fetch | Encryption context mismatch - `TSI_PRIVACY_VAULT_NODE_ID` was changed after activation (see step 5), or the wrong CMK/region is configured. |
 | Throttling under load | The provider retries 3 times with backoff automatically; sustained throttling needs a KMS quota increase. |
 | `key_version N is RETIRED` errors | A row still references a retired version (e.g., restored from an old backup). Re-activate the old anchor temporarily or re-run the re-wrap after setting the version back to `DECRYPT_ONLY` in `vault_key_ring`. |
