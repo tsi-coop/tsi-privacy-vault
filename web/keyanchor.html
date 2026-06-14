@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSI Privacy Vault - Key Anchor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --vault-primary: #0f172a;
+            --vault-accent: #6366f1;
+            --background: #f8fafc;
+        }
+        body { background-color: var(--background); font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; }
+        .sidebar { width: 260px; background-color: var(--vault-primary); color: white; position: fixed; height: 100vh; z-index: 50; }
+        .nav-link { display: flex; align-items: center; padding: 12px 24px; color: #94a3b8; font-size: 0.875rem; font-weight: 500; }
+        .nav-link:hover, .nav-link.active { background-color: #1e293b; color: white; border-right: 4px solid var(--vault-accent); }
+        .card { background: white; border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .status-dot { height: 8px; width: 8px; border-radius: 50%; display: inline-block; }
+        @media (min-width: 1024px) { main { padding-left: 260px; } }
+    </style>
+</head>
+<body class="flex">
+
+<aside class="sidebar hidden lg:flex flex-col">
+    <div class="p-8">
+        <h2 class="text-lg font-black tracking-tighter uppercase">TSI Privacy Vault</h2>
+        <p class="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">Secure Data Isolation</p>
+    </div>
+    <nav class="flex-1 mt-4">
+        <a href="dashboard.html" class="nav-link">Dashboard</a>
+        <a href="entities.html" class="nav-link">Entities</a>
+        <a href="utilities.html" class="nav-link">Utilities</a>
+        <a href="users.html" class="nav-link">Users</a>
+        <a href="apikeys.html" class="nav-link">API Keys</a>
+        <a href="audit.html" class="nav-link">Audit</a>
+        <a href="legal.html" class="nav-link">Legal</a>
+        <a href="keyanchor.html" class="nav-link active">Key Anchor</a>
+    </nav>
+    <div class="p-6 border-t border-slate-800">
+        <div class="flex items-center gap-3">
+            <div class="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs" id="user-initials">AD</div>
+            <div>
+                <p class="text-xs font-bold" id="display-name">Admin User</p>
+                <a href="#" onclick="handleLogout()" class="text-[10px] text-red-400 font-bold uppercase hover:underline">Sign Out</a>
+            </div>
+        </div>
+    </div>
+</aside>
+
+<main class="flex-1 min-h-screen">
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-40">
+        <h1 class="text-sm font-bold text-slate-500 uppercase tracking-widest text-[10px]">Key Anchor Management</h1>
+        <button onclick="loadStatus()" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition">
+            Refresh
+        </button>
+    </header>
+
+    <div class="p-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="card p-6">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Vault Health</p>
+                <h3 class="text-3xl font-black text-slate-900 flex items-center gap-2">
+                    <span class="status-dot bg-slate-300" id="health-dot"></span>
+                    <span id="stat-health">...</span>
+                </h3>
+                <p class="text-[10px] text-red-500 font-bold mt-1 hidden" id="health-error"></p>
+            </div>
+            <div class="card p-6">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Configured Anchor</p>
+                <h3 class="text-3xl font-black text-slate-900" id="stat-configured-anchor">...</h3>
+            </div>
+            <div class="card p-6">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Active Key Version</p>
+                <h3 class="text-3xl font-black text-slate-900" id="stat-active-version">...</h3>
+            </div>
+            <div class="card p-6" id="pending-card">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Pending Re-wrap</p>
+                <h3 class="text-3xl font-black text-slate-900">
+                    <span id="stat-pending-entities">...</span><span class="text-sm text-slate-400 font-bold"> entities</span>
+                    /
+                    <span id="stat-pending-utilities">...</span><span class="text-sm text-slate-400 font-bold"> utilities</span>
+                </h3>
+            </div>
+        </div>
+
+        <div class="card overflow-hidden mb-8">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                <div>
+                    <h2 class="font-black text-slate-800 uppercase tracking-tighter">Key Ring</h2>
+                    <p class="text-[10px] text-slate-400 uppercase font-bold tracking-widest mt-1">Anchor versions and wrapping status</p>
+                </div>
+                <button onclick="openActivateModal()" class="bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-red-700 transition">
+                    Activate Anchor
+                </button>
+            </div>
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
+                        <th class="px-6 py-4">Key Version</th>
+                        <th class="px-6 py-4">Anchor Type</th>
+                        <th class="px-6 py-4">Anchor Ref</th>
+                        <th class="px-6 py-4">Cipher</th>
+                        <th class="px-6 py-4">Status</th>
+                        <th class="px-6 py-4">Created At</th>
+                    </tr>
+                </thead>
+                <tbody id="keyring-table-body" class="text-sm divide-y divide-slate-100">
+                    <tr><td colspan="6" class="px-6 py-10 text-center text-slate-400 italic">Synchronizing Key Ring...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card p-6">
+            <h2 class="font-black text-slate-800 uppercase tracking-tighter">Rewrap Data Keys</h2>
+            <p class="text-[10px] text-slate-400 uppercase font-bold tracking-widest mt-1 mb-4">
+                Re-wraps wrapped data keys to the active anchor, one batch at a time
+            </p>
+
+            <div class="flex items-end gap-4">
+                <div>
+                    <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Batch Size</label>
+                    <input type="number" id="rewrap-batch-size" value="500" min="1" max="5000"
+                           class="w-32 border border-slate-200 rounded p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <button onclick="runRewrapBatch()" class="bg-slate-900 text-white px-6 py-2 rounded font-bold text-xs uppercase tracking-widest shadow-lg hover:bg-slate-800 transition">
+                    Run Batch
+                </button>
+            </div>
+
+            <div id="rewrap-result" class="hidden mt-4 p-4 rounded text-sm"></div>
+        </div>
+    </div>
+</main>
+
+<div id="activateModal" class="modal-overlay">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div class="p-6 bg-slate-900 text-white">
+            <h3 class="text-lg font-black uppercase tracking-tight">Activate Key Anchor</h3>
+            <p class="text-[10px] text-slate-400 uppercase font-bold tracking-widest mt-1">This changes the live key ring</p>
+        </div>
+        <form id="activate-form" class="p-8 space-y-4">
+            <div>
+                <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Anchor Type</label>
+                <select id="activate-anchor-type" class="w-full border border-slate-200 rounded p-2 text-sm bg-white outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="LOCAL">LOCAL</option>
+                    <option value="AWS_KMS">AWS_KMS</option>
+                </select>
+            </div>
+
+            <div class="p-3 bg-red-50 border border-red-200 rounded text-[11px] text-red-700 font-bold">
+                This verifies the target anchor with a GenerateDataKey + Decrypt round trip, then
+                demotes the current ACTIVE key to DECRYPT_ONLY and makes a new key version ACTIVE.
+                Existing data keys remain readable but will need re-wrapping afterward (see Rewrap
+                Data Keys below).
+            </div>
+
+            <label class="flex items-start gap-2 text-[11px] text-slate-600 font-bold">
+                <input type="checkbox" id="activate-ack" class="mt-0.5">
+                I understand this will change the live encryption key ring.
+            </label>
+
+            <div id="activate-result" class="hidden p-3 rounded text-sm"></div>
+
+            <div class="flex justify-end gap-3 pt-2">
+                <button type="button" onclick="closeActivateModal()" class="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Cancel</button>
+                <button type="submit" id="activate-submit" disabled class="bg-red-600 text-white px-6 py-2 rounded font-bold text-xs uppercase tracking-widest shadow-lg hover:bg-red-700 transition disabled:opacity-40 disabled:cursor-not-allowed">
+                    Activate Anchor
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const API_URL = 'api/admin/keyanchor';
+    const TOKEN = localStorage.getItem('vaultToken');
+    const USERNAME = localStorage.getItem('username') || 'Admin';
+
+    if (!TOKEN) window.location.href = 'index.html';
+
+    const STATUS_BADGE = {
+        ACTIVE: 'bg-green-100 text-green-700',
+        DECRYPT_ONLY: 'bg-amber-100 text-amber-700',
+        RETIRED: 'bg-slate-100 text-slate-500'
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('display-name').textContent = USERNAME;
+        document.getElementById('user-initials').textContent = USERNAME.substring(0, 2).toUpperCase();
+        loadStatus();
+    });
+
+    async function callKeyAnchor(payload) {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${TOKEN}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        return { ok: response.ok, result };
+    }
+
+    /**
+     * Fetch and render overall key anchor status
+     */
+    async function loadStatus() {
+        try {
+            const { ok, result } = await callKeyAnchor({ "_func": "get_key_anchor_status" });
+            if (!ok) throw new Error(result.error || "Failed to load status");
+
+            const healthDot = document.getElementById('health-dot');
+            const healthErr = document.getElementById('health-error');
+            document.getElementById('stat-health').textContent = result.healthy ? 'HEALTHY' : 'UNHEALTHY';
+            healthDot.className = 'status-dot ' + (result.healthy ? 'bg-green-500' : 'bg-red-500');
+            if (!result.healthy && result.health_error) {
+                healthErr.textContent = result.health_error;
+                healthErr.classList.remove('hidden');
+            } else {
+                healthErr.classList.add('hidden');
+            }
+
+            document.getElementById('stat-configured-anchor').textContent = result.configured_anchor || '—';
+            document.getElementById('stat-active-version').textContent = result.active_key_version;
+
+            const pendingEntities = (result.pending_rewrap && result.pending_rewrap.entities) || 0;
+            const pendingUtilities = (result.pending_rewrap && result.pending_rewrap.utilities) || 0;
+            document.getElementById('stat-pending-entities').textContent = pendingEntities;
+            document.getElementById('stat-pending-utilities').textContent = pendingUtilities;
+
+            const pendingCard = document.getElementById('pending-card');
+            if (pendingEntities > 0 || pendingUtilities > 0) {
+                pendingCard.classList.add('bg-amber-50', 'border-amber-100');
+            } else {
+                pendingCard.classList.remove('bg-amber-50', 'border-amber-100');
+            }
+
+            renderKeyRing(result.key_ring || []);
+        } catch (err) {
+            document.getElementById('keyring-table-body').innerHTML =
+                `<tr><td colspan="6" class="px-6 py-10 text-center text-red-400 font-bold uppercase text-[10px]">Failed to load key anchor status: ${err.message}</td></tr>`;
+            document.getElementById('stat-health').textContent = 'UNREACHABLE';
+            document.getElementById('health-dot').className = 'status-dot bg-red-500';
+        }
+    }
+
+    function renderKeyRing(keyRing) {
+        const tbody = document.getElementById('keyring-table-body');
+        if (!keyRing.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-400 italic">No key ring entries.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = keyRing.map(row => {
+            const badge = STATUS_BADGE[row.status] || 'bg-slate-100 text-slate-500';
+            const ref = row.anchor_ref
+                ? `<span class="font-mono text-[10px] text-slate-400 truncate inline-block max-w-[220px]" title="${row.anchor_ref}">${row.anchor_ref}</span>`
+                : '<span class="text-slate-300">—</span>';
+            return `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="px-6 py-4 font-bold text-slate-700">${row.key_version}</td>
+                    <td class="px-6 py-4">${row.anchor_type}</td>
+                    <td class="px-6 py-4">${ref}</td>
+                    <td class="px-6 py-4 text-xs text-slate-500">${row.cipher}</td>
+                    <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${badge} uppercase">${row.status}</span></td>
+                    <td class="px-6 py-4 font-mono text-[10px] text-slate-400">${String(row.created_at).split('.')[0]}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    /**
+     * Rewrap one batch and show progress
+     */
+    async function runRewrapBatch() {
+        const resultBox = document.getElementById('rewrap-result');
+        let batchSize = parseInt(document.getElementById('rewrap-batch-size').value, 10);
+        if (!batchSize || batchSize < 1) batchSize = 500;
+        if (batchSize > 5000) batchSize = 5000;
+
+        try {
+            const { ok, result } = await callKeyAnchor({ "_func": "rewrap_data_keys", "batch_size": batchSize });
+            if (!ok) throw new Error(result.error || "Rewrap failed");
+
+            const done = result.remaining_entities === 0 && result.remaining_utilities === 0;
+            resultBox.className = 'mt-4 p-4 rounded text-sm ' + (done ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-amber-50 border border-amber-200 text-amber-700');
+            resultBox.innerHTML = `
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div>Active Key Version: <span class="font-bold">${result.active_key_version}</span></div>
+                    <div>Retired Old Versions: <span class="font-bold">${result.retired_old_versions ? 'Yes' : 'No'}</span></div>
+                    <div>Rewrapped Entities: <span class="font-bold">${result.rewrapped_entities}</span></div>
+                    <div>Rewrapped Utilities: <span class="font-bold">${result.rewrapped_utilities}</span></div>
+                    <div>Remaining Entities: <span class="font-bold text-lg">${result.remaining_entities}</span></div>
+                    <div>Remaining Utilities: <span class="font-bold text-lg">${result.remaining_utilities}</span></div>
+                </div>
+                <p class="mt-3 font-bold uppercase tracking-widest text-[10px]">
+                    ${done ? 'All data keys re-wrapped.' : 'Remaining keys pending - run again to continue.'}
+                </p>
+            `;
+
+            loadStatus();
+        } catch (err) {
+            resultBox.className = 'mt-4 p-4 rounded text-sm bg-red-50 border border-red-200 text-red-700';
+            resultBox.textContent = err.message;
+        }
+        resultBox.classList.remove('hidden');
+    }
+
+    // Activate Anchor modal
+    function openActivateModal() {
+        document.getElementById('activate-form').reset();
+        document.getElementById('activate-submit').disabled = true;
+        document.getElementById('activate-result').classList.add('hidden');
+        document.getElementById('activateModal').style.display = 'flex';
+    }
+
+    function closeActivateModal() {
+        document.getElementById('activateModal').style.display = 'none';
+    }
+
+    document.getElementById('activate-ack').addEventListener('change', (e) => {
+        document.getElementById('activate-submit').disabled = !e.target.checked;
+    });
+
+    document.getElementById('activate-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const anchorType = document.getElementById('activate-anchor-type').value;
+        if (!confirm(`Activate ${anchorType} as the new key anchor? This will change the live key ring.`)) return;
+
+        const resultBox = document.getElementById('activate-result');
+        try {
+            const { ok, result } = await callKeyAnchor({ "_func": "activate_key_anchor", "anchor_type": anchorType });
+            if (!ok) throw new Error(result.error || "Activation failed");
+
+            resultBox.className = 'p-3 rounded text-sm bg-green-50 border border-green-200 text-green-700';
+            resultBox.textContent = `Activated ${result.anchor_type} as key version ${result.key_version} (${result.cipher}).`;
+            loadStatus();
+        } catch (err) {
+            resultBox.className = 'p-3 rounded text-sm bg-red-50 border border-red-200 text-red-700';
+            resultBox.textContent = err.message;
+        }
+        resultBox.classList.remove('hidden');
+    };
+
+    function handleLogout() { localStorage.clear(); window.location.href = "index.html"; }
+</script>
+</body>
+</html>

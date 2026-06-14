@@ -14,41 +14,25 @@ Manual verification steps for this whole flow are in
 
 - A running TSI Privacy Vault with the Phase 0/1 release (the `vault_key_ring`
   table exists - see `db/01_key_management.sql`).
-- An AWS account and permission to create KMS keys and IAM policies.
+- An AWS account and permission to create KMS keys and IAM policies. This is
+  an account-admin identity (root user or an IAM admin role) - not the
+  vault's own runtime credentials, which stay least-privilege (see step 3).
 - Admin credentials for the vault console (to call the `keyanchor` API).
-- AWS CLI v2 (only needed for the CLI snippets below).
 
 ## 2. Create the KMS key
 
-Console: *KMS -> Customer managed keys -> Create key* with key type
-**Symmetric**, usage **Encrypt and decrypt**. Or via CLI:
+In the AWS Console, using an account-admin identity:
 
-```bash
-aws kms create-key \
-  --description "TSI Privacy Vault root key anchor" \
-  --key-spec SYMMETRIC_DEFAULT \
-  --key-usage ENCRYPT_DECRYPT \
-  --region ap-south-1
-# note the KeyId / Arn in the output
-
-# Optional but recommended: a stable alias
-aws kms create-alias \
-  --alias-name alias/tsi-privacy-vault \
-  --target-key-id <KeyId> \
-  --region ap-south-1
-```
-
-Recommendations:
-
-- Create the key in the same region as the vault deployment to minimize latency.
-- Enable automatic key rotation - it is transparent to the vault (old ciphertext
-  remains decryptable; no re-wrap needed):
-
-```bash
-aws kms enable-key-rotation --key-id <KeyId> --region ap-south-1
-```
-
-- Record the **key ARN** (or alias ARN). You will configure it in step 5.
+1. Go to **KMS -> Customer managed keys -> Create key**.
+2. Key type: **Symmetric**. Key usage: **Encrypt and decrypt**.
+3. Use the same region as the vault deployment (e.g. `ap-south-1`) to
+   minimize latency.
+4. Add an alias, e.g. `tsi-privacy-vault`, for readability.
+5. On the key's detail page, enable **Automatic key rotation** - it is
+   transparent to the vault (old ciphertext remains decryptable; no re-wrap
+   needed).
+6. Record the **key ARN** (or alias ARN) shown on the detail page. You will
+   configure it in step 5.
 
 ## 3. Minimal IAM policy
 
@@ -77,7 +61,8 @@ The vault needs exactly three KMS actions, scoped to the single key:
 - `Encrypt` - used only by the `rewrap_data_keys` migration job; you may remove
   it after the LOCAL -> AWS_KMS migration completes.
 
-Attach the policy to the identity the vault runs as (step 4).
+In the IAM console, create this policy and attach it to the identity the
+vault runs as (step 4).
 
 ## 4. Credentials
 
@@ -195,6 +180,7 @@ The vault now has no local root key material; the AWS CMK is the sole anchor.
 | `Anchor AWS_KMS failed verification` on activate | Wrong region, bad key ARN, key disabled/pending deletion, or missing IAM permissions. Check CloudTrail for the denied call. |
 | Data plane returns 503 `Vault key anchor unavailable` | Boot health check failed (KMS unreachable, credentials expired). Fix the cause, then call `get_key_anchor_status` - it re-runs the check and reopens the data plane without a restart. |
 | `AccessDeniedException` in logs | IAM policy not attached, or missing `kms:Encrypt` during re-wrap (step 3). |
+| `AccessDeniedException ... not authorized to perform: kms:CreateKey` | The signed-in identity is the vault's least-privilege runtime user, not an account admin. Use an account-admin identity in the console for step 2, then attach the step 3 policy to the runtime identity. |
 | `InvalidCiphertextException` on fetch | Encryption context mismatch - `TSI_PRIVACY_VAULT_NODE_ID` was changed after activation (see step 5), or the wrong CMK/region is configured. |
 | Throttling under load | The provider retries 3 times with backoff automatically; sustained throttling needs a KMS quota increase. |
 | `key_version N is RETIRED` errors | A row still references a retired version (e.g., restored from an old backup). Re-activate the old anchor temporarily or re-run the re-wrap after setting the version back to `DECRYPT_ONLY` in `vault_key_ring`. |
