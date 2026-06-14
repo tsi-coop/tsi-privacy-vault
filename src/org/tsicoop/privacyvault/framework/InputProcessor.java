@@ -161,6 +161,9 @@ public class InputProcessor {
 
         try {
             authorization = req.getHeader("Authorization");
+            if (authorization == null) {
+                return null;
+            }
             strTok = new StringTokenizer(authorization, " ");
             strTok.nextToken();
             token = strTok.nextToken();

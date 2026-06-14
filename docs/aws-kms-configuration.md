@@ -17,7 +17,8 @@ Manual verification steps for this whole flow are in
 - An AWS account and permission to create KMS keys and IAM policies. This is
   an account-admin identity (root user or an IAM admin role) - not the
   vault's own runtime credentials, which stay least-privilege (see step 3).
-- Admin credentials for the vault console (to call the `keyanchor` API).
+- Admin credentials for the vault console - steps 6-7 are done on the
+  **Key Anchor** page (`keyanchor.html`) in the admin console.
 
 ## 2. Create the KMS key
 
@@ -112,6 +113,8 @@ WARN: TSI_PRIVACY_VAULT_KMS_PROVIDER=AWS_KMS differs from active key ring anchor
 ```
 
 The warning is normal: configuration alone never switches the wrapping anchor.
+Once you see this WARN, the vault is ready - proceed straight to step 6 to
+activate the anchor (no further restart is needed for activation itself).
 
 ### A note on the encryption context
 
@@ -126,41 +129,41 @@ value, re-wrap is not sufficient; treat it as an anchor migration.
 
 ## 6. Activate the AWS anchor
 
-Log in to the admin console to obtain a JWT, then:
+**Timing**: do this once step 5 is applied and the container has restarted -
+the `WARN: ... Run activate_key_anchor to migrate` log line is your cue that
+the vault is ready. Activation switches the wrapping anchor for **new**
+writes immediately; existing records stay readable under the old version
+until step 7 re-wraps them.
 
-```bash
-# 1. Confirm current state
-curl -s http://localhost:8081/api/admin/keyanchor \
-  -H "Authorization: Bearer $JWT" -H 'Content-Type: application/json' \
-  -d '{"_func":"get_key_anchor_status"}'
+Log in to the admin console and open the **Key Anchor** page:
 
-# 2. Activate (verifies a GenerateDataKey + Decrypt round-trip first)
-curl -s http://localhost:8081/api/admin/keyanchor \
-  -H "Authorization: Bearer $JWT" -H 'Content-Type: application/json' \
-  -d '{"_func":"activate_key_anchor","anchor_type":"AWS_KMS"}'
-```
+1. **Configured Anchor** should already read `AWS_KMS` (from step 5), while
+   the **Key Ring** table still shows version 1 as `LOCAL` / `ACTIVE` - that
+   gap is exactly what activation closes.
+2. Click **Activate Anchor**, choose anchor type `AWS_KMS`, check "I
+   understand this will change the live encryption key ring", and confirm.
+3. The page calls `activate_key_anchor`, which first runs a GenerateDataKey +
+   Decrypt round trip against the AWS CMK - nothing changes if that fails.
 
-A successful response creates key version 2 (`AWS_KMS`, `AES_GCM`, `ACTIVE`)
-and demotes version 1 to `DECRYPT_ONLY`. From this moment all **new** writes
-are wrapped by AWS KMS; existing records remain readable under version 1.
+A successful activation creates key version 2 (`AWS_KMS`, `AES_GCM`,
+`ACTIVE`) and demotes version 1 to `DECRYPT_ONLY`, both visible immediately in
+the Key Ring table.
 
-If activation returns `Anchor AWS_KMS failed verification`, see
+If activation fails with "Anchor AWS_KMS failed verification", see
 Troubleshooting (step 9) - nothing has been changed in the key ring.
 
 ## 7. Migrate existing records (re-wrap)
 
-Re-wraps only the ~48-byte wrapped data key per row; payload ciphertext is
-untouched, so this is cheap and safely resumable:
+Still on the **Key Anchor** page, use the **Rewrap Data Keys** card. This
+re-wraps only the ~48-byte wrapped data key per row - payload ciphertext is
+untouched, so it's cheap and safely resumable:
 
-```bash
-curl -s http://localhost:8081/api/admin/keyanchor \
-  -H "Authorization: Bearer $JWT" -H 'Content-Type: application/json' \
-  -d '{"_func":"rewrap_data_keys","batch_size":500}'
-```
-
-Repeat until the response shows `remaining_entities=0` and
-`remaining_utilities=0`. The final pass reports `retired_old_versions=true`,
-marking the LOCAL version `RETIRED`.
+1. Leave **Batch Size** at 500 (or raise it, up to 5000).
+2. Click **Run Batch**. Repeat until the result shows `Remaining Entities: 0`
+   and `Remaining Utilities: 0` ("All data keys re-wrapped.") - the
+   **Pending Re-wrap** stat card at the top tracks the same counts.
+3. The final pass also retires key version 1, shown as `RETIRED` in the Key
+   Ring table.
 
 ## 8. Retire the local Master Key
 
@@ -178,7 +181,7 @@ The vault now has no local root key material; the AWS CMK is the sole anchor.
 |---|---|
 | `TSI_PRIVACY_VAULT_AWS_KMS_KEY_ID is not set` | Variable missing in `.env` or not passed by compose; recreate the container after editing. |
 | `Anchor AWS_KMS failed verification` on activate | Wrong region, bad key ARN, key disabled/pending deletion, or missing IAM permissions. Check CloudTrail for the denied call. |
-| Data plane returns 503 `Vault key anchor unavailable` | Boot health check failed (KMS unreachable, credentials expired). Fix the cause, then call `get_key_anchor_status` - it re-runs the check and reopens the data plane without a restart. |
+| Data plane returns 503 `Vault key anchor unavailable` | Boot health check failed (KMS unreachable, credentials expired). Fix the cause, then click **Refresh** on the Key Anchor page - it re-runs the check and reopens the data plane without a restart. |
 | `AccessDeniedException` in logs | IAM policy not attached, or missing `kms:Encrypt` during re-wrap (step 3). |
 | `AccessDeniedException ... not authorized to perform: kms:CreateKey` | The signed-in identity is the vault's least-privilege runtime user, not an account admin. Use an account-admin identity in the console for step 2, then attach the step 3 policy to the runtime identity. |
 | `InvalidCiphertextException` on fetch | Encryption context mismatch - `TSI_PRIVACY_VAULT_NODE_ID` was changed after activation (see step 5), or the wrong CMK/region is configured. |
