@@ -225,10 +225,16 @@ public class KeyAnchor implements Action {
     /**
      * Re-wraps one batch of DEKs: unwrap with the version recorded on the row,
      * wrap under the ACTIVE anchor. Payload ciphertext (and payload_cipher) are
-     * untouched - only the ~48-byte wrapped key changes.
+     * untouched - only the ~48-byte wrapped key changes. vault_utilities also
+     * carries a hardware-anchor (machine_id) column; refresh it here too, since
+     * a rewrap is exactly the moment the row's encryption context is recomputed
+     * from the current node identity (see Utility.java's hardware anchor check).
      */
     private long rewrapBatch(Connection conn, KmsProvider kms, int activeVersion, int batchSize,
                              String table, String refColumn, String keyColumn) throws Exception {
+        boolean hasMachineId = "vault_utilities".equals(table);
+        String currentMachineId = hasMachineId ? ForensicEngine.getMachineIdentifier() : null;
+
         PreparedStatement select = null;
         PreparedStatement update = null;
         ResultSet rs = null;
@@ -241,8 +247,9 @@ public class KeyAnchor implements Action {
             select.setInt(2, batchSize);
             rs = select.executeQuery();
 
-            update = conn.prepareStatement(
-                    "UPDATE " + table + " SET " + keyColumn + " = ?, key_version = ? WHERE " + refColumn + " = ?");
+            update = conn.prepareStatement(hasMachineId
+                    ? "UPDATE " + table + " SET " + keyColumn + " = ?, key_version = ?, machine_id = ? WHERE " + refColumn + " = ?"
+                    : "UPDATE " + table + " SET " + keyColumn + " = ?, key_version = ? WHERE " + refColumn + " = ?");
             while (rs.next()) {
                 UUID ref = (UUID) rs.getObject(refColumn);
                 String wrapped = rs.getString(keyColumn);
@@ -253,7 +260,12 @@ public class KeyAnchor implements Action {
 
                 update.setString(1, rewrapped);
                 update.setInt(2, activeVersion);
-                update.setObject(3, ref);
+                if (hasMachineId) {
+                    update.setString(3, currentMachineId);
+                    update.setObject(4, ref);
+                } else {
+                    update.setObject(3, ref);
+                }
                 update.executeUpdate();
                 count++;
             }

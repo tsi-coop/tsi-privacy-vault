@@ -34,7 +34,7 @@ services:
     # DEVELOPERS: To build from local source, uncomment the block below
     #build:
     #  context: .
-    # dockerfile: Dockerfile
+    #  dockerfile: Dockerfile
     
     user: "root"
     container_name: tsi_privacy_vault_server
