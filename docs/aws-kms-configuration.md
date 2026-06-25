@@ -31,11 +31,7 @@ In the AWS Console, using an account-admin identity:
 4. Add an alias, e.g. `tsi-privacy-vault`, for readability.
 5. On the **Define key administrative permissions** / **Define key usage
    permissions** pages, accept the defaults (the account root keeps `kms:*`
-   via IAM). **Do not paste the policy JSON from step 3 here** - that is an
-   IAM identity policy meant for the vault's runtime role, not a KMS key
-   policy. Key policies require a `Principal` on every statement, so reusing
-   that JSON as the key policy fails with `MalformedPolicyDocumentException:
-   Policy contains a statement with no principal`.
+   via IAM).
 6. On the key's detail page, enable **Automatic key rotation** - it is
    transparent to the vault (old ciphertext remains decryptable; no re-wrap
    needed).
