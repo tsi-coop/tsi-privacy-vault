@@ -345,20 +345,3 @@ unwrap happens locally. Config:
 M1-M3 (cloud track) is the priority; M4-M5 (Shamir) starts only after the
 cloud track ships, though it depends only on M0 technically.
 
----
-
-## 9. Decisions & Open Questions
-
-### Decided (2026-06-11)
-
-1. **Fail closed at boot:** when AWS KMS is unreachable, the vault refuses to
-   serve data-plane traffic - no degraded read-only mode. (See section 4.1.)
-2. **Single shared `KmsClient`:** built once in `KmsProviderFactory` and
-   reused, replacing per-request construction in `Vault.java`. (See
-   sections 3 and 4.1.)
-
-### Open (to be decided later)
-
-3. Maven profiles for cloud SDKs now, or accept WAR growth until Phase 2?
-4. Phase 3: vendor `com.codahale:shamir` or maintain GF(256) in-repo?
-   (Recommendation: in-repo, given the manually-reviewed contribution model.)
