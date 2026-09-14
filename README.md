@@ -4,24 +4,18 @@ An open-source digital safe that isolates personal and sensitive data for effort
 
 ## Introduction
 
-Storing sensitive details like IDs, Personal Files, or Private Contracts inside everyday business apps is like leaving your most valuable belongings scattered in every room of a house. Just as we use a physical safe to isolate and protect our most valuable physical assets, we must apply that same thinking to our digital world.
+Today, we store private and sensitive details like IDs, personal files, contracts, etc., in every business app that our customers, employees and vendors use. This is like leaving your valuable belongings across every room in a house. Just as we use a physical safe to secure our valuable physical assets, we should apply the same thinking to safeguard our valuable digital assets.
 
-TSI Privacy Vault allows you to move the personal and sensitive data from business applications into an isolated & hardened environment. The solution is designed to manage Digital IDs (Abha ID, PAN, Voter ID), Personal Data (Name, Address, Medical Records), and Sensitive Files (Contracts, X-ray images). In addition, it provides a utilities repository to manage API Keys, service credentials, and digital certificates.
+### Key Features
 
-### Key Features and Capabilities
+- Three Data Flavours: IDs (Abha ID, PAN, Voter ID), Personal Data (Name, Address, Medical Records), and Sensitive Files (Contracts, X-ray images)
+- Encrypted Search Capability: Creates a Deterministic Blind Index. It enables text search without decrypting the underlying data.
+- Utilities: Provides a utilities repository to manage API Keys, service credentials, and digital certificates.
+- Legal Evidence: Every request to the vault is cryptographically anchored to a user and a device, creating an immutable audit trail.
 
-- Three Data Flavours: Specialized handling for IDs (tokenization), DATA (field-level encryption), and FILES (secure binary storage).
-- Encrypted Search Capability: Enables secure discovery of PII through a Deterministic Blind Index. This allows for full-name, segment, and 3-character-prefix searches without decrypting the underlying data or exposing plaintext keywords to the database.
-- Utilities Management: A single point of control for managing the lifecycle of API keys and SSL certificates across your entire organisation.
-- Forensic Anchoring: Every access request is cryptographically linked to a specific user and a physical machine ID, creating an immutable audit trail.
-- Automated Governance: Built-in alerts for certificate expiries and tools for mandatory key rotation.
+The key benefits of the sovereign vault include reducing the breach surface by centralising secrets, supporting DPDPA compliance by easily fulfilling erasure requests, and maintaining tamper-proof evidence for BSA Section 63 evidence.
 
-### Benefits: Security and Sovereignty
-
-- Data Sovereignty: By using this vault, you maintain total ownership and control over your encryption keys and data residency, fulfilling the core requirements of the DPDPA.
-- Reduced Attack Surface: Since sensitive secrets are no longer scattered across various app configurations, a breach in one application doesn't compromise your entire system.
-- Compliance Ready: The Vault automatically generates the forensic evidence required for BSA audits, proving exactly who accessed what data and from which device.
-- Transparency: Being open source means your security team can inspect every line of code.
+Currently, the vault supports a local security model and AWS Cloud Key Management Service for hosting the master keys. Our roadmap includes extending the current local security model from a single master key to a split-key architecture via Shamir secret sharing, and extending Cloud KMS support to Google Cloud and Azure Cloud.
 
 ## Installation
 
