@@ -4,16 +4,16 @@ An open-source digital safe that isolates personal and sensitive data for effort
 
 ## Introduction
 
-Today, we store private and sensitive details like IDs, personal files, contracts, etc., in every business app that our customers, employees and vendors use. This is like leaving your valuable belongings across every room in a house. Just as we use a physical safe to secure our valuable physical assets, we should apply the same thinking to safeguard our valuable digital assets.
+Just as a physical safe secures valuable assets, TSI Privacy Vault isolates personal and sensitive data from business applications, including IDs, personal files, contracts, etc.
 
 ### Key Features
 
-- Three Data Flavours: IDs (Abha ID, PAN, Voter ID), Personal Data (Name, Address, Medical Records), and Sensitive Files (Contracts, X-ray images)
+- Three Data Flavours: IDs (ABHA ID, PAN, Voter ID), Personal Data (Name, Address, Medical Records), and Sensitive Files (Contracts, X-ray images)
 - Encrypted Search Capability: Creates a Deterministic Blind Index. It enables text search without decrypting the underlying data.
 - Utilities: Provides a utilities repository to manage API Keys, service credentials, and digital certificates.
 - Legal Evidence: Every request to the vault is cryptographically anchored to a user and a device, creating an immutable audit trail.
 
-The key benefits of the sovereign vault include reducing the breach surface by centralising secrets, supporting DPDPA compliance by easily fulfilling erasure requests, and maintaining tamper-proof evidence for BSA Section 63 evidence.
+The key benefits of the sovereign vault include reducing the breach surface, supporting DPDPA compliance by easily fulfilling erasure requests, and maintaining tamper-proof evidence for BSA Section 63.
 
 Currently, the vault supports a local security model and AWS Cloud Key Management Service for hosting the master keys. Our roadmap includes extending the current local security model from a single master key to a split-key architecture via Shamir secret sharing, and extending Cloud KMS support to Google Cloud and Azure Cloud.
 
