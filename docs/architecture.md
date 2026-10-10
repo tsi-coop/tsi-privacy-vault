@@ -162,6 +162,24 @@ knows which anchor is in use. It talks only to `KmsProvider`.
 | `GCP_KMS`, `AZURE_KV` | Planned | Cloud KMS CryptoKey, Key Vault key | Multi-cloud parity |
 | `SHAMIR` | Planned | K-of-N custodian shares | Sovereign, no-single-person-unlock deployments |
 
+### LOCAL vs AWS KMS
+
+Out of the box, with no extra setup, the vault runs on the LOCAL anchor: the
+master key in your `.env` file. This is what the Docker install gives you, and
+it is all you need to evaluate the vault or run it fully on-prem or air-gapped.
+AWS KMS is opt-in, a one-time migration you run later if you want the root key
+held in an AWS-managed HSM instead of an environment variable. You do not need
+AWS at all to use the vault.
+
+| | LOCAL (default) | AWS KMS (opt-in) |
+|---|---|---|
+| Root key | `TSI_PRIVACY_VAULT_MASTER_KEY` env var (SHA-256 normalized, held in process memory) | AWS KMS Customer Managed Key, never leaves AWS |
+| Best for | Local evaluation, air-gapped and on-prem deployments | Production deployments wanting cloud HSM custody, automatic rotation and CloudTrail audit logging |
+| Setup | Works out of the box via `.env` | One-time: create the CMK, attach a least-privilege IAM policy, activate the anchor and re-wrap existing records from the Key Anchor page |
+
+Payload ciphertext is always decrypted locally either way. AWS only ever sees a
+wrapped data key of about 48 bytes, never your data.
+
 ### The key ring
 
 `vault_key_ring` records every anchor generation the vault has used.
@@ -197,6 +215,22 @@ Rules:
 
 Existing records stay readable throughout. See
 [aws-kms-configuration.md](aws-kms-configuration.md) for the full runbook.
+
+### What re-wrap is, and why it is a separate step
+
+Every record's payload is encrypted with its own one-time DEK, and that DEK is
+wrapped by whichever anchor was active when the record was written: LOCAL at
+first, AWS KMS once you switch. Re-wrap unwraps each record's DEK under the old
+anchor and wraps it under the new one, so old records become readable under the
+new anchor too. It touches only that small wrapped key. The payload ciphertext
+is never re-encrypted, so re-wrapping a large vault is cheap.
+
+Activation and re-wrap are separate because activating a new anchor only
+affects new writes. Existing records keep pointing at the old key version until
+you migrate them. Re-wrap does that in batches, resumable, while the vault stays
+online, and retires the old version when nothing references it. It runs from
+the Key Anchor page (**Rewrap Data Keys**, **Run Batch**) or through the
+`rewrap_data_keys` admin API call.
 
 ### AWS KMS specifics
 

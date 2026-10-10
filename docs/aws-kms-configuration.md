@@ -153,7 +153,7 @@ A successful activation creates key version 2 (`AWS_KMS`, `AES_GCM`,
 the Key Ring table.
 
 If activation fails with "Anchor AWS_KMS failed verification", see
-Troubleshooting (step 9) - nothing has been changed in the key ring.
+Troubleshooting (step 10) - nothing has been changed in the key ring.
 
 ## 7. Migrate existing records (re-wrap)
 
@@ -178,7 +178,28 @@ Once version 1 is `RETIRED`:
 
 The vault now has no local root key material; the AWS CMK is the sole anchor.
 
-## 9. Troubleshooting
+## 9. Common ways to get it wrong
+
+- **Do not change `TSI_PRIVACY_VAULT_NODE_ID`** between activating the anchor
+  and finishing the re-wrap, or at all once you are on AWS KMS. Every KMS call
+  binds each wrapped key to an encryption context derived from this value, and
+  the running container caches it for its whole lifetime. Change it mid
+  migration and ciphertext is bound to one context while the app expects
+  another, which surfaces later as `InvalidCiphertextException` on fetch. If you
+  must rename the node, treat it as a new anchor migration: restore the old
+  value, finish migrating, and only then rename.
+- **Hardware anchor mismatch.** `vault_utilities` rows also carry a
+  `machine_id`, checked on every fetch independently of the KMS context.
+  Re-wrap keeps it in sync with the current node identity. A
+  `Hardware anchor mismatch` 403 while KMS decryption itself works means this
+  column is stale, which can happen on older builds or if a record was never
+  re-wrapped after a node rename.
+- **Finish the re-wrap in one sitting** right after activation so every row is
+  consistent. Before removing `TSI_PRIVACY_VAULT_MASTER_KEY` for good, confirm
+  `Remaining Entities` and `Remaining Utilities` are both `0` and that a
+  pre-migration record still fetches.
+
+## 10. Troubleshooting
 
 | Symptom | Likely cause / fix |
 |---|---|
@@ -192,7 +213,7 @@ The vault now has no local root key material; the AWS CMK is the sole anchor.
 | Throttling under load | The provider retries 3 times with backoff automatically; sustained throttling needs a KMS quota increase. |
 | `key_version N is RETIRED` errors | A row still references a retired version (e.g., restored from an old backup). Re-activate the old anchor temporarily or re-run the re-wrap after setting the version back to `DECRYPT_ONLY` in `vault_key_ring`. |
 
-## 10. Testing without AWS (LocalStack)
+## 11. Testing without AWS (LocalStack)
 
 For evaluation only - LocalStack keys are not durable or secure:
 
