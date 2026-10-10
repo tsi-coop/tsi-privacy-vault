@@ -36,6 +36,12 @@ cp .example .env
 ```
 Now, edit the newly created .env file and fill in the placeholder values.
 
+Generate a random setup token and write it into `.env`:
+```bash
+sed -i "s|^TSI_PRIVACY_VAULT_BOOTSTRAP_TOKEN=.*|TSI_PRIVACY_VAULT_BOOTSTRAP_TOKEN=$(openssl rand -hex 32)|" .env
+```
+This is a mandatory security step. The first-run setup page (`/init.html`) asks for this value before it creates the administrator account, and setup is refused if it is not set. Remove it from `.env` once setup is done.
+
 4.  Start the TSI Privacy Vault service
    ```bash   
    sudo docker compose up -d
@@ -51,7 +57,7 @@ Watch the [Installation Steps](https://youtu.be/8zBjy5XQH-I) walkthrough for a v
 
 Follow the Guided Journey:
 
-1. Environment Setup: Initialize the Sovereign Safe, define Master Keys, and establish the root hardware anchor for the vault instance. Watch the [Entities and Utilities Configuration](https://youtu.be/Pbkf7gzgNas) walkthrough.
+1. Environment Setup: Open `/init.html`, enter the `TSI_PRIVACY_VAULT_BOOTSTRAP_TOKEN` value from `.env` as the Setup Token, and create the administrator account. Then initialize the Sovereign Safe, define Master Keys, and establish the root hardware anchor for the vault instance. Watch the [Entities and Utilities Configuration](https://youtu.be/Pbkf7gzgNas) walkthrough.
 
 2. Data Client: Ingest, store, and retrieve records across ID, DATA, and FILE flavors using integrated forensic hashing. Watch the [Data Client Tour](https://youtu.be/jvI_LD-pSfQ) walkthrough.
 
@@ -148,6 +154,10 @@ available via the `rewrap_data_keys` admin API call if you'd rather script it.
   `Remaining Entities/Utilities` are both `0` and that a pre-migration record
   still fetches successfully.
 
+## Testing
+
+[Functional test cases and the JMeter load test](tests/README.md): key management test cases (LOCAL and AWS KMS) and a data plane load test with tunable concurrency.
+
 ## Release Notes
 
 [Changelog](CHANGELOG.md)
@@ -157,6 +167,8 @@ available via the `rewrap_data_keys` admin API call if you'd rather script it.
 This project is fully open-source and distributed under the Apache 2.0 License. You are completely free to fork, modify, and customize the codebase to fit your specific technical or enterprise needs without any restriction.
 
 ### Contributing Back to the Main Project
+See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) for reporting vulnerabilities, and the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 If you have built an optimization, bug fix, or feature extension that you believe would add value to the core platform, we would love to review it. To ensure the main repository remains highly stable and securely managed, direct commits to the `main` branch are restricted.
 
 If you wish to give back your changes to the project, please follow this process:

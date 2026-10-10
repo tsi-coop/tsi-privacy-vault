@@ -1,12 +1,12 @@
 # AWS KMS Configuration Guide
 
 How to anchor the TSI Privacy Vault to an AWS KMS Customer Managed Key (CMK),
-per Phase 1 of [the key management roadmap](roadmap.md). After this setup, every
+per Phase 1 of [the key management roadmap](architecture.md#7-roadmap). After this setup, every
 record's data key is wrapped by AWS KMS instead of the local Master Key, while
 payload encryption and decryption still happen locally - AWS never sees your data.
 
 Manual verification steps for this whole flow are in
-[phase1-manual-test-plan.md](phase1-manual-test-plan.md) (Section B).
+[test-cases.md](../tests/test-cases.md) (Section B).
 
 ---
 

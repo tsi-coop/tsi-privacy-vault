@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * Key anchor administration (docs/roadmap.md Phase 1, milestone M2).
+ * Key anchor administration (docs/architecture.md Phase 1, milestone M2).
  * - get_key_anchor_status : key ring, health and pending re-wrap counts
  * - activate_key_anchor   : create a new ACTIVE key-ring version under an anchor
  * - rewrap_data_keys      : batched LOCAL -> active anchor DEK re-wrap migration

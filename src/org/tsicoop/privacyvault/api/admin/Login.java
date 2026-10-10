@@ -23,6 +23,14 @@ public class Login implements Action {
 
     @Override
     public void post(HttpServletRequest req, HttpServletResponse res) {
+        if (req.getServletPath().contains("api/admin/logout")) {
+            InputProcessor.clearConsoleSessionCookie(res);
+            JSONObject out = new JSONObject();
+            out.put("_success", true);
+            out.put("message", "Logged out");
+            OutputProcessor.send(res, HttpServletResponse.SC_OK, out);
+            return;
+        }
         JSONObject output = new JSONObject();
         String email = null; // Changed from username
         String clientIp = req.getRemoteAddr();
@@ -81,6 +89,7 @@ public class Login implements Action {
             output.put("email", email);
             
             outcome = "SUCCESS";
+            InputProcessor.setConsoleSessionCookie(res, generatedToken);
             OutputProcessor.send(res, HttpServletResponse.SC_OK, output);
 
         } catch (SQLException e) {

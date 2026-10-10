@@ -148,7 +148,18 @@
         }
     }
 
-    function handleLogout() { localStorage.clear(); window.location.href = "index.html"; }
+    function handleLogout() {
+        // Clear the server-side console session cookie (HttpOnly, so JS cannot do it), then local state.
+        const t = localStorage.getItem('vaultToken');
+        fetch('api/admin/logout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + t },
+            body: JSON.stringify({ _func: 'logout' })
+        }).catch(() => {}).finally(() => {
+            localStorage.clear();
+            window.location.href = 'index.html';
+        });
+    }
 </script>
 </body>
 </html>

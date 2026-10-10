@@ -18,6 +18,9 @@ TSI_PRIVACY_VAULT_ENV=local
 TSI_PRIVACY_VAULT_NODE_ID=MUMBAI_DC_RACK04_SRV01
 # 32 byte Master Key 
 TSI_PRIVACY_VAULT_MASTER_KEY=6S6vH7pW2zN9kX4jR8mB3vC5xZ1aQ7yP0oL9iK2uJ4M
+# One-time setup token. Required by the first-run setup page (init.html) to create
+# the SYSTEM_ADMIN account. If unset, setup is refused. Use a long random value.
+TSI_PRIVACY_VAULT_BOOTSTRAP_TOKEN=
 # JWT Secret 
 TSI_PRIVACY_VAULT_JWT_SECRET=v7N2xQ9mR4kL1jP8bW5tZ3yX6sC0vA2d
 # Software Version
@@ -29,7 +32,7 @@ TSI_PRIVACY_VAULT_INDEX_SECRET=k9#z!L2@P$5m*N8^qV1&bX7*jR3+fW0_
 # Data Export Path
  TSI_EXPORT_PATH=/var/lib/tsi/exports/
 
-# --- Key Management (docs/roadmap.md) ---
+# --- Key Management (docs/architecture.md) ---
 # Intended root key anchor: LOCAL | AWS_KMS
 # Note: the wrapping anchor is switched via the activate_key_anchor admin API;
 # this variable declares operator intent and gates AWS configuration.

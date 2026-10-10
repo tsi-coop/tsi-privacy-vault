@@ -21,6 +21,8 @@ import org.tsicoop.privacyvault.framework.*;
 
 public class User implements Action {
 
+    private static final String ENV_BOOTSTRAP_TOKEN = "TSI_PRIVACY_VAULT_BOOTSTRAP_TOKEN";
+
     private final PasswordHasher passwordHasher = new PasswordHasher();
 
     @Override
@@ -49,6 +51,43 @@ public class User implements Action {
                 return;
             }
           
+            // /api/admin/setup and /api/admin/resetpass are reachable without a login (see
+            // InterceptingFilter), so each is limited to the single function it exists for.
+            String servletPath = req.getServletPath();
+            boolean setupRoute = servletPath.contains("api/admin/setup");
+            boolean resetRoute = servletPath.contains("api/admin/resetpass");
+
+            if (resetRoute && !"break_glass_reset".equalsIgnoreCase(func)) {
+                OutputProcessor.sendError(res, HttpServletResponse.SC_FORBIDDEN, "Function not available on this endpoint.");
+                return;
+            }
+            if (setupRoute) {
+                if (!"create_user".equalsIgnoreCase(func)) {
+                    OutputProcessor.sendError(res, HttpServletResponse.SC_FORBIDDEN, "Function not available on this endpoint.");
+                    return;
+                }
+                // Fails closed: with no configured token the endpoint refuses every request.
+                // Checked before any database access, so a caller without the token learns
+                // nothing about whether the vault is already configured.
+                String expectedToken = System.getenv(ENV_BOOTSTRAP_TOKEN);
+                if (expectedToken == null || expectedToken.trim().isEmpty()) {
+                    OutputProcessor.sendError(res, HttpServletResponse.SC_SERVICE_UNAVAILABLE,
+                            "Setup is disabled: " + ENV_BOOTSTRAP_TOKEN + " is not configured on the server.");
+                    return;
+                }
+                String suppliedToken = (String) input.get("setup_token");
+                if (suppliedToken == null || !MessageDigest.isEqual(
+                        expectedToken.getBytes(StandardCharsets.UTF_8),
+                        suppliedToken.getBytes(StandardCharsets.UTF_8))) {
+                    OutputProcessor.sendError(res, HttpServletResponse.SC_UNAUTHORIZED, "Invalid setup token.");
+                    return;
+                }
+                if (!"SYSTEM_ADMIN".equalsIgnoreCase((String) input.get("role"))) {
+                    OutputProcessor.sendError(res, HttpServletResponse.SC_FORBIDDEN, "Setup can only create the SYSTEM_ADMIN account.");
+                    return;
+                }
+            }
+
             switch (func.toLowerCase()) {
                 case "list_users": //
                     output = listUsers();
@@ -82,7 +121,16 @@ public class User implements Action {
                     }
 
                     String hashedPassword = passwordHasher.hashPassword(password);
-                    output = saveAdminUser(input, hashedPassword);
+                    if ("SYSTEM_ADMIN".equalsIgnoreCase(role)) {
+                        output = saveSystemAdminExclusive(input, hashedPassword);
+                        if (output == null) {
+                            failureReason = "Setup Phase Expired: A SYSTEM_ADMIN already exists.";
+                            OutputProcessor.sendError(res, HttpServletResponse.SC_FORBIDDEN, failureReason);
+                            return;
+                        }
+                    } else {
+                        output = saveAdminUser(input, hashedPassword);
+                    }
                     outcome = "SUCCESS";
                     logRegistrationEvent(username, clientIp, userAgent, outcome, null); //
                     break;
@@ -328,6 +376,63 @@ public class User implements Action {
             pool.cleanup(rs, pstmt, conn);
         }
         return present;
+    }
+
+    /**
+     * Creates the SYSTEM_ADMIN account only if none exists, with the existence check and
+     * the insert in one SERIALIZABLE transaction. Two concurrent setup requests that both
+     * see an empty table cannot both succeed: Postgres aborts the loser (SQLState 40001).
+     * Returns null when a SYSTEM_ADMIN already exists (or this request lost the race).
+     */
+    private JSONObject saveSystemAdminExclusive(JSONObject input, String hashedPassword) throws SQLException {
+        Connection conn = null;
+        PoolDB pool = new PoolDB();
+        try {
+            conn = pool.getConnection();
+            conn.setAutoCommit(false);
+            conn.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+
+            try (PreparedStatement check = conn.prepareStatement(
+                    "SELECT 1 FROM admin_user WHERE role = 'SYSTEM_ADMIN' AND active = true LIMIT 1");
+                 ResultSet rs = check.executeQuery()) {
+                if (rs.next()) {
+                    conn.rollback();
+                    return null;
+                }
+            }
+
+            JSONObject output = new JSONObject();
+            try (PreparedStatement ins = conn.prepareStatement(
+                    "INSERT INTO admin_user (username, password_hash, email, role, active) VALUES (?, ?, ?, ?, ?) RETURNING user_id")) {
+                ins.setString(1, (String) input.get("username"));
+                ins.setString(2, hashedPassword);
+                ins.setString(3, (String) input.get("email"));
+                ins.setString(4, (String) input.get("role"));
+                ins.setBoolean(5, (Boolean) input.get("active"));
+                try (ResultSet rs = ins.executeQuery()) {
+                    if (rs.next()) {
+                        output.put("_created", true);
+                        output.put("userid", rs.getInt(1));
+                    }
+                }
+            }
+            conn.commit();
+            return output;
+        } catch (SQLException e) {
+            try { if (conn != null) conn.rollback(); } catch (SQLException ignore) { }
+            if ("40001".equals(e.getSQLState())) {
+                return null;
+            }
+            throw e;
+        } finally {
+            try {
+                if (conn != null) {
+                    conn.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+                    conn.setAutoCommit(true);
+                }
+            } catch (SQLException ignore) { }
+            pool.cleanup(null, null, conn);
+        }
     }
 
     private JSONObject saveAdminUser(JSONObject input, String hashedPassword) throws SQLException {

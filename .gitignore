@@ -5,3 +5,7 @@
 .help
 /server/.env
 
+
+# Load test output
+/tests/results.jtl
+/tests/report/

@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.2.1
+
+### Security
+- Admin console pages (`dashboard`, `apikeys`, `audit`, `entities`, `keyanchor`, `legal`, `users`, `utilities`) are now gated server-side. Previously the only check was client-side JavaScript, so the full page source was served to any HTTP client. A valid admin session (HttpOnly `console_session` cookie set at login, cleared by the new `/api/admin/logout`) is required, otherwise the request redirects to `/index.html`.
+- First-run setup (`/api/admin/setup`) now requires `setup_token` matching `TSI_PRIVACY_VAULT_BOOTSTRAP_TOKEN`, compared in constant time. If the variable is unset, setup is refused with 503. The token is checked before any database access.
+- The unauthenticated `/api/admin/setup` and `/api/admin/resetpass` routes no longer expose every user-management function. Setup accepts only `create_user` for the `SYSTEM_ADMIN` role, and reset accepts only `break_glass_reset`. Previously `generate_master_recovery_key` and `list_users` were reachable without a login through either route.
+- Creating the first `SYSTEM_ADMIN` is atomic (SERIALIZABLE transaction), so two concurrent setup requests cannot both succeed.
+- Directory listing is disabled on the web application.
+- The client API now verifies `X-API-Secret` against the stored PBKDF2 hash. Previously only the `X-API-Key` was checked, so the key alone granted access to the data plane. **Clients must now send both headers**; requests without a valid secret return 401.
+
+### Changed
+- `TSI_PRIVACY_VAULT_BOOTSTRAP_TOKEN` is a new environment variable (see `.example` and `docker-compose.yml`). Existing installations that are already set up are unaffected.
+- New `POST /api/admin/logout` endpoint, used by the console's Logout action.
+
 ## v0.2.0
 
 ### Added

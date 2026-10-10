@@ -18,6 +18,30 @@ import java.util.StringTokenizer;
 public class InputProcessor {
     public final static String REQUEST_DATA = "input_json";
     public final static String AUTH_TOKEN = "auth_token";
+    public final static String CONSOLE_SESSION_COOKIE = "console_session";
+    private final static int CONSOLE_SESSION_MAX_AGE_SECONDS = 864000; // matches JWT lifetime (10 days)
+
+    /**
+     * Sets the HttpOnly console session cookie read by ConsoleAuthFilter. Built as a raw
+     * Set-Cookie header because the Servlet 5.0 Cookie API has no SameSite support.
+     * Secure is omitted only when TSI_PRIVACY_VAULT_ENV=local so plain-http local dev works.
+     */
+    public static void setConsoleSessionCookie(HttpServletResponse res, String token) {
+        StringBuilder cookie = new StringBuilder();
+        cookie.append(CONSOLE_SESSION_COOKIE).append('=').append(token)
+                .append("; Path=/; Max-Age=").append(CONSOLE_SESSION_MAX_AGE_SECONDS)
+                .append("; HttpOnly; SameSite=Strict");
+        if (!"local".equals(System.getenv("TSI_PRIVACY_VAULT_ENV"))) cookie.append("; Secure");
+        res.addHeader("Set-Cookie", cookie.toString());
+    }
+
+    /** Expires the console session cookie. Used on logout. */
+    public static void clearConsoleSessionCookie(HttpServletResponse res) {
+        StringBuilder cookie = new StringBuilder();
+        cookie.append(CONSOLE_SESSION_COOKIE).append("=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict");
+        if (!"local".equals(System.getenv("TSI_PRIVACY_VAULT_ENV"))) cookie.append("; Secure");
+        res.addHeader("Set-Cookie", cookie.toString());
+    }
 
     public static void processInput(HttpServletRequest request, HttpServletResponse response){
         String contentType = request.getContentType();
@@ -51,9 +75,23 @@ public class InputProcessor {
         return validheader;
     }
 
+    // PBKDF2 (65536 iterations) is deliberately slow, so a successful secret verification is
+    // cached briefly. The key's active flag and stored hash are re-read from the database on
+    // every request, so deactivating a key or rotating its secret takes effect immediately.
+    private static final long SECRET_CACHE_TTL_MS = 60_000L;
+    private static final int SECRET_CACHE_MAX_ENTRIES = 5_000;
+    private static final java.util.concurrent.ConcurrentHashMap<String, Long> verifiedSecrets =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Authenticates a data-plane client: the X-API-Key must exist and be active, and the
+     * X-API-Secret must match the PBKDF2 hash stored for it at key creation.
+     */
     public static boolean processClientHeader(HttpServletRequest req, HttpServletResponse res) {
         String apiKey = req.getHeader("X-API-Key");
+        String apiSecret = req.getHeader("X-API-Secret");
         if (apiKey == null || apiKey.trim().isEmpty()) return false;
+        if (apiSecret == null || apiSecret.isEmpty()) return false;
 
         Connection conn = null;
         PreparedStatement ps = null;
@@ -63,20 +101,57 @@ public class InputProcessor {
         try {
             pool = new PoolDB();
             conn = pool.getConnection();
-            // Check both existence and active status in the consolidated api_user table
-            ps = conn.prepareStatement("SELECT active FROM api_user WHERE api_key = ?");
+            ps = conn.prepareStatement("SELECT active, api_secret FROM api_user WHERE api_key = ?");
             ps.setString(1, apiKey);
             rs = ps.executeQuery();
 
             if (rs.next()) {
-                return rs.getBoolean("active"); // Returns true only if the key is active
+                if (!rs.getBoolean("active")) return false;
+                return secretMatches(apiKey, apiSecret, rs.getString("api_secret"));
             }
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            pool.cleanup(rs, ps, conn);
+            if (pool != null) pool.cleanup(rs, ps, conn);
         }
         return false; // Key does not exist
+    }
+
+    /** Verifies a raw secret against a stored "iterations:salt_b64:hash_b64" PBKDF2 value. */
+    private static boolean secretMatches(String apiKey, String rawSecret, String stored) {
+        if (stored == null) return false;
+        try {
+            // The cache key binds the key, the presented secret and the stored hash, so a
+            // rotated secret (new stored hash) never matches an old cache entry.
+            java.security.MessageDigest sha = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] digest = sha.digest((apiKey + "\u0000" + rawSecret + "\u0000" + stored)
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            String cacheKey = java.util.Base64.getEncoder().encodeToString(digest);
+
+            Long expiresAt = verifiedSecrets.get(cacheKey);
+            long now = System.currentTimeMillis();
+            if (expiresAt != null && expiresAt > now) return true;
+
+            String[] parts = stored.split(":");
+            if (parts.length != 3) return false;
+            int iterations = Integer.parseInt(parts[0]);
+            byte[] salt = java.util.Base64.getDecoder().decode(parts[1]);
+            byte[] expected = java.util.Base64.getDecoder().decode(parts[2]);
+
+            javax.crypto.SecretKeyFactory factory =
+                    javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+            byte[] actual = factory.generateSecret(new javax.crypto.spec.PBEKeySpec(
+                    rawSecret.toCharArray(), salt, iterations, expected.length * 8)).getEncoded();
+
+            boolean ok = java.security.MessageDigest.isEqual(expected, actual);
+            if (ok) {
+                if (verifiedSecrets.size() >= SECRET_CACHE_MAX_ENTRIES) verifiedSecrets.clear();
+                verifiedSecrets.put(cacheKey, now + SECRET_CACHE_TTL_MS);
+            }
+            return ok;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public static String getEmail(HttpServletRequest req){

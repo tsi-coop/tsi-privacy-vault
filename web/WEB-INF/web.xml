@@ -16,4 +16,79 @@
 	<dispatcher>REQUEST</dispatcher>
 	<dispatcher>FORWARD</dispatcher>
 </filter-mapping>
+<filter>
+	<filter-name>CONSOLE_AUTH_FILTER</filter-name>
+	<filter-class>org.tsicoop.privacyvault.framework.ConsoleAuthFilter</filter-class>
+</filter>
+
+<filter-mapping>
+	<filter-name>CONSOLE_AUTH_FILTER</filter-name>
+	<url-pattern>/dashboard.html</url-pattern>
+	<dispatcher>REQUEST</dispatcher>
+	<dispatcher>FORWARD</dispatcher>
+</filter-mapping>
+
+<filter-mapping>
+	<filter-name>CONSOLE_AUTH_FILTER</filter-name>
+	<url-pattern>/apikeys.html</url-pattern>
+	<dispatcher>REQUEST</dispatcher>
+	<dispatcher>FORWARD</dispatcher>
+</filter-mapping>
+
+<filter-mapping>
+	<filter-name>CONSOLE_AUTH_FILTER</filter-name>
+	<url-pattern>/audit.html</url-pattern>
+	<dispatcher>REQUEST</dispatcher>
+	<dispatcher>FORWARD</dispatcher>
+</filter-mapping>
+
+<filter-mapping>
+	<filter-name>CONSOLE_AUTH_FILTER</filter-name>
+	<url-pattern>/entities.html</url-pattern>
+	<dispatcher>REQUEST</dispatcher>
+	<dispatcher>FORWARD</dispatcher>
+</filter-mapping>
+
+<filter-mapping>
+	<filter-name>CONSOLE_AUTH_FILTER</filter-name>
+	<url-pattern>/keyanchor.html</url-pattern>
+	<dispatcher>REQUEST</dispatcher>
+	<dispatcher>FORWARD</dispatcher>
+</filter-mapping>
+
+<filter-mapping>
+	<filter-name>CONSOLE_AUTH_FILTER</filter-name>
+	<url-pattern>/legal.html</url-pattern>
+	<dispatcher>REQUEST</dispatcher>
+	<dispatcher>FORWARD</dispatcher>
+</filter-mapping>
+
+<filter-mapping>
+	<filter-name>CONSOLE_AUTH_FILTER</filter-name>
+	<url-pattern>/users.html</url-pattern>
+	<dispatcher>REQUEST</dispatcher>
+	<dispatcher>FORWARD</dispatcher>
+</filter-mapping>
+
+<filter-mapping>
+	<filter-name>CONSOLE_AUTH_FILTER</filter-name>
+	<url-pattern>/utilities.html</url-pattern>
+	<dispatcher>REQUEST</dispatcher>
+	<dispatcher>FORWARD</dispatcher>
+</filter-mapping>
+
+<!--
+	Jetty's bundled webdefault-ee10.xml (merged into every webapp ahead of this
+	file) sets dirAllowed=true on the "default" servlet, so any directory with
+	no welcome file is auto-listed. Redeclaring "default" overrides just that
+	init-param; welcome-file resolution is unaffected.
+-->
+<servlet>
+	<servlet-name>default</servlet-name>
+	<servlet-class>org.eclipse.jetty.ee10.servlet.DefaultServlet</servlet-class>
+	<init-param>
+		<param-name>dirAllowed</param-name>
+		<param-value>false</param-value>
+	</init-param>
+</servlet>
 </web-app>

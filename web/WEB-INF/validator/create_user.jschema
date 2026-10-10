@@ -23,6 +23,9 @@
                 },
                 "_func": {
                     "type": "string"
+                },
+                "setup_token": {
+                    "type": "string"
                 }
             },
             "required": [

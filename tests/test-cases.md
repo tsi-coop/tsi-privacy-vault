@@ -1,14 +1,23 @@
-# Manual Test Plan - Phase 0/1 Key Management (LOCAL + AWS KMS Anchor)
+# Test Cases: Key Management (LOCAL and AWS KMS Anchor)
 
-Covers milestones M0-M2 of docs/roadmap.md: provider factory, key-version
-metadata, fail-closed boot gate, hardened AWS KMS anchor, anchor activation
-and the DEK re-wrap migration.
+Functional test cases for the vault's key management and data plane: provider
+factory, key-version metadata, fail-closed boot gate, the AWS KMS anchor,
+anchor activation and the DEK re-wrap migration. They cover milestones M0 to
+M2 in the [roadmap](../docs/architecture.md#7-roadmap).
+
+These cases are executed by hand because they change environment variables,
+restart containers, and stop or detach KMS. For throughput and latency
+testing, use the JMeter plan described in [README.md](README.md) and
+[load-testing-plan.md](load-testing-plan.md).
+
+Run sections A and B in order against a throwaway instance. Record results in
+the sign-off matrix in section C.
 
 ## Conventions
 
 - Base URL: `http://localhost:8081` (compose maps `APP_PORT_MAP`, default 8081).
 - `$JWT` = admin Bearer token obtained in step A3.
-- `$APIKEY` = a client API key with READ/WRITE on the test entity.
+- `$APIKEY` / `$APISECRET` = a client API key and its secret, with READ/WRITE on the test entity.
 - DB shell:
   `docker exec -it tsi_privacy_vault_db psql -U tsi_admin -d tsi_privacy_vault`
 
@@ -65,7 +74,7 @@ curl -s http://localhost:8081/api/admin/login \
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8081/api/client/vault \
-  -H "X-API-Key: $APIKEY" -H 'Content-Type: application/json' \
+  -H "X-API-Key: $APIKEY" -H "X-API-Secret: $APISECRET" -H 'Content-Type: application/json' \
   -d '{"_func":"get_authorized_entities"}'
 # expect 503
 ```
@@ -78,13 +87,13 @@ curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8081/api/client/vault 
 ```bash
 # store
 curl -s http://localhost:8081/api/client/vault \
-  -H "X-API-Key: $APIKEY" -H 'Content-Type: application/json' \
+  -H "X-API-Key: $APIKEY" -H "X-API-Secret: $APISECRET" -H 'Content-Type: application/json' \
   -d '{"_func":"store_data","entityType":"ID","entityName":"<ENTITY_CODE>","content":"TEST-9912-3456"}'
 # capture reference_key
 
 # fetch
 curl -s http://localhost:8081/api/client/vault \
-  -H "X-API-Key: $APIKEY" -H 'Content-Type: application/json' \
+  -H "X-API-Key: $APIKEY" -H "X-API-Secret: $APISECRET" -H 'Content-Type: application/json' \
   -d '{"_func":"fetch_data","reference-key":"<reference_key>"}'
 ```
 
@@ -110,6 +119,18 @@ curl -s http://localhost:8081/api/admin/keyanchor \
 
 - [ ] `healthy=true`, `active_key_version=1`, `configured_anchor=LOCAL`,
       `key_ring` lists v1, `pending_rewrap` counts are 0.
+
+### A8. Client API authentication
+
+Use the key and secret from the admin console's API Keys page.
+
+- [ ] Valid `X-API-Key` and `X-API-Secret`: `get_authorized_entities` returns 200.
+- [ ] Valid key, no `X-API-Secret` header: 401.
+- [ ] Valid key, wrong secret: 401.
+- [ ] Unknown key with any secret: 401.
+- [ ] Deactivate the key in the console, repeat the valid call: 401 (takes
+      effect immediately, not after a cache interval).
+- [ ] Re-activate the key: valid call returns 200 again.
 
 ---
 
@@ -226,6 +247,7 @@ curl -s http://localhost:8081/api/admin/keyanchor \
 | Schema | A1, A2 | |
 | Fail-closed boot | A4, B6 | |
 | LOCAL regression | A5, A6 | |
+| Client authentication | A8 | |
 | Anchor activation | B2 | |
 | Mixed-version reads | B3 | |
 | Re-wrap migration | B4, B5 | |

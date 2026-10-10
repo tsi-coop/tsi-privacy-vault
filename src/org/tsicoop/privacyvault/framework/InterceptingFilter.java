@@ -52,7 +52,7 @@ public class InterceptingFilter implements Filter {
                 return;
             }
 
-            // Fail closed (docs/roadmap.md 4.1): refuse data-plane traffic while
+            // Fail closed (docs/architecture.md Roadmap): refuse data-plane traffic while
             // the key anchor is unhealthy. Admin login/status stay reachable.
             if (isDataPlane(servletPath) && !KmsProviderFactory.isHealthy()) {
                 OutputProcessor.sendError(res, HttpServletResponse.SC_SERVICE_UNAVAILABLE,

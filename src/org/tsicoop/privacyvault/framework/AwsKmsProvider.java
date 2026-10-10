@@ -21,7 +21,7 @@ import software.amazon.awssdk.services.kms.model.GenerateDataKeyRequest;
 import software.amazon.awssdk.services.kms.model.GenerateDataKeyResponse;
 
 /**
- * AWS KMS anchor (docs/roadmap.md Phase 1).
+ * AWS KMS anchor (docs/architecture.md Phase 1).
  * Configured via environment variables; credentials come from the AWS default
  * chain (IAM role / instance profile / env / shared config). One KmsClient is
  * built per provider instance and the factory holds a single shared instance.

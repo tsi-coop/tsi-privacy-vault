@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * In-memory view of the vault_key_ring table (docs/roadmap.md Phase 0).
+ * In-memory view of the vault_key_ring table (docs/architecture.md Phase 0).
  * The ACTIVE entry decides which anchor wraps new DEKs and which payload
  * cipher new records use; DECRYPT_ONLY entries remain usable for unwrap.
  */

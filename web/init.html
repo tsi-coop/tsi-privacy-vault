@@ -99,6 +99,12 @@
                 class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none transition-all text-sm">
         </div>
 
+        <div>
+            <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Setup Token</label>
+            <input type="password" id="setup-token" required autocomplete="off" placeholder="TSI_PRIVACY_VAULT_BOOTSTRAP_TOKEN"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:bg-white outline-none transition-all text-sm">
+        </div>
+
         <button type="submit" id="setup-btn" class="animated-button w-full py-4 rounded-lg font-bold text-xs uppercase tracking-widest shadow-md">
             Finalize Vault Security
         </button>
@@ -125,6 +131,7 @@
             const name = document.getElementById('name').value;
             const password = document.getElementById('password').value;
             const confirm = document.getElementById('password-confirm').value;
+            const setupToken = document.getElementById('setup-token').value;
 
             // Basic validation
             if (password !== confirm) {
@@ -145,7 +152,8 @@
                     "username": name,
                     "password": password,
                     "role": "SYSTEM_ADMIN",
-                    "active": true
+                    "active": true,
+                    "setup_token": setupToken
                 };
 
                 const response = await fetch(API_SETUP_URL, {

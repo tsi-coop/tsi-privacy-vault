@@ -1,5 +1,5 @@
 -- 01_key_management.sql
--- Phase 0 key-version metadata (docs/roadmap.md, section 3).
+-- Phase 0 key-version metadata (docs/architecture.md, Roadmap).
 -- Runs after 00_init.sql on fresh installs. For existing databases, apply
 -- manually: psql -U tsi_admin -d tsi_privacy_vault -f 01_key_management.sql
 
