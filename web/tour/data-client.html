@@ -317,7 +317,7 @@
             document.getElementById('newRefOutput').textContent = res.reference_key;
             document.getElementById('storeResult').classList.remove('hidden');
         } else {
-            alert("Storage failed: " + (res.message || "Protocol Error"));
+            alert("Storage failed: " + (res.error || res.message || "Protocol Error"));
         }
     }
 

@@ -177,7 +177,7 @@
             alert("Utility updated successfully.");
             closeModal();
         } else {
-            alert("Update Failed: " + (res.message || "Unauthorized"));
+            alert("Update Failed: " + (res.error || res.message || "Unauthorized"));
         }
     }
 

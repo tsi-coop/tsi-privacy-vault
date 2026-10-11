@@ -303,6 +303,11 @@ evolve independently, and the next phase extends each one.
 A deployment picks one track. Switching tracks later is an anchor migration,
 and only the small wrapped DEKs are re-wrapped.
 
+File storage is a third, independent dimension. Where the encrypted bytes of a
+`FILE` record live (the database today, or an object store such as S3 or GCS
+later) does not depend on which key anchor is active. See
+[Storage backends](#storage-backends-next-pluggable-file-storage).
+
 ### Status
 
 | Milestone | Track | Contents | Status |
@@ -312,10 +317,13 @@ and only the small wrapped DEKs are re-wrapped.
 | M2 | Both | `activate_key_anchor`, LOCAL to AWS re-wrap job, IAM docs, anchor status in the admin console | Shipped (v0.2.0) |
 | M3 | Sovereign | OpenBao provider: Transit wrap and unwrap, AppRole auth, TLS, health check, LOCAL to OpenBao re-wrap, runbook | Planned |
 | M4 | Cloud | GCP KMS or Azure Key Vault provider, shared cloud provider base class, anchor migration runbook | Planned, on demand |
+| M5 | Storage | `FileStore` abstraction, `DATABASE` backend behind it (no behavior change), storage columns, `AWS_S3` and S3-compatible backend, health check | Planned |
+| M6 | Storage | `GCS` and `AZURE_BLOB` backends, backend-to-backend migration job, runbook | Planned, on demand |
 
-The two next-phase items are independent. They can ship in either order.
+The two next-phase key items are independent. They can ship in either order.
 Build the cloud provider that a real user asks for first. The shared base class
-makes the second one small.
+makes the second one small. The storage milestones (M5 and M6) are independent
+of both key tracks.
 
 ### Design principles
 
@@ -443,6 +451,105 @@ API, so the same provider should also work with HashiCorp Vault.
   side. The vault needs no change.
 - Migration from LOCAL or AWS_KMS uses the standard activate and re-wrap flow.
 
+### Storage backends next: pluggable file storage
+
+Today every record, including `FILE` content, is stored encrypted in
+PostgreSQL. That stays the default. Large files (contracts, scans) are the
+case where a database is a poor fit: they bloat backups and the buffer cache,
+and they compete with the connection pool. Deployments that already run an
+object store should be able to keep file bytes there instead.
+
+**Principle.** The object store only ever receives ciphertext. Envelope
+encryption is unchanged: the DEK is generated and wrapped by the key anchor, the
+payload is encrypted in the vault process, and only the result is handed to a
+storage backend. A bucket breach, a misconfigured ACL or a cloud operator
+therefore exposes nothing readable. Storage-side encryption (SSE-KMS, CMEK) is
+defense in depth, never the control the design relies on.
+
+**Backends**
+
+| Backend | Selector | For | Status |
+|---|---|---|---|
+| Database | `DATABASE` | Default. Small and medium files, simplest operations, one backup covers everything | Shipped (current behavior) |
+| AWS S3 | `AWS_S3` | Cloud track | Planned (M5) |
+| S3-compatible | `S3_COMPATIBLE` | Sovereign track: MinIO, Ceph RGW, on-prem appliances, via a custom endpoint | Planned (M5, same client as `AWS_S3`) |
+| Google Cloud Storage | `GCS` | Cloud track | Planned, on demand (M6) |
+| Azure Blob Storage | `AZURE_BLOB` | Cloud track | Planned, on demand (M6) |
+
+Build S3 first. The S3 API is also what most on-prem object stores speak, so
+one implementation serves both the Cloud and Sovereign tracks.
+
+**Abstraction (`FileStore`)**
+
+- A small interface used only by the data plane: `put(key, bytes)`,
+  `get(key)`, `delete(key)`, `exists(key)`, `health()`. The data plane stays
+  backend-agnostic, the same way it is anchor-agnostic.
+- A `FileStoreFactory` selects the active backend at boot, mirroring
+  `KmsProviderFactory`. Provider SDKs are loaded reflectively behind Maven
+  profiles (`-Pstore-s3`, `-Pstore-gcs`, `-Pstore-azure`) so the default build
+  stays lean and sovereign.
+- The existing database path becomes the `DATABASE` implementation. M5 changes
+  no behavior for current deployments.
+
+**Schema and routing**
+
+- Each `vault_entities` row records where its content lives: `storage_backend`
+  (default `DATABASE`), `storage_key` (object key or URI) and `content_sha256`.
+  For external backends `encrypted_content` holds no payload.
+- Reads route by the row's own `storage_backend`, not by the globally active
+  one. Old and new records can coexist, which is what makes switching backends
+  non-disruptive, the same property `key_version` gives for anchors.
+- The object key is an opaque UUID derived from the reference key. File names,
+  entity codes and any personal data never appear in object keys or bucket
+  metadata. The blind index and the sanitized file name stay in the database.
+- Only the `FILE` flavour moves in the first phase. `ID` and `DATA` values are
+  small and are indexed together with their row, so they stay in the database.
+
+**Write and read semantics**
+
+- Write order: encrypt, upload the object, then insert the row and index
+  entries. A failure after the upload leaves an orphan object, never a row that
+  points at nothing. A periodic sweep lists objects with no row and removes
+  those older than a grace period.
+- Read: row lookup, authorization check, fetch the object, verify
+  `content_sha256`, unwrap the DEK, decrypt. A hash mismatch is an integrity
+  failure logged to `event_log`, not a silent bad read.
+- The Base64 JSON upload contract and `TSI_PRIVACY_VAULT_MAX_UPLOAD_KB` are
+  unchanged in M5. Larger files need a streaming or multipart contract, which
+  is a separate API decision and is not assumed here.
+
+**Configuration**
+
+| Variable | Meaning |
+|---|---|
+| `TSI_PRIVACY_VAULT_FILE_STORE=DATABASE` | Active backend for new `FILE` records. Default `DATABASE` |
+| `TSI_PRIVACY_VAULT_S3_BUCKET`, `_S3_REGION` | Target bucket and region for `AWS_S3` |
+| `TSI_PRIVACY_VAULT_S3_ENDPOINT` | Custom endpoint for `S3_COMPATIBLE`. HTTPS only |
+| `TSI_PRIVACY_VAULT_S3_PREFIX` | Optional key prefix, so one bucket can serve several vaults |
+| `TSI_PRIVACY_VAULT_GCS_BUCKET`, `TSI_PRIVACY_VAULT_AZURE_CONTAINER` | Targets for `GCS` and `AZURE_BLOB` |
+
+Credentials come from the platform default chain (instance profile, workload
+identity, managed identity), never from `.env` secrets where an identity is
+available. The vault's identity needs object read, write and delete on the one
+bucket or prefix, and nothing else.
+
+**Operations**
+
+- Fail closed. If the active backend is unreachable at boot, the health check
+  fails and the data plane returns 503, as it does for an unhealthy anchor.
+  A backend outage mid-run fails only the records stored there.
+- Migration between backends is a resumable background job like the re-wrap:
+  copy the ciphertext, verify the hash, update the row, then delete the source.
+  Payloads are never decrypted or re-encrypted, and the DEK is untouched.
+- Backup and recovery now span two systems. The database backup alone no
+  longer restores external files, so the runbook must pair it with bucket
+  versioning or replication.
+- Residency: a bucket in another region or jurisdiction changes where personal
+  data physically sits. The chosen region must match the deployment's data
+  residency commitments.
+- Audit: every external put, get and delete is logged to `event_log` with the
+  backend and object key, using the existing forensic path.
+
 ### Testing expectations for remaining phases
 
 - **Unit:** wrap and unwrap round trips per provider; legacy CBC blobs still
@@ -450,7 +557,11 @@ API, so the same provider should also work with HashiCorp Vault.
 - **Integration:** GCP and Azure through emulators or mocked clients; OpenBao
   against a dev-mode container (wrap, unwrap, key rotation, sealed server
   fails closed); anchor activation and re-wrap resumability (kill mid-batch).
-- **Forensics:** every anchor activation, re-wrap and KMS failure appears in
-  `event_log` with the machine anchor.
+- **Storage:** `FileStore` contract tests run against every backend (S3 via
+  MinIO or LocalStack, GCS and Azure via emulators). Cover put, get, delete,
+  hash mismatch detection, orphan sweep, unreachable backend failing closed,
+  and mixed `DATABASE` and external records reading correctly.
+- **Forensics:** every anchor activation, re-wrap, KMS failure and external
+  storage operation appears in `event_log` with the machine anchor.
 - **Docs:** README, `.example`, `docker-compose.yml`, the tour and the user
   guide updated per phase.
