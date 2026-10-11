@@ -160,8 +160,7 @@ knows which anchor is in use. It talks only to `KmsProvider`.
 | `LOCAL` | Shipped (default) | `TSI_PRIVACY_VAULT_MASTER_KEY`, SHA-256 normalized to 32 bytes, held in process memory | Evaluation, on-prem and air-gapped deployments |
 | `AWS_KMS` | Shipped in v0.2.0 | AWS KMS Customer Managed Key, never leaves AWS | Production deployments wanting cloud HSM custody, rotation and CloudTrail |
 | `GCP_KMS`, `AZURE_KV` | Planned, on demand (Cloud track) | Cloud KMS CryptoKey, Key Vault key | Multi-cloud parity |
-| `SHAMIR` | Planned (Sovereign track) | K-of-N custodian shares | Air-gapped, no-single-person-unlock deployments |
-| `PKCS11` | Candidate (Sovereign track) | Key in an on-prem HSM, accessed through PKCS#11 | Air-gapped deployments that require validated hardware |
+| `OPENBAO` | Planned (Sovereign track) | Transit key in a customer-run OpenBao (or HashiCorp Vault) | On-prem and air-gapped deployments that need Shamir unseal, HSM sealing and central key policy |
 
 ### LOCAL vs AWS KMS
 
@@ -298,7 +297,7 @@ evolve independently, and the next phase extends each one.
 
 | Track | For | Shipped today | Next phase |
 |---|---|---|---|
-| **Sovereign** | On-prem and air-gapped environments, no public cloud | `LOCAL` anchor | `SHAMIR` split key (K-of-N custodians), `PKCS11` HSM if required |
+| **Sovereign** | On-prem and air-gapped environments, no public cloud | `LOCAL` anchor | `OPENBAO` anchor (Transit) |
 | **Cloud** | Deployments that want a managed, HSM-backed root key | `AWS_KMS` anchor | `GCP_KMS` and `AZURE_KV`, added on demand |
 
 A deployment picks one track. Switching tracks later is an anchor migration,
@@ -311,18 +310,12 @@ and only the small wrapped DEKs are re-wrapped.
 | M0 | Both | Provider factory, fail-closed local key, key ring schema, AES-GCM, removal of the legacy KMS prototype | Shipped |
 | M1 | Cloud | AWS KMS provider: env config, default credential chain, encryption context, health check, retries | Shipped (v0.2.0) |
 | M2 | Both | `activate_key_anchor`, LOCAL to AWS re-wrap job, IAM docs, anchor status in the admin console | Shipped (v0.2.0) |
-| M3 | Sovereign | Shamir split-key: split and combine, `SealManager`, seal-aware filter, key ceremony, unseal and seal APIs | Planned |
+| M3 | Sovereign | OpenBao provider: Transit wrap and unwrap, AppRole auth, TLS, health check, LOCAL to OpenBao re-wrap, runbook | Planned |
 | M4 | Cloud | GCP KMS or Azure Key Vault provider, shared cloud provider base class, anchor migration runbook | Planned, on demand |
 
 The two next-phase items are independent. They can ship in either order.
 Build the cloud provider that a real user asks for first. The shared base class
 makes the second one small.
-
-Later additions, not scheduled:
-- Shamir admin UI, custodian audit and rekey.
-- `PKCS11` anchor (Sovereign track) for air-gapped deployments that require a
-  validated HSM. It is another provider behind `KmsProvider`, so the data
-  plane does not change.
 
 ### Design principles
 
@@ -341,7 +334,7 @@ Later additions, not scheduled:
    Shipped  ->   |  AWS_KMS  : AWS KMS CMK                    |
    Next     ->   |  GCP_KMS  : Cloud KMS CryptoKey            |
    Next     ->   |  AZURE_KV : Key Vault / Managed HSM key    |
-   Next     ->   |  SHAMIR   : K-of-N custodian shares        |
+   Next     ->   |  OPENBAO  : OpenBao / Vault Transit key    |
                  +---------------------+----------------------+
                                        | wraps (with key_version)
                                        v
@@ -402,88 +395,62 @@ and fully sovereign.
 uses the same flow as section 4: activate a new key ring version, run the
 re-wrap job, retire the old version. No payload re-encryption is ever needed.
 
-### Sovereign track next: split key orchestration (Shamir's Secret Sharing)
+### Sovereign track next: OpenBao anchor
 
-For fully sovereign deployments where no cloud dependency is acceptable and no
-single individual or compromised server may unlock the vault alone.
+For on-prem and air-gapped deployments that want the root key outside the
+vault process, with unseal workflows, HSM sealing and key policy handled by
+infrastructure the customer already runs. OpenBao exposes a Vault-compatible
+API, so the same provider should also work with HashiCorp Vault.
 
-**Concept.** A randomly generated 32-byte Vault Master Key (VMK), never
-derived from a passphrase, is split into N shares given to named custodians.
-Any K shares (the threshold) reconstruct it. The server stores only wrapped
-material, never the VMK. The vault gains an explicit lifecycle:
-`UNINITIALIZED -> SEALED -> UNSEALED`. While SEALED, data-plane and utility
-APIs return `503 Vault Sealed`, while admin login, status and unseal endpoints
-stay available. After every restart the vault starts SEALED, by design.
+**Provider (`OpenBaoKmsProvider`)**
 
-**Cryptography**
+- Uses the Transit secrets engine. The 32-byte DEK is generated locally with
+  `SecureRandom`, then wrapped with `POST /v1/<mount>/encrypt/<key>` and
+  unwrapped with `POST /v1/<mount>/decrypt/<key>`. Plaintext is base64 on the
+  wire.
+- The Transit ciphertext (`vault:v<n>:...`) is stored as `encrypted_data_key`.
+  The Transit key version travels inside it, so OpenBao-side rotation needs no
+  schema change.
+- The record's existing encryption context is passed as the Transit `context`
+  value when the key is created with derivation enabled.
+- Rotation of the Transit key can use the `rewrap` endpoint, which re-wraps a
+  DEK inside OpenBao without returning plaintext. Anchor changes use the
+  standard re-wrap job from section 4.
+- A plain `java.net.http` client is enough. No SDK dependency is needed.
 
-- A `ShamirSecretSharing` class performing split and combine over GF(256), one
-  byte at a time, with each share a point set on a random degree K-1
-  polynomial. An in-repo implementation keeps the minimal-dependency posture.
-  The alternative is vendoring `com.codahale:shamir` (Apache-2.0).
-- Shares are encoded as `TSIV1-<share_index>-<base64(share)>-<crc32>` so
-  custodians can detect typos at entry.
-- The server persists only SHA-256 fingerprints of shares, N, K and custodian
-  labels, never share material.
+**Configuration**
 
-**Components and schema**
-
-- `SealManager` (singleton) holds the VMK in memory only, collects shares,
-  reconstructs the VMK on K valid distinct shares, verifies a stored check
-  value, and zeroes the key on `seal()`. `InterceptingFilter` consults it and
-  rejects data-plane requests while SEALED.
-- `ShamirKmsProvider` wraps and unwraps like the local provider, sourcing the
-  master key from `SealManager`, with AES-GCM.
-
-```sql
-CREATE TABLE vault_seal_config (
-    id              SMALLINT PRIMARY KEY DEFAULT 1,
-    share_count     SMALLINT NOT NULL,       -- N (2..16)
-    threshold       SMALLINT NOT NULL,       -- K (2..N)
-    vmk_check_value VARCHAR(64) NOT NULL,
-    initialized_at  TIMESTAMP NOT NULL
-);
-
-CREATE TABLE vault_key_custodians (
-    share_index       SMALLINT PRIMARY KEY,
-    custodian_label   VARCHAR(120) NOT NULL, -- name or role only
-    share_fingerprint VARCHAR(64) NOT NULL,  -- SHA-256 of share, for audit
-    issued_at         TIMESTAMP NOT NULL
-);
-```
-
-**Admin API surface**
-
-| `_func` | Behavior |
+| Variable | Meaning |
 |---|---|
-| `init_split_key` | One-time key ceremony. Takes N, K and custodian labels, generates the VMK, returns the N shares once, stores fingerprints and the check value, and activates a new `SHAMIR` key ring entry. |
-| `submit_unseal_share` | Accepts one share and returns progress. Every attempt is forensic-logged with custodian index, IP, user agent and outcome. |
-| `get_seal_status` | `UNINITIALIZED`, `SEALED` or `UNSEALED`, with progress and active key version. Safe without authentication, since it returns no secrets. |
-| `seal_vault` | Admin only. Zeroes the VMK and returns the vault to SEALED. |
-| `rekey_shares` | Requires K fresh shares plus an admin JWT. Generates a new VMK, re-wraps all DEKs through the re-wrap job, and issues new shares. Also used to change N and K or revoke a custodian. |
-
-The UI gains a key ceremony step in setup (display shares once, require
-per-custodian acknowledgment), an unseal page for status and share
-submission, and a seal-state badge on the dashboard.
+| `TSI_PRIVACY_VAULT_KMS_PROVIDER=OPENBAO` | Selects the anchor |
+| `TSI_PRIVACY_VAULT_OPENBAO_ADDR` | Base URL. HTTPS only |
+| `TSI_PRIVACY_VAULT_OPENBAO_TRANSIT_MOUNT` | Transit mount path, default `transit` |
+| `TSI_PRIVACY_VAULT_OPENBAO_KEY_NAME` | Transit key name |
+| `TSI_PRIVACY_VAULT_OPENBAO_CA_CERT` | Path to the CA certificate for private PKI |
+| `TSI_PRIVACY_VAULT_OPENBAO_ROLE_ID`, `_SECRET_ID_FILE` | AppRole credentials. The secret ID is read from a file, not from `.env` |
 
 **Security and operations**
 
-- Shares are submitted over HTTPS only. Failed submissions are rate-limited
-  and forensic-logged.
-- Loss of more than N-K shares is unrecoverable by design. Recommended
-  configuration is N of at least 5 with K = 3, held by geographically separate
-  custodians. The existing `break_glass_reset` covers admin passwords only.
-- Migration from any prior anchor uses the standard re-wrap flow.
+- The vault logs in with AppRole, renews its token before expiry, and
+  re-authenticates after a failure. The policy grants only `encrypt` and
+  `decrypt` on the one Transit key.
+- Unseal, HA, backup and audit of OpenBao belong to the operator. If OpenBao is
+  sealed or unreachable, unwrap fails and the vault fails closed, the same as
+  for AWS KMS. The boot health check surfaces this.
+- The vault still holds each plaintext DEK in memory briefly, as it does with
+  every anchor. Only the root key stays inside OpenBao.
+- For validated hardware, the operator configures an HSM seal on the OpenBao
+  side. The vault needs no change.
+- Migration from LOCAL or AWS_KMS uses the standard activate and re-wrap flow.
 
 ### Testing expectations for remaining phases
 
 - **Unit:** wrap and unwrap round trips per provider; legacy CBC blobs still
-  decrypt after upgrade; for Shamir, GF(256) split and combine for all K-of-N
-  up to 16, and a property test that K-1 shares fail the check value.
-- **Integration:** GCP and Azure through emulators or mocked clients; anchor
-  activation and re-wrap resumability (kill mid-batch); for Shamir, seal,
-  unseal, store, seal, fetch returns 503, unseal, fetch.
-- **Forensics:** every anchor activation, re-wrap, KMS failure and unseal
-  attempt appears in `event_log` with the machine anchor.
+  decrypt after upgrade.
+- **Integration:** GCP and Azure through emulators or mocked clients; OpenBao
+  against a dev-mode container (wrap, unwrap, key rotation, sealed server
+  fails closed); anchor activation and re-wrap resumability (kill mid-batch).
+- **Forensics:** every anchor activation, re-wrap and KMS failure appears in
+  `event_log` with the machine anchor.
 - **Docs:** README, `.example`, `docker-compose.yml`, the tour and the user
   guide updated per phase.

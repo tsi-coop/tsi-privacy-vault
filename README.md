@@ -15,7 +15,29 @@ Just as a physical safe secures valuable assets, TSI Privacy Vault isolates pers
 
 The key benefits of the sovereign vault include reducing the breach surface, supporting DPDPA compliance by easily fulfilling erasure requests, and maintaining tamper-proof evidence for BSA Section 63.
 
-The vault supports two tracks. The Sovereign track uses a local master key and suits on-prem and air-gapped environments. The Cloud track uses AWS Key Management Service. Both are supported today. Next, the Sovereign track adds Shamir split keys, and the Cloud track adds Google Cloud KMS and Azure Key Vault on demand.
+## Key management: two tracks
+
+The vault supports two deployment tracks. Both work today.
+
+**Sovereign track.** This is for on-prem and air-gapped environments with no public cloud. Today the vault uses a local master key held in your own environment. Next, we will add an OpenBao integration. OpenBao is an open source, Vault-compatible secrets manager. Your team runs it inside your own network. The vault will use its Transit engine to protect the keys that encrypt your data. OpenBao brings its own unseal workflow, key policies and audit logs. It can also seal with a hardware security module (HSM) if your rules require one.
+
+**Cloud track.** This is for deployments that want a managed, HSM-backed root key. Today the vault supports AWS Key Management Service. Next, we will add Google Cloud KMS and Azure Key Vault. We will build these on demand, based on what our users ask for.
+
+You pick one track for a deployment. You can move between tracks later. Only the small wrapped data keys are re-wrapped. Your data is never re-encrypted.
+
+### Who does what
+
+TSI Privacy Vault handles the data and the legal layer:
+- It receives personal data and encrypts each record with its own one-time key.
+- It keeps a blind index, so you can search without decrypting.
+- It controls who can read what, and it records every request as audit evidence.
+
+Cloud HSM or OpenBao handles the root key:
+- It holds the master key that wraps the per-record keys.
+- It never hands the master key to the vault.
+- It controls unsealing, key rotation and access policy for that key.
+
+The vault never stores the root key in its database. The root key provider never sees your data. Each side does one job.
 
 ## Installation
 
@@ -73,7 +95,7 @@ Follow the Guided Journey:
 
 Every record is encrypted with its own Data Encryption Key (DEK), and that key is wrapped by a root key anchor. Out of the box the vault runs on the **LOCAL** anchor, the master key in your `.env` file, which is all you need for evaluation or fully on-prem and air-gapped use. **AWS KMS** is an opt-in, resumable migration (activate the anchor, then re-wrap existing records) for deployments that want the root key held in an AWS-managed HSM. Payload data is always encrypted and decrypted locally. AWS only ever sees a wrapped data key.
 
-- [Architecture and roadmap](docs/architecture.md): envelope encryption, blind index search, LOCAL vs AWS KMS, what re-wrap is, and the plan for GCP KMS, Azure Key Vault and Shamir's Secret Sharing.
+- [Architecture and roadmap](docs/architecture.md): envelope encryption, blind index search, LOCAL vs AWS KMS, what re-wrap is, and the plan for OpenBao, GCP KMS and Azure Key Vault.
 - [AWS KMS configuration guide](docs/aws-kms-configuration.md): CMK setup, IAM policy, activation, re-wrap, common mistakes and troubleshooting.
 
 ## Testing
