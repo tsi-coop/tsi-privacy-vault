@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="860" viewBox="0 0 1000 860" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#334155"/></marker>
+  </defs>
+  <rect width="1000" height="860" rx="14" fill="#faf8f5" stroke="#e5e7eb"/>
+  <text x="500" y="38" text-anchor="middle" font-size="22" font-weight="700" fill="#1e293b">Blind Index: Searching Data You Can't Read</text>
+  <text x="500" y="60" text-anchor="middle" font-size="12.5" fill="#64748b">The database never sees a search term in the clear. It only sees a keyed fingerprint.</text>
+  <text x="500" y="78" text-anchor="middle" font-size="12.5" fill="#64748b">Matching fingerprints finds the record. Nothing is decrypted.</text>
+
+  <text x="30" y="108" font-size="14" font-weight="700" fill="#1e293b">1. Indexing a record (write time)</text>
+  <rect x="22" y="170" width="100" height="44" rx="22" fill="#ecfdf5" stroke="#047857" stroke-width="1.5"/>
+  <text x="72" y="190" text-anchor="middle" font-size="12" font-weight="700" fill="#047857">"Jane Doe"</text>
+  <text x="72" y="205" text-anchor="middle" font-size="9.5" fill="#64748b">plaintext value</text>
+  <line x1="124" y1="192" x2="202" y2="192" stroke="#334155" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="205" y="115" width="175" height="170" rx="10" fill="#ecfdf5" stroke="#047857" stroke-width="1.5"/>
+  <text x="292" y="136" text-anchor="middle" font-size="13" font-weight="700" fill="#047857">tokenize</text>
+  <g font-size="11" fill="#065f46" text-anchor="middle">
+    <rect x="218" y="146" width="150" height="22" rx="5" fill="#d1fae5"/><text x="293" y="161">FULL → "JANE DOE"</text>
+    <rect x="218" y="173" width="150" height="22" rx="5" fill="#d1fae5"/><text x="293" y="188">PART → "JANE"</text>
+    <rect x="218" y="200" width="150" height="22" rx="5" fill="#d1fae5"/><text x="293" y="215">PART → "DOE"</text>
+    <rect x="218" y="227" width="150" height="22" rx="5" fill="#d1fae5"/><text x="293" y="242">PREFIX → "JAN"</text>
+  </g>
+  <text x="292" y="270" text-anchor="middle" font-size="10" fill="#15803d">One token per search shape.</text>
+  <line x1="382" y1="192" x2="412" y2="192" stroke="#334155" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="415" y="130" width="200" height="145" rx="10" fill="#fffbe6" stroke="#b45309" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="515" y="152" text-anchor="middle" font-size="13" font-weight="700" fill="#b45309">keyed hash</text>
+  <text x="515" y="175" text-anchor="middle" font-size="11" fill="#b45309">SHA-256(secret + token)</text>
+  <line x1="430" y1="187" x2="600" y2="187" stroke="#b45309"/>
+  <text x="515" y="205" text-anchor="middle" font-size="9.5" fill="#b45309">The secret is the index secret key.</text>
+  <text x="515" y="219" text-anchor="middle" font-size="9.5" fill="#b45309">It lives only in the app's env</text>
+  <text x="515" y="233" text-anchor="middle" font-size="9.5" fill="#b45309">and is never written to the database.</text>
+  <text x="515" y="258" text-anchor="middle" font-size="10.5" font-weight="700" fill="#b45309">Same input, same hash, always.</text>
+  <line x1="617" y1="192" x2="647" y2="192" stroke="#334155" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="632" y="184" text-anchor="middle" font-size="9" fill="#475569">insert</text>
+  <rect x="650" y="100" width="330" height="170" rx="10" fill="#eef4ff" stroke="#3730a3" stroke-width="1.5"/>
+  <text x="815" y="122" text-anchor="middle" font-size="13" font-weight="700" fill="#3730a3">vault_search_index</text>
+  <text x="668" y="146" font-size="10.5" font-weight="700" fill="#3730a3">index_hash</text>
+  <text x="820" y="146" font-size="10.5" font-weight="700" fill="#3730a3">attribute_type</text>
+  <line x1="662" y1="153" x2="968" y2="153" stroke="#bfdbfe"/>
+  <g font-size="10.5" fill="#3730a3" font-family="Menlo, Consolas, monospace">
+    <text x="668" y="173">a13f9c…e2</text><text x="820" y="173" font-family="Helvetica, Arial, sans-serif">FULL</text>
+    <text x="668" y="193">7d02b1…4f</text><text x="820" y="193" font-family="Helvetica, Arial, sans-serif">PART</text>
+    <text x="668" y="213">c98e5a…31</text><text x="820" y="213" font-family="Helvetica, Arial, sans-serif">PART</text>
+    <text x="668" y="233">4b7fd0…a8</text><text x="820" y="233" font-family="Helvetica, Arial, sans-serif">PREFIX</text>
+  </g>
+  <text x="815" y="255" text-anchor="middle" font-size="9.5" fill="#64748b">Each row also has an entity_ref. It points to the record. It is not the data.</text>
+  <line x1="815" y1="272" x2="815" y2="302" stroke="#3730a3" stroke-dasharray="4 3" marker-end="url(#a)"/>
+  <rect x="640" y="305" width="340" height="38" rx="8" fill="#eef4ff" stroke="#3730a3" stroke-width="1.5"/>
+  <text x="810" y="328" text-anchor="middle" font-size="11" fill="#3730a3">vault_entities row: encrypted_content + encrypted_data_key</text>
+
+  <line x1="30" y1="372" x2="970" y2="372" stroke="#e5e7eb"/>
+
+  <text x="30" y="402" font-size="14" font-weight="700" fill="#1e293b">2. Searching (query time)</text>
+  <rect x="22" y="450" width="100" height="44" rx="22" fill="#ecfdf5" stroke="#047857" stroke-width="1.5"/>
+  <text x="72" y="470" text-anchor="middle" font-size="12" font-weight="700" fill="#047857">"Jane"</text>
+  <text x="72" y="485" text-anchor="middle" font-size="9.5" fill="#64748b">plaintext search term</text>
+  <line x1="124" y1="472" x2="202" y2="472" stroke="#334155" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="205" y="428" width="195" height="108" rx="10" fill="#fffbe6" stroke="#b45309" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="302" y="452" text-anchor="middle" font-size="13" font-weight="700" fill="#b45309">keyed hash</text>
+  <text x="302" y="476" text-anchor="middle" font-size="11" fill="#b45309">SHA-256(secret + "JANE")</text>
+  <text x="302" y="496" text-anchor="middle" font-size="11" font-weight="700" fill="#15803d" font-family="Menlo, Consolas, monospace">= 7d02b1…4f</text>
+  <text x="302" y="520" text-anchor="middle" font-size="10" fill="#15803d">Same secret, same recipe.</text>
+  <line x1="402" y1="482" x2="437" y2="482" stroke="#334155" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="440" y="410" width="270" height="145" rx="10" fill="#eef4ff" stroke="#3730a3" stroke-width="1.5"/>
+  <text x="575" y="432" text-anchor="middle" font-size="13" font-weight="700" fill="#3730a3">vault_search_index</text>
+  <text x="575" y="450" text-anchor="middle" font-size="10.5" fill="#3730a3">WHERE index_hash = ?</text>
+  <rect x="458" y="458" width="234" height="28" rx="5" fill="#fef08a" stroke="#ca8a04"/>
+  <text x="575" y="477" text-anchor="middle" font-size="11" font-weight="700" fill="#713f12" font-family="Menlo, Consolas, monospace">7d02b1…4f matches PART</text>
+  <text x="575" y="504" text-anchor="middle" font-size="9.5" fill="#94a3b8">a13f9c…e2 and c98e5a…31 do not match</text>
+  <text x="575" y="520" text-anchor="middle" font-size="9.5" fill="#475569">Exact-match lookup. No decryption.</text>
+  <text x="575" y="534" text-anchor="middle" font-size="9.5" fill="#475569">It resolves to the row's entity_ref.</text>
+  <line x1="575" y1="557" x2="575" y2="590" stroke="#334155" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="440" y="593" width="270" height="62" rx="10" fill="#faf8f5" stroke="#334155" stroke-width="1.5"/>
+  <text x="575" y="615" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1e293b">isAuthorized(apiKey, entity_code)</text>
+  <text x="575" y="634" text-anchor="middle" font-size="9.5" fill="#475569">Joins permissions + vault_entity_master.</text>
+  <text x="575" y="647" text-anchor="middle" font-size="9.5" fill="#475569">Drops matches the caller can't read.</text>
+  <line x1="712" y1="624" x2="757" y2="624" stroke="#334155" stroke-width="1.5" marker-end="url(#a)"/>
+  <rect x="760" y="597" width="215" height="54" rx="27" fill="#ecfdf5" stroke="#047857" stroke-width="1.5"/>
+  <text x="867" y="620" text-anchor="middle" font-size="12" font-weight="700" fill="#047857">reference_key + flavor</text>
+  <text x="867" y="637" text-anchor="middle" font-size="9.5" fill="#64748b">Not the decrypted value.</text>
+  <text x="867" y="676" text-anchor="middle" font-size="9.5" fill="#64748b">Reading the plaintext still needs fetch_data()</text>
+  <text x="867" y="690" text-anchor="middle" font-size="9.5" fill="#64748b">and the KMS unwrap path. See the envelope</text>
+  <text x="867" y="704" text-anchor="middle" font-size="9.5" fill="#64748b">encryption diagram.</text>
+
+  <line x1="30" y1="722" x2="970" y2="722" stroke="#e5e7eb"/>
+  <text x="500" y="752" text-anchor="middle" font-size="13" font-style="italic" fill="#475569">"Search recomputes the same fingerprint and matches hashes. It never decrypts.</text>
+  <text x="500" y="772" text-anchor="middle" font-size="13" font-style="italic" fill="#475569">If an attacker steals the database, they get fingerprints they cannot reverse without the secret."</text>
+  <text x="500" y="802" text-anchor="middle" font-size="11" fill="#64748b">encrypted_content uses a random IV per record, so it never repeats and cannot be searched.</text>
+  <text x="500" y="820" text-anchor="middle" font-size="11" fill="#64748b">index_hash is deterministic on purpose. That is what makes equality lookup possible.</text>
+  <text x="500" y="838" text-anchor="middle" font-size="11" fill="#64748b">Without TSI_PRIVACY_VAULT_INDEX_SECRET, even a correct guess does not produce a matching hash. The index resists offline dictionary attacks.</text>
+</svg>

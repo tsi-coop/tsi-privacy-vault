@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="760" viewBox="0 0 1000 760" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#334155"/></marker>
+    <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#047857"/></marker>
+  </defs>
+  <rect width="1000" height="760" rx="14" fill="#faf8f5" stroke="#e5e7eb"/>
+  <text x="500" y="38" text-anchor="middle" font-size="22" font-weight="700" fill="#1e293b">Envelope Encryption: a Locked Box Inside a Bank Vault</text>
+  <text x="500" y="60" text-anchor="middle" font-size="12.5" fill="#64748b">The AWS master key never touches record data. It only wraps the small one-time key that does.</text>
+
+  <text x="40" y="90" font-size="14" font-weight="700" fill="#1e293b">1. Storing a record (encryption path)</text>
+  <rect x="40" y="100" width="210" height="150" rx="10" fill="#eef4ff" stroke="#3730a3" stroke-width="1.5"/>
+  <text x="145" y="122" text-anchor="middle" font-size="13" font-weight="700" fill="#3730a3">Database row</text>
+  <text x="78" y="153" font-size="12" fill="#3730a3">encrypted_content</text>
+  <text x="78" y="190" font-size="12" fill="#3730a3">encrypted_data_key</text>
+  <text x="145" y="228" text-anchor="middle" font-size="10.5" fill="#64748b">Neither one is useful without the other.</text>
+  <rect x="430" y="100" width="170" height="150" rx="10" fill="#ecfdf5" stroke="#047857" stroke-width="1.5"/>
+  <text x="515" y="122" text-anchor="middle" font-size="13" font-weight="700" fill="#047857">App</text>
+  <text x="515" y="170" text-anchor="middle" font-size="11" fill="#047857">Holds the plaintext DEK</text>
+  <text x="515" y="186" text-anchor="middle" font-size="11" fill="#047857">for a moment.</text>
+  <text x="515" y="202" text-anchor="middle" font-size="11" fill="#047857">Then it throws it away.</text>
+  <rect x="760" y="90" width="210" height="170" rx="10" fill="#fffbe6" stroke="#b45309" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="865" y="112" text-anchor="middle" font-size="13" font-weight="700" fill="#b45309">AWS KMS (boundary)</text>
+  <rect x="800" y="135" width="130" height="65" rx="8" fill="#fef9c3" stroke="#b45309" stroke-width="1.5"/>
+  <text x="865" y="162" text-anchor="middle" font-size="12" font-weight="700" fill="#b45309">Master Key</text>
+  <text x="865" y="182" text-anchor="middle" font-size="10.5" fill="#b45309">Never leaves KMS</text>
+  <text x="865" y="238" text-anchor="middle" font-size="10" fill="#b45309">arn:aws:kms:...key/034b9e26-...</text>
+  <line x1="600" y1="150" x2="758" y2="150" stroke="#334155" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="680" y="140" text-anchor="middle" font-size="11" fill="#334155">1 Ask for a new data key</text>
+  <line x1="758" y1="195" x2="602" y2="195" stroke="#047857" stroke-width="1.5" marker-end="url(#g)"/>
+  <text x="680" y="212" text-anchor="middle" font-size="11" fill="#047857">2 Returns plaintext DEK</text>
+  <text x="680" y="226" text-anchor="middle" font-size="11" fill="#047857">and encrypted DEK</text>
+  <line x1="428" y1="175" x2="252" y2="175" stroke="#334155" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="340" y="156" text-anchor="middle" font-size="11" fill="#334155">3 Write encrypted_content</text>
+  <text x="340" y="170" text-anchor="middle" font-size="11" fill="#334155">and encrypted_data_key</text>
+
+  <line x1="30" y1="278" x2="970" y2="278" stroke="#e5e7eb"/>
+
+  <text x="40" y="308" font-size="14" font-weight="700" fill="#1e293b">2. Reading a record (decryption path)</text>
+  <rect x="40" y="322" width="210" height="150" rx="10" fill="#eef4ff" stroke="#3730a3" stroke-width="1.5"/>
+  <text x="145" y="344" text-anchor="middle" font-size="13" font-weight="700" fill="#3730a3">Database row</text>
+  <text x="78" y="375" font-size="12" fill="#3730a3">encrypted_content</text>
+  <text x="78" y="412" font-size="12" fill="#3730a3">encrypted_data_key</text>
+  <rect x="430" y="322" width="170" height="150" rx="10" fill="#ecfdf5" stroke="#047857" stroke-width="1.5"/>
+  <text x="515" y="344" text-anchor="middle" font-size="13" font-weight="700" fill="#047857">App</text>
+  <rect x="760" y="312" width="210" height="170" rx="10" fill="#fffbe6" stroke="#b45309" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="865" y="334" text-anchor="middle" font-size="13" font-weight="700" fill="#b45309">AWS KMS (boundary)</text>
+  <rect x="790" y="357" width="150" height="65" rx="8" fill="#fef9c3" stroke="#b45309" stroke-width="1.5"/>
+  <text x="865" y="384" text-anchor="middle" font-size="12" font-weight="700" fill="#b45309">Master Key</text>
+  <text x="865" y="404" text-anchor="middle" font-size="10.5" fill="#b45309">Unwraps the key, stays put</text>
+  <line x1="252" y1="385" x2="428" y2="385" stroke="#334155" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="340" y="360" text-anchor="middle" font-size="11" fill="#334155">1 Read encrypted_content</text>
+  <text x="340" y="374" text-anchor="middle" font-size="11" fill="#334155">and encrypted_data_key</text>
+  <line x1="600" y1="372" x2="758" y2="372" stroke="#334155" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="680" y="344" text-anchor="middle" font-size="11" fill="#334155">2 Ask KMS to decrypt</text>
+  <text x="680" y="358" text-anchor="middle" font-size="11" fill="#334155">encrypted_data_key</text>
+  <line x1="758" y1="440" x2="602" y2="440" stroke="#047857" stroke-width="1.5" marker-end="url(#g)"/>
+  <text x="680" y="430" text-anchor="middle" font-size="11" fill="#047857">3 Returns the plaintext DEK</text>
+  <text x="680" y="508" text-anchor="middle" font-size="11" fill="#334155">4 Unlock encrypted_content with the DEK.</text>
+  <text x="680" y="524" text-anchor="middle" font-size="11" fill="#334155">Then discard the DEK from memory.</text>
+  <line x1="515" y1="474" x2="515" y2="518" stroke="#047857" stroke-width="1.5" marker-end="url(#g)"/>
+  <rect x="430" y="522" width="170" height="44" rx="22" fill="#ecfdf5" stroke="#047857" stroke-width="1.5"/>
+  <text x="515" y="549" text-anchor="middle" font-size="12" fill="#047857">plaintext data</text>
+
+  <line x1="30" y1="592" x2="970" y2="592" stroke="#e5e7eb"/>
+  <text x="500" y="622" text-anchor="middle" font-size="13" font-style="italic" fill="#475569">"Every record gets its own one-time key. That key encrypts the data.</text>
+  <text x="500" y="642" text-anchor="middle" font-size="13" font-style="italic" fill="#475569">The AWS master key then encrypts that key before we store it.</text>
+  <text x="500" y="662" text-anchor="middle" font-size="13" font-style="italic" fill="#475569">The master key never touches your data. It only protects the small keys."</text>
+  <text x="500" y="696" text-anchor="middle" font-size="11" fill="#64748b">If the database is stolen, the thief gets two locked things and no key. Opening even one record needs AWS KMS, and IAM controls access to it.</text>
+  <text x="500" y="716" text-anchor="middle" font-size="11" fill="#64748b">Changing the anchor (for example LOCAL to AWS_KMS) only re-wraps the small per-record keys. The data itself is never touched.</text>
+</svg>

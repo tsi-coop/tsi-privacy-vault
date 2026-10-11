@@ -15,7 +15,7 @@ Just as a physical safe secures valuable assets, TSI Privacy Vault isolates pers
 
 The key benefits of the sovereign vault include reducing the breach surface, supporting DPDPA compliance by easily fulfilling erasure requests, and maintaining tamper-proof evidence for BSA Section 63.
 
-Currently, the vault supports a local security model and AWS Cloud Key Management Service for hosting the master keys. Our roadmap includes extending the current local security model from a single master key to a split-key architecture via Shamir secret sharing, and extending Cloud KMS support to Google Cloud and Azure Cloud.
+The vault supports two tracks. The Sovereign track uses a local master key and suits on-prem and air-gapped environments. The Cloud track uses AWS Key Management Service. Both are supported today. Next, the Sovereign track adds Shamir split keys, and the Cloud track adds Google Cloud KMS and Azure Key Vault on demand.
 
 ## Installation
 

@@ -159,8 +159,9 @@ knows which anchor is in use. It talks only to `KmsProvider`.
 |---|---|---|---|
 | `LOCAL` | Shipped (default) | `TSI_PRIVACY_VAULT_MASTER_KEY`, SHA-256 normalized to 32 bytes, held in process memory | Evaluation, on-prem and air-gapped deployments |
 | `AWS_KMS` | Shipped in v0.2.0 | AWS KMS Customer Managed Key, never leaves AWS | Production deployments wanting cloud HSM custody, rotation and CloudTrail |
-| `GCP_KMS`, `AZURE_KV` | Planned | Cloud KMS CryptoKey, Key Vault key | Multi-cloud parity |
-| `SHAMIR` | Planned | K-of-N custodian shares | Sovereign, no-single-person-unlock deployments |
+| `GCP_KMS`, `AZURE_KV` | Planned, on demand (Cloud track) | Cloud KMS CryptoKey, Key Vault key | Multi-cloud parity |
+| `SHAMIR` | Planned (Sovereign track) | K-of-N custodian shares | Air-gapped, no-single-person-unlock deployments |
+| `PKCS11` | Candidate (Sovereign track) | Key in an on-prem HSM, accessed through PKCS#11 | Air-gapped deployments that require validated hardware |
 
 ### LOCAL vs AWS KMS
 
@@ -292,32 +293,36 @@ path.
 
 ## 7. Roadmap
 
-Key management evolves from a single local master key toward hardened root
-key anchors, in this priority order:
+The vault supports two deployment tracks. Both are supported today. They
+evolve independently, and the next phase extends each one.
 
-1. **AWS KMS** as the first production-grade cloud anchor.
-2. **Google Cloud KMS and Azure Key Vault** for multi-cloud parity.
-3. **Split key orchestration** using Shamir's Secret Sharing for fully
-   sovereign, no-single-person-unlock deployments.
+| Track | For | Shipped today | Next phase |
+|---|---|---|---|
+| **Sovereign** | On-prem and air-gapped environments, no public cloud | `LOCAL` anchor | `SHAMIR` split key (K-of-N custodians), `PKCS11` HSM if required |
+| **Cloud** | Deployments that want a managed, HSM-backed root key | `AWS_KMS` anchor | `GCP_KMS` and `AZURE_KV`, added on demand |
 
-By supporting several anchors, organizations keep local sovereign control
-while still being able to use the hardened infrastructure of major cloud
-providers.
+A deployment picks one track. Switching tracks later is an anchor migration,
+and only the small wrapped DEKs are re-wrapped.
 
 ### Status
 
-| Milestone | Contents | Status |
-|---|---|---|
-| M0 | Provider factory, fail-closed local key, key ring schema, AES-GCM, removal of the legacy KMS prototype | Shipped |
-| M1 | AWS KMS provider: env config, default credential chain, encryption context, health check, retries | Shipped (v0.2.0) |
-| M2 | `activate_key_anchor`, LOCAL to AWS re-wrap job, IAM docs, anchor status in the admin console | Shipped (v0.2.0) |
-| M3 | GCP KMS and Azure Key Vault providers, shared cloud provider base class, anchor migration runbook | Planned |
-| M4 | Shamir split and combine, `SealManager`, seal-aware filter | Planned |
-| M5 | Shamir key ceremony and unseal APIs and UI, custodian audit, rekey | Planned |
-| M6 | Hybrid cloud auto-unseal (stretch) | Planned, depends on M2 and M5 |
+| Milestone | Track | Contents | Status |
+|---|---|---|---|
+| M0 | Both | Provider factory, fail-closed local key, key ring schema, AES-GCM, removal of the legacy KMS prototype | Shipped |
+| M1 | Cloud | AWS KMS provider: env config, default credential chain, encryption context, health check, retries | Shipped (v0.2.0) |
+| M2 | Both | `activate_key_anchor`, LOCAL to AWS re-wrap job, IAM docs, anchor status in the admin console | Shipped (v0.2.0) |
+| M3 | Sovereign | Shamir split-key: split and combine, `SealManager`, seal-aware filter, key ceremony, unseal and seal APIs | Planned |
+| M4 | Cloud | GCP KMS or Azure Key Vault provider, shared cloud provider base class, anchor migration runbook | Planned, on demand |
 
-The cloud track (M3) takes priority. The Shamir track (M4 and M5) starts only
-after it ships, although technically it depends only on M0.
+The two next-phase items are independent. They can ship in either order.
+Build the cloud provider that a real user asks for first. The shared base class
+makes the second one small.
+
+Later additions, not scheduled:
+- Shamir admin UI, custodian audit and rekey.
+- `PKCS11` anchor (Sovereign track) for air-gapped deployments that require a
+  validated HSM. It is another provider behind `KmsProvider`, so the data
+  plane does not change.
 
 ### Design principles
 
@@ -334,9 +339,9 @@ after it ships, although technically it depends only on M0.
                  |                                            |
    Shipped  ->   |  LOCAL    : master key from environment    |
    Shipped  ->   |  AWS_KMS  : AWS KMS CMK                    |
-   Phase 2  ->   |  GCP_KMS  : Cloud KMS CryptoKey            |
-   Phase 2  ->   |  AZURE_KV : Key Vault / Managed HSM key    |
-   Phase 3  ->   |  SHAMIR   : K-of-N custodian shares        |
+   Next     ->   |  GCP_KMS  : Cloud KMS CryptoKey            |
+   Next     ->   |  AZURE_KV : Key Vault / Managed HSM key    |
+   Next     ->   |  SHAMIR   : K-of-N custodian shares        |
                  +---------------------+----------------------+
                                        | wraps (with key_version)
                                        v
@@ -362,9 +367,9 @@ Known follow-ups carried over from this work:
 - Keep `TSI_PRIVACY_VAULT_NODE_ID` stable. It is part of the KMS encryption
   context and the utility hardware anchor.
 
-### Phase 2: Google Cloud KMS and Azure Key Vault
+### Cloud track next: Google Cloud KMS and Azure Key Vault
 
-Both reuse the Phase 1 machinery: factory, key ring, re-wrap migration, health
+Both reuse the Phase 1 (AWS) machinery: factory, key ring, re-wrap migration, health
 checks and forensic logging. Shared concerns move into an
 `AbstractCloudKmsProvider` extracted from the AWS provider.
 
@@ -397,7 +402,7 @@ and fully sovereign.
 uses the same flow as section 4: activate a new key ring version, run the
 re-wrap job, retire the old version. No payload re-encryption is ever needed.
 
-### Phase 3: split key orchestration (Shamir's Secret Sharing)
+### Sovereign track next: split key orchestration (Shamir's Secret Sharing)
 
 For fully sovereign deployments where no cloud dependency is acceptable and no
 single individual or compromised server may unlock the vault alone.
@@ -469,13 +474,6 @@ submission, and a seal-state badge on the dashboard.
   configuration is N of at least 5 with K = 3, held by geographically separate
   custodians. The existing `break_glass_reset` covers admin passwords only.
 - Migration from any prior anchor uses the standard re-wrap flow.
-
-**Stretch: hybrid cloud auto-unseal.** The Shamir-protected VMK is also
-wrapped by a cloud KMS key and stored in the key ring. On startup the vault
-auto-unseals through cloud KMS. If that key is revoked or unreachable,
-custodians can still unseal manually with K shares. The cloud provider alone
-can never decrypt, because DEK unwrap happens locally. Configured with
-`TSI_PRIVACY_VAULT_AUTO_UNSEAL=AWS_KMS|GCP_KMS|AZURE_KV|NONE`.
 
 ### Testing expectations for remaining phases
 
