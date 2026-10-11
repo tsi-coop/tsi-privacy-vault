@@ -17,10 +17,11 @@ data.** The scripts create entities, API keys and records.
 
 | Script | What it checks |
 |---|---|
-| [`scripts/setup/setup-test-fixtures.sh`](scripts/setup/setup-test-fixtures.sh) | Creates an ID, DATA and FILE entity, a read-write key and a read-only key, and writes the credentials to `scripts/setup/.fixtures.env`. |
+| [`scripts/setup/setup-test-fixtures.sh`](scripts/setup/setup-test-fixtures.sh) | Creates an ID, DATA and FILE entity, a KEYS and a CERT utility, a read-write key and a read-only key, seeds one searchable ID record, writes the credentials to `scripts/setup/.fixtures.env`, and writes `tests/load-test.local.properties` for the [JMeter plan](../tests/README.md). |
 | [`scripts/store-fetch/test-store-fetch.sh`](scripts/store-fetch/test-store-fetch.sh) | Stores one ID, DATA and FILE record, fetches each back, and compares the value. |
 | [`scripts/search/test-blind-index-search.sh`](scripts/search/test-blind-index-search.sh) | Finds a stored record by full value, one word and a 3 character prefix. Checks that case and spacing do not matter. |
 | [`scripts/validation/test-entity-validation.sh`](scripts/validation/test-entity-validation.sh) | Regex mismatch, flavor mismatch, MIME type and extension checks, missing file name, size limit, and invalid entity definitions. |
+| [`scripts/utilities/test-utilities.sh`](scripts/utilities/test-utilities.sh) | Discovers and resolves utilities (KEYS and CERT) as a client, checks grants and unknown labels, lists them through the admin API, and rotates one. |
 | [`scripts/access/test-access-control.sh`](scripts/access/test-access-control.sh) | Wrong secret, read-only key, key with no grant, unknown entity. |
 
 Each test script prints `PASS` or `FAIL` per check, a summary line, and exits
@@ -39,6 +40,7 @@ ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='<password>' ./setup/setup-test-fix
 ./search/test-blind-index-search.sh
 ./validation/test-entity-validation.sh
 ./access/test-access-control.sh
+./utilities/test-utilities.sh
 ```
 
 The validation script also checks entity definitions through the admin API. It
@@ -52,11 +54,13 @@ uses the admin token the setup script saved. The token expires. If those checks 
 | `ADMIN_EMAIL` | setup | required |
 | `ADMIN_PASSWORD` | setup | prompted when unset |
 | `FORCE` | setup | `0`. Set to `1` to create new keys even when saved ones work. |
-| `PREFIX` | setup | `EX` (entity codes become `EX_ID_NUMBER`, `EX_NOTE`, `EX_DOCUMENT`) |
+| `LOAD_PROPS_FILE` | setup | `tests/load-test.local.properties` |
+| `PREFIX` | setup | `EX` (entity codes become `EX_ID_NUMBER`, `EX_NOTE`, `EX_DOCUMENT`; utility labels `EX_SERVICE_KEY`, `EX_TLS_CERT`) |
 | `API_KEY`, `API_SECRET` | test scripts | from `.fixtures.env` |
 | `RO_API_KEY`, `RO_API_SECRET` | search, access | from `.fixtures.env` |
 | `ID_ENTITY`, `DATA_ENTITY`, `FILE_ENTITY` | test scripts | from `.fixtures.env` |
-| `ADMIN_TOKEN` | validation (definition checks) | from `.fixtures.env`. Checks are skipped when unset. |
+| `UTILITY_LABEL`, `UTILITY_CERT_LABEL` | utilities | from `.fixtures.env` (`EX_SERVICE_KEY`, `EX_TLS_CERT`) |
+| `ADMIN_TOKEN` | validation (definition checks), utilities (list and rotate) | from `.fixtures.env`. Checks are skipped when unset. |
 | `MAX_UPLOAD_KB` | validation | `5120`. Set it to your `TSI_PRIVACY_VAULT_MAX_UPLOAD_KB`. |
 
 ## Running against your own build

@@ -76,9 +76,12 @@ public class KmsProviderFactory {
                     + " key_version=" + active.version);
         } catch (Exception e) {
             healthy = false;
-            healthError = e.getMessage();
-            System.err.println("CRITICAL: KMS health check failed - data plane disabled: " + e.getMessage());
-            logHealthFailure(e.getMessage());
+            // Wrappers such as "Could not generate data key" hide the actionable reason, so
+            // report the whole cause chain.
+            String reason = describe(e);
+            healthError = reason;
+            System.err.println("CRITICAL: KMS health check failed - data plane disabled: " + reason);
+            logHealthFailure(reason);
         }
         return healthy;
     }
@@ -94,6 +97,20 @@ public class KmsProviderFactory {
 
     public static boolean isHealthy() {
         return healthy;
+    }
+
+    /** Joins the messages of an exception and its causes, skipping repeats. */
+    private static String describe(Throwable t) {
+        StringBuilder sb = new StringBuilder();
+        String last = null;
+        for (Throwable c = t; c != null; c = c.getCause()) {
+            String m = c.getMessage();
+            if (m == null || m.isEmpty() || m.equals(last)) continue;
+            if (sb.length() > 0) sb.append(": ");
+            sb.append(m);
+            last = m;
+        }
+        return sb.length() > 0 ? sb.toString() : t.getClass().getSimpleName();
     }
 
     public static String getHealthError() {

@@ -3,7 +3,10 @@
 #   - three entities: one ID (12 digit number), one DATA, one FILE (PDF and PNG only)
 #   - one read/write client key with access to those entities
 #   - one read-only client key with access to the DATA entity
-# Credentials are written to .fixtures.env next to this script. The other
+#   - two utilities (a KEYS secret and a CERT), readable by the read/write key; the read-only
+#     key can read the KEYS utility only
+#   - one seeded ID record and tests/load-test.local.properties, ready for the JMeter plan
+# Credentials are written to .fixtures.env next to this script, or to FIXTURES_FILE. The other
 # example scripts read that file automatically.
 #
 # Use a local or staging instance only. Never production, never real personal data.
@@ -17,7 +20,8 @@
 #   BASE_URL        Default http://localhost:8081
 #   ADMIN_EMAIL     Admin account email
 #   ADMIN_PASSWORD  Admin account password
-#   PREFIX          Entity code prefix. Default EX
+#   PREFIX          Entity code and utility label prefix. Default EX
+#   LOAD_PROPS_FILE JMeter properties output. Default tests/load-test.local.properties
 #
 # Running it again is safe:
 #   - Entities that already exist are reused.
@@ -44,7 +48,7 @@ if [ -z "${ADMIN_PASSWORD:-}" ]; then
   fi
 fi
 PREFIX="${PREFIX:-EX}"
-OUT="$(dirname "$0")/.fixtures.env"
+OUT="${FIXTURES_FILE:-$(dirname "$0")/.fixtures.env}"
 
 # Credentials from an earlier run, if any.
 OLD_KEY=""; OLD_SECRET=""; OLD_RO_KEY=""; OLD_RO_SECRET=""
@@ -81,6 +85,8 @@ section "Entities"
 ID_ENTITY="${PREFIX}_ID_NUMBER"
 DATA_ENTITY="${PREFIX}_NOTE"
 FILE_ENTITY="${PREFIX}_DOCUMENT"
+UTILITY_LABEL="${PREFIX}_SERVICE_KEY"
+UTILITY_CERT_LABEL="${PREFIX}_TLS_CERT"
 create_entity "$ID_ENTITY"   "Example ID number"  "ID"   '^[0-9]{12}$' ''
 create_entity "$DATA_ENTITY" "Example note"       "DATA" ''            ''
 create_entity "$FILE_ENTITY" "Example document"   "FILE" ''            'application/pdf,image/png'
@@ -179,6 +185,74 @@ else
   grant "$RO_KEY" "$DATA_ENTITY" true false
 fi
 
+
+# enroll_utility LABEL CATEGORY PAYLOAD. Labels are unique, so an existing one is reused.
+enroll_utility() {
+  admin_call utility "$(jq -nc --arg l "$1" --arg c "$2" --arg p "$3" \
+    '{_func:"enroll",label:$l,category:$c,payload:$p}')"
+  if [ "$HTTP_STATUS" = "200" ] && [ -n "$(jqr '.utility_id // empty')" ]; then
+    pass "enrolled utility $1 ($2)"
+  elif printf '%s' "$BODY" | grep -qi 'duplicate key\|already exists'; then
+    pass "utility $1 already exists"
+  else
+    fail "enroll utility $1"
+    exit 1
+  fi
+}
+
+# grant_utility KEY LABEL read write. The resource id of a utility permission is its label.
+grant_utility() {
+  admin_call permission "$(jq -nc --arg k "$1" --arg e "$2" --argjson r "$3" --argjson w "$4" \
+    '{_func:"create_permission",api_key:$k,resource_type:"UTILITY",resource_id:$e,can_read:$r,can_write:$w,granted_by:"examples"}')"
+  if { [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; } && [ "$(jqr '._success')" = "true" ]; then
+    pass "granted utility $2 (read=$3 write=$4) to ${1:0:8}..."
+  else
+    fail "grant utility $2"
+    exit 1
+  fi
+}
+
+# Utilities and their grants are idempotent, so they run whether or not the keys were reused.
+section "Utilities"
+enroll_utility "$UTILITY_LABEL"      KEYS "example-service-key-$(date -u +%s)"
+enroll_utility "$UTILITY_CERT_LABEL" CERT "-----BEGIN CERTIFICATE-----
+EXAMPLEONLYNOTAREALCERTIFICATE
+-----END CERTIFICATE-----"
+grant_utility "$RW_KEY" "$UTILITY_LABEL"      true true
+grant_utility "$RW_KEY" "$UTILITY_CERT_LABEL" true true
+grant_utility "$RO_KEY" "$UTILITY_LABEL"      true false
+
+
+# Seed one record so the load test search stage hits a real index entry, then write a JMeter
+# properties file from the committed template with this run's credentials filled in.
+section "Load test properties"
+SEED_VALUE="$(date +%s)00"   # 12 digits, matches the ID entity regex
+vault_call_as "$RW_KEY" "$RW_SECRET" "$(jq -nc --arg e "$ID_ENTITY" --arg c "$(b64 "$SEED_VALUE")" \
+  '{_func:"store_data",entityType:"ID",entityName:$e,content:$c}')"
+if [ "$HTTP_STATUS" = "201" ]; then
+  pass "seeded search record"
+else
+  fail "seed search record"
+  exit 1
+fi
+REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+TEMPLATE="$REPO_ROOT/tests/load-test.properties"
+LOAD_PROPS="${LOAD_PROPS_FILE:-$REPO_ROOT/tests/load-test.local.properties}"
+if [ -f "$TEMPLATE" ]; then
+  umask 077
+  sed -e "s|^base.url=.*|base.url=$BASE_URL|" \
+      -e "s|^api.key=.*|api.key=$RW_KEY|" \
+      -e "s|^api.secret=.*|api.secret=$RW_SECRET|" \
+      -e "s|^entity.code=.*|entity.code=$ID_ENTITY|" \
+      -e "s|^entity.type=.*|entity.type=ID|" \
+      -e "s|^search.term=.*|search.term=$SEED_VALUE|" \
+      -e "s|^utility.id=.*|utility.id=$UTILITY_LABEL|" \
+      "$TEMPLATE" > "$LOAD_PROPS"
+  pass "wrote $LOAD_PROPS"
+else
+  echo "  $TEMPLATE not found, skipping load test properties"
+fi
+
 umask 077
 cat > "$OUT" <<ENV
 # Written by setup-test-fixtures.sh. Test credentials only.
@@ -191,6 +265,8 @@ export RO_API_SECRET="$RO_SECRET"
 export ID_ENTITY="$ID_ENTITY"
 export DATA_ENTITY="$DATA_ENTITY"
 export FILE_ENTITY="$FILE_ENTITY"
+export UTILITY_LABEL="$UTILITY_LABEL"
+export UTILITY_CERT_LABEL="$UTILITY_CERT_LABEL"
 ENV
 echo
 echo "Wrote $OUT"

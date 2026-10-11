@@ -367,23 +367,33 @@ public class Vault implements Action {
                 return;
             }
         } else {
-            // Clients send Base64. Plain text is still accepted when it is not valid Base64 UTF-8.
-            indexText = plainValue;
+            // The documented contract is Base64. Plain text is accepted as well, and a plain value
+            // such as 345235503650 is also valid Base64, so with a rule set both readings are tried.
+            String decoded = null;
             try {
-                String decoded = EntityRules.decodeUtf8(Base64.getDecoder().decode(plainValue));
-                if (decoded != null) indexText = decoded;
+                decoded = EntityRules.decodeUtf8(Base64.getDecoder().decode(plainValue));
             } catch (IllegalArgumentException ignored) {
-                // not Base64, keep the raw text
+                // not Base64
+            }
+            String rule = def.validationRegex;
+            if (rule != null && !rule.isEmpty()) {
+                if (decoded != null && EntityRules.checkValue(rule, decoded) == null) {
+                    indexText = decoded;
+                } else {
+                    String valueError = EntityRules.checkValue(rule, plainValue);
+                    if (valueError != null) {
+                        rejectStore(apiKey, entityType, entityCode, ip, ua);
+                        OutputProcessor.sendError(res, 422, valueError);
+                        return;
+                    }
+                    indexText = plainValue;
+                }
+            } else {
+                indexText = (decoded != null) ? decoded : plainValue;
             }
             if (indexText.getBytes("UTF-8").length > maxBytes) {
                 rejectStore(apiKey, entityType, entityCode, ip, ua);
                 OutputProcessor.sendError(res, 413, "Payload Too Large: limit for this entity is " + maxKb + " KB.");
-                return;
-            }
-            String valueError = EntityRules.checkValue(def.validationRegex, indexText);
-            if (valueError != null) {
-                rejectStore(apiKey, entityType, entityCode, ip, ua);
-                OutputProcessor.sendError(res, 422, valueError);
                 return;
             }
         }

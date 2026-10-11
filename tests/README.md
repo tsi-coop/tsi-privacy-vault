@@ -24,7 +24,12 @@ resolution.
 
 ### Set up test credentials
 
-Using the admin console:
+Fastest: run `examples/scripts/setup/setup-test-fixtures.sh`. It creates the
+entity, key, utility and a seeded search record, and writes
+`tests/load-test.local.properties` (git-ignored). Then pass that file to JMeter
+with `-q` and skip the manual steps and the seed step below.
+
+Manually, using the admin console:
 
 1. **Entities** (`entities.html`): create or pick a throwaway entity type of
    flavor `ID` or `DATA`. Its code is `entity.code`.
@@ -32,8 +37,9 @@ Using the admin console:
    WRITE on that entity, and READ on one utility. Copy the key into
    `api.key` and the secret into `api.secret`. The raw secret is shown only
    once, at creation.
-3. **Utility**: enroll a test utility (for example a dummy API key) and note
-   its id as `utility.id`.
+3. **Utility**: enroll a test utility (for example a dummy API key) and grant the
+   key READ on it. `utility.id` is the utility's **label**, which is what
+   `resolve_utility` matches on.
 
 ### Seed the search term
 
@@ -64,6 +70,8 @@ cd tests
 jmeter -n -t vault-data-plane-test.jmx -q load-test.properties \
   -l results.jtl -e -o report/
 ```
+
+With the fixtures script, use `-q load-test.local.properties` instead.
 
 Override a single value:
 
