@@ -297,32 +297,97 @@ public class Vault implements Action {
     }
 
     private void handleStore(JSONObject input, String apiKey, String ip, String ua, HttpServletResponse res) throws Exception {
-        String entityType = (String) input.get("entityType");
+        String requestedType = (String) input.get("entityType");
         String entityCode = (String) input.get("entityName");
         String plainValue = (String) input.get("content");
-        String originalFileName = (String) input.get("fileName"); // Extracting the filename
+        String originalFileName = (String) input.get("fileName");
+
+        if (entityCode == null || plainValue == null) {
+            OutputProcessor.sendError(res, 400, "entityName and content are required.");
+            return;
+        }
 
         if (!isAuthorized(apiKey, entityCode, "WRITE")) {
             OutputProcessor.sendError(res, 403, "Write access denied.");
             return;
         }
 
-        // --- SYSTEM ENV FILE SIZE VALIDATION ---
-        // Read from System Env, fallback to 5120 KB (5MB) if not set
-        String maxKbEnv = System.getenv("VAULT_MAX_UPLOAD_KB");
-        long maxUploadKb = maxKbEnv != null ? Long.parseLong(maxKbEnv) : 5120L;
-        long maxUploadBytes = maxUploadKb * 1024L;
-
-        // Calculate the byte size of the incoming content
-        // Note: If content is Base64, the actual decoded file is slightly smaller, 
-        // but checking the raw transmission size is safest for memory protection.
-        long payloadSizeBytes = plainValue.getBytes("UTF-8").length;
-
-        if (payloadSizeBytes > maxUploadBytes) {
-            OutputProcessor.sendError(res, 413, "Payload Too Large: File exceeds the system limit of " + maxUploadKb + " KB.");
+        // --- ENTITY RULES ---
+        // The entity definition is the source of truth. The client's entityType is only checked against it.
+        EntityDefinition def = loadEntityDefinition(entityCode);
+        if (def == null || !def.active) {
+            OutputProcessor.sendError(res, 404, "Unknown or inactive entity.");
             return;
         }
-        // --- END VALIDATION ---
+        if (requestedType != null && !requestedType.trim().equalsIgnoreCase(def.flavor)) {
+            rejectStore(apiKey, def.flavor, entityCode, ip, ua);
+            OutputProcessor.sendError(res, 400, "entityType does not match the flavor of this entity (" + def.flavor + ").");
+            return;
+        }
+        final String entityType = def.flavor;
+        boolean isFile = "FILE".equals(entityType);
+
+        // Size: reject oversized transmissions before decoding, then check the decoded size.
+        long maxKb = EntityRules.effectiveMaxKb(def.maxSizeKb);
+        long maxBytes = maxKb * 1024L;
+        long maxEncodedChars = (maxBytes / 3 + 1) * 4 + 8; // Base64 of maxBytes, plus padding
+        if (plainValue.length() > maxEncodedChars && plainValue.getBytes("UTF-8").length > maxBytes) {
+            rejectStore(apiKey, entityType, entityCode, ip, ua);
+            OutputProcessor.sendError(res, 413, "Payload Too Large: limit for this entity is " + maxKb + " KB.");
+            return;
+        }
+
+        String indexText = null;      // decoded value used for DATA/ID validation and indexing
+        String safeFileName = null;   // sanitized file name for FILE
+
+        if (isFile) {
+            safeFileName = EntityRules.sanitizeFileName(originalFileName);
+            if (safeFileName == null) {
+                rejectStore(apiKey, entityType, entityCode, ip, ua);
+                OutputProcessor.sendError(res, 400, "fileName is required for FILE entities.");
+                return;
+            }
+            byte[] fileBytes;
+            try {
+                fileBytes = Base64.getDecoder().decode(plainValue);
+            } catch (IllegalArgumentException e) {
+                rejectStore(apiKey, entityType, entityCode, ip, ua);
+                OutputProcessor.sendError(res, 400, "content must be Base64 encoded for FILE entities.");
+                return;
+            }
+            if (fileBytes.length > maxBytes) {
+                rejectStore(apiKey, entityType, entityCode, ip, ua);
+                OutputProcessor.sendError(res, 413, "Payload Too Large: limit for this entity is " + maxKb + " KB.");
+                return;
+            }
+            String fileError = EntityRules.checkFile(fileBytes, safeFileName, def.mimeTypes);
+            if (fileError != null) {
+                rejectStore(apiKey, entityType, entityCode, ip, ua);
+                OutputProcessor.sendError(res, 415, fileError);
+                return;
+            }
+        } else {
+            // Clients send Base64. Plain text is still accepted when it is not valid Base64 UTF-8.
+            indexText = plainValue;
+            try {
+                String decoded = EntityRules.decodeUtf8(Base64.getDecoder().decode(plainValue));
+                if (decoded != null) indexText = decoded;
+            } catch (IllegalArgumentException ignored) {
+                // not Base64, keep the raw text
+            }
+            if (indexText.getBytes("UTF-8").length > maxBytes) {
+                rejectStore(apiKey, entityType, entityCode, ip, ua);
+                OutputProcessor.sendError(res, 413, "Payload Too Large: limit for this entity is " + maxKb + " KB.");
+                return;
+            }
+            String valueError = EntityRules.checkValue(def.validationRegex, indexText);
+            if (valueError != null) {
+                rejectStore(apiKey, entityType, entityCode, ip, ua);
+                OutputProcessor.sendError(res, 422, valueError);
+                return;
+            }
+        }
+        // --- END ENTITY RULES ---
 
         // Generate Data Key and Encrypt
         Map<String, String> dataKeyPack = kms.generateDataKey();
@@ -337,10 +402,9 @@ public class Vault implements Action {
         Connection conn = null;
         PreparedStatement ps = null;
         PoolDB pool = new PoolDB();
-        
+
         try {
             conn = pool.getConnection();
-            // SQL updated to include the file_name column
             String sql = "INSERT INTO vault_entities (entity_type, id_type_code, entity_ref, encrypted_content, encrypted_data_key, hashed_value_sha256, file_name, key_version, payload_cipher) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
             ps = conn.prepareStatement(sql);
             ps.setString(1, entityType);
@@ -349,60 +413,109 @@ public class Vault implements Action {
             ps.setString(4, ciphertextB64);
             ps.setString(5, encryptedDataKey);
             ps.setString(6, computeHash(plainValue));
-            ps.setString(7, originalFileName); // Preserving the original extension
+            ps.setString(7, safeFileName); // Sanitized name, null for non-file entities
             ps.setInt(8, keyVersion);
             ps.setString(9, payloadCipher);
             ps.executeUpdate();
 
-            // --- NEW: INVERTED INDEXING ---
-            if (entityType.equalsIgnoreCase("FILE")) {
+            // --- INVERTED INDEXING ---
+            if (isFile) {
                 // Index the full filename
-                updateSearchIndex(conn, referenceKey, originalFileName, "FILE_NAME");
+                updateSearchIndex(conn, referenceKey, safeFileName, "FILE_NAME");
 
                 // Index the extension for type-based filtering
-                if (originalFileName.contains(".")) {
-                    String extension = originalFileName.substring(originalFileName.lastIndexOf(".") + 1);
+                if (safeFileName.contains(".")) {
+                    String extension = safeFileName.substring(safeFileName.lastIndexOf(".") + 1);
                     updateSearchIndex(conn, referenceKey, extension, "FILE_EXT");
-                    
-                    String baseName = originalFileName.substring(0, originalFileName.lastIndexOf("."));
+
+                    String baseName = safeFileName.substring(0, safeFileName.lastIndexOf("."));
                     updateSearchIndex(conn, referenceKey, baseName, "FILE_BASE");
                 }
-            }else{
+            } else {
+                // Generate indices for the full value, and shards for partial search
+                updateSearchIndex(conn, referenceKey, indexText, "FULL");
 
-                try {
-                    // Decode the Base64 payload from the frontend to get the actual PII
-                    byte[] decodedBytes = Base64.getDecoder().decode(plainValue);
-                    plainValue = new String(decodedBytes, "UTF-8");
-                } catch (Exception e) {}
-
-               // Generate indices for the full value, and shards for partial search
-                updateSearchIndex(conn, referenceKey, plainValue, "FULL");
-                
                 // Multi-part search: Index individual words (e.g., First/Last names)
-                String[] parts = plainValue.split("\\s+");
+                String[] parts = indexText.split("\\s+");
                 if (parts.length > 1) {
                     for (String part : parts) {
                         updateSearchIndex(conn, referenceKey, part, "PART");
                     }
                 }
-                
+
                 // Partial search: Index first 3 characters (e.g., Mobile Prefix)
-                if (plainValue.length() >= 3) {
-                    updateSearchIndex(conn, referenceKey, plainValue.substring(0, 3), "PREFIX");
+                if (indexText.length() >= 3) {
+                    updateSearchIndex(conn, referenceKey, indexText.substring(0, 3), "PREFIX");
                 }
             }
             // --- END INDEXING ---
-            
+
             logVaultEvent(conn, apiKey, "STORE", entityType+":"+entityCode+":"+referenceKey, ip, ua, "SUCCESS", referenceKey, null);
-            
+
             JSONObject out = new JSONObject();
             out.put("success", true);
             out.put("reference_key", referenceKey.toString());
             OutputProcessor.send(res, 201, out);
-        } catch(Exception e){
-            logVaultEvent(conn, apiKey, "STORE", entityType+":"+entityCode+":"+referenceKey, ip, ua, "FAILURE", referenceKey, null);
+        } catch (Exception e) {
+            e.printStackTrace();
+            if (conn != null) {
+                logVaultEvent(conn, apiKey, "STORE", entityType+":"+entityCode+":"+referenceKey, ip, ua, "ERROR", referenceKey, null);
+            }
+            OutputProcessor.sendError(res, 500, "Store failed.");
         } finally {
             pool.cleanup(null, ps, conn);
+        }
+    }
+
+    /** Entity rules loaded from vault_entity_master. */
+    private static final class EntityDefinition {
+        String flavor;
+        String validationRegex;
+        String mimeTypes;
+        Integer maxSizeKb;
+        boolean active;
+    }
+
+    private EntityDefinition loadEntityDefinition(String entityCode) throws SQLException {
+        Connection conn = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        PoolDB pool = new PoolDB();
+        try {
+            conn = pool.getConnection();
+            ps = conn.prepareStatement("SELECT flavor, validation_regex, mime_types, max_size_kb, active FROM vault_entity_master WHERE entity_code = ?");
+            ps.setString(1, entityCode);
+            rs = ps.executeQuery();
+            if (!rs.next()) return null;
+            EntityDefinition d = new EntityDefinition();
+            d.flavor = rs.getString("flavor");
+            d.validationRegex = rs.getString("validation_regex");
+            d.mimeTypes = rs.getString("mime_types");
+            int kb = rs.getInt("max_size_kb");
+            d.maxSizeKb = rs.wasNull() ? null : kb;
+            d.active = rs.getBoolean("active");
+            return d;
+        } finally {
+            pool.cleanup(rs, ps, conn);
+        }
+    }
+
+    /** Records a rejected store in the forensic log. Never throws. */
+    private void rejectStore(String apiKey, String entityType, String entityCode, String ip, String ua) {
+        Connection conn = null;
+        PoolDB pool = null;
+        try {
+            pool = new PoolDB();
+            conn = pool.getConnection();
+            logVaultEvent(conn, apiKey, "STORE", entityType + ":" + entityCode, ip, ua, "DENIED", null, null);
+        } catch (Exception ignored) {
+            // the rejection response must still be sent
+        } finally {
+            try {
+                if (pool != null) pool.cleanup(null, null, conn);
+            } catch (Exception ignored) {
+                // nothing more to do
+            }
         }
     }
 

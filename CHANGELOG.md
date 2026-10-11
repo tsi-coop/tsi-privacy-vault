@@ -9,10 +9,24 @@
 - Creating the first `SYSTEM_ADMIN` is atomic (SERIALIZABLE transaction), so two concurrent setup requests cannot both succeed.
 - Directory listing is disabled on the web application.
 - The client API now verifies `X-API-Secret` against the stored PBKDF2 hash. Previously only the `X-API-Key` was checked, so the key alone granted access to the data plane. **Clients must now send both headers**; requests without a valid secret return 401.
+- `store_data` now enforces the entity definition. The entity's stored `flavor` is authoritative, and a mismatched `entityType` is rejected with 400. Previously the client's value was trusted.
+- `validation_regex` is applied to `ID` and `DATA` values (full match, bounded effort so a hostile pattern cannot hang a thread). A non-matching value returns 422.
+- `mime_types` is applied to `FILE` uploads by sniffing the decoded bytes (PDF, PNG, JPEG, GIF, ZIP-based Office files, UTF-8 text). Unknown or disallowed content returns 415. A `FILE` entity with no accepted types rejects every upload.
+- File names are sanitized (path stripped, unsafe characters replaced) before they are stored and indexed. A missing `fileName` on a `FILE` entity returns 400 instead of crashing.
+- Rejected stores are written to `event_log` with outcome `DENIED`.
+
+### Fixed
+- The upload limit read `VAULT_MAX_UPLOAD_KB`, so the documented `TSI_PRIVACY_VAULT_MAX_UPLOAD_KB` was ignored. The documented name is now read, and the old one still works as a fallback. The limit applies to the decoded size, and the entity's own `max_size_kb` can lower it.
+- A failed store now returns a 500 response. Before, the request got no response body and the failure was logged with an outcome the table does not allow.
+- Admin API error responses were sent with HTTP status 200 and the real code only in the JSON body. Clients and the console that check the HTTP status saw errors as success. The status line now matches the body.
+- `update_entity` used different field names from the console form and could not be validated against its schema. It now matches `create_entity`.
 
 ### Changed
 - `TSI_PRIVACY_VAULT_BOOTSTRAP_TOKEN` is a new environment variable (see `.example` and `docker-compose.yml`). Existing installations that are already set up are unaffected.
 - New `POST /api/admin/logout` endpoint, used by the console's Logout action.
+- `create_entity` and `update_entity` validate the definition: `flavor` must be `ID`, `DATA` or `FILE`, the regex must compile, `mime_types` is required for `FILE` and must be `type/subtype` values, and `entity_code` is limited to letters, digits, underscore and hyphen. Invalid definitions return 400, and a duplicate code returns 409.
+- Existing `FILE` entities without `mime_types` must be edited to add them before further uploads are accepted.
+- The Entities page has a Max Size field, shows server errors, and no longer builds its Edit button from unescaped values.
 
 ## v0.2.0
 

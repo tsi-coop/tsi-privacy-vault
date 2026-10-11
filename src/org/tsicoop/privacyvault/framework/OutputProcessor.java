@@ -27,6 +27,10 @@ public class OutputProcessor {
         errorNode.put("message", message);
         errorNode.put("path", path);
         try {
+            // The status line must match the body, or clients that check the HTTP code see success.
+            res.setContentType(MEDIA_TYPE_JSON);
+            res.setCharacterEncoding("UTF-8");
+            res.setStatus(status);
             out = res.getOutputStream();
             out.print(errorNode.toJSONString());
         } catch (Exception e) {

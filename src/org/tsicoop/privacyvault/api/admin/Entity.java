@@ -1,6 +1,7 @@
 package org.tsicoop.privacyvault.api.admin;
 
 import org.tsicoop.privacyvault.framework.Action;
+import org.tsicoop.privacyvault.framework.EntityRules;
 import org.tsicoop.privacyvault.framework.InputProcessor;
 import org.tsicoop.privacyvault.framework.OutputProcessor;
 import org.tsicoop.privacyvault.framework.PoolDB;
@@ -32,10 +33,10 @@ public class Entity implements Action {
                     OutputProcessor.send(res, 200, getAllEntities());
                     break;
                 case "create_entity":
-                    OutputProcessor.send(res, 200, saveEntity(input, false));
+                    handleSave(input, false, req, res);
                     break;
                 case "update_entity":
-                    OutputProcessor.send(res, 200, saveEntity(input, true));
+                    handleSave(input, true, req, res);
                     break;
                 default:
                     OutputProcessor.errorResponse(res, 400, "Bad Request", "Unknown function", req.getRequestURI());
@@ -43,6 +44,55 @@ public class Entity implements Action {
         } catch (Exception e) {
             OutputProcessor.errorResponse(res, 500, "Internal Error", e.getMessage(), req.getRequestURI());
         }
+    }
+
+    /**
+     * Validates the definition, then saves it. Invalid definitions get a 400 with the reason.
+     */
+    private void handleSave(JSONObject input, boolean isUpdate, HttpServletRequest req, HttpServletResponse res) throws Exception {
+        Integer maxSizeKb;
+        try {
+            maxSizeKb = parseMaxSizeKb(input.get("max_size_kb"));
+        } catch (NumberFormatException e) {
+            OutputProcessor.errorResponse(res, 400, "Bad Request", "max_size_kb must be a whole number.", req.getRequestURI());
+            return;
+        }
+
+        EntityRules.Definition def = EntityRules.validateDefinition(
+                (String) input.get("entity_code"),
+                (String) input.get("entity_name"),
+                (String) input.get("flavor"),
+                (String) input.get("validation_regex"),
+                (String) input.get("mime_types"),
+                maxSizeKb,
+                !isUpdate);
+        if (def.error != null) {
+            OutputProcessor.errorResponse(res, 400, "Bad Request", def.error, req.getRequestURI());
+            return;
+        }
+
+        // Persist the normalized values, not the raw input.
+        input.put("flavor", def.flavor);
+        input.put("validation_regex", def.validationRegex);
+        input.put("mime_types", def.mimeTypes);
+        input.put("max_size_kb", def.maxSizeKb);
+
+        try {
+            OutputProcessor.send(res, 200, saveEntity(input, isUpdate));
+        } catch (SQLException e) {
+            if ("23505".equals(e.getSQLState())) {
+                OutputProcessor.errorResponse(res, 409, "Conflict", "An entity with this code already exists.", req.getRequestURI());
+            } else {
+                throw e;
+            }
+        }
+    }
+
+    private static Integer parseMaxSizeKb(Object raw) {
+        if (raw == null) return null;
+        if (raw instanceof Number) return ((Number) raw).intValue();
+        String v = raw.toString().trim();
+        return v.isEmpty() ? null : Integer.valueOf(v);
     }
 
     /**
@@ -68,6 +118,8 @@ public class Entity implements Action {
                 entity.put("flavor", rs.getString("flavor"));
                 entity.put("validation_regex", rs.getString("validation_regex"));
                 entity.put("mime_types", rs.getString("mime_types"));
+                int maxKb = rs.getInt("max_size_kb");
+                entity.put("max_size_kb", rs.wasNull() ? null : maxKb);
                 entity.put("active", rs.getBoolean("active"));
                 entities.add(entity);
             }
@@ -89,8 +141,8 @@ public class Entity implements Action {
         PreparedStatement pstmt = null;
 
         String sql = isUpdate 
-            ? "UPDATE vault_entity_master SET entity_name = ?, flavor = ?, validation_regex = ?, mime_types = ?, active = ? WHERE entity_code = ?"
-            : "INSERT INTO vault_entity_master (entity_name, flavor, validation_regex, mime_types, active, entity_code) VALUES (?, ?, ?, ?, ?, ?)";
+            ? "UPDATE vault_entity_master SET entity_name = ?, flavor = ?, validation_regex = ?, mime_types = ?, active = ?, max_size_kb = ? WHERE entity_code = ?"
+            : "INSERT INTO vault_entity_master (entity_name, flavor, validation_regex, mime_types, active, max_size_kb, entity_code) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         try {
             conn = pool.getConnection();
@@ -100,7 +152,13 @@ public class Entity implements Action {
             pstmt.setString(3, (String) input.get("validation_regex"));
             pstmt.setString(4, (String) input.get("mime_types"));
             pstmt.setBoolean(5, (Boolean) input.get("active"));
-            pstmt.setString(6, (String) input.get("entity_code"));
+            Integer maxKb = (Integer) input.get("max_size_kb");
+            if (maxKb == null) {
+                pstmt.setNull(6, Types.INTEGER);
+            } else {
+                pstmt.setInt(6, maxKb);
+            }
+            pstmt.setString(7, (String) input.get("entity_code"));
 
             int rows = pstmt.executeUpdate();
             JSONObject res = new JSONObject();

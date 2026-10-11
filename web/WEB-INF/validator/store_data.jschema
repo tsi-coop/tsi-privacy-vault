@@ -7,13 +7,30 @@
       "type": "string"
     },
     "entityType": {
-      "type": "string"
+      "type": "string",
+      "enum": [
+        "ID",
+        "DATA",
+        "FILE",
+        "id",
+        "data",
+        "file"
+      ]
     },
     "entityName": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 50
     },
     "content": {
       "type": "string"
+    },
+    "fileName": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 255
     }
   },
   "required": [

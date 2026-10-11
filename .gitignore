@@ -9,3 +9,6 @@
 # Load test output
 /tests/results.jtl
 /tests/report/
+
+# Example script credentials
+.fixtures.env

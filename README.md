@@ -95,6 +95,7 @@ Follow the Guided Journey:
 
 Every record is encrypted with its own Data Encryption Key (DEK), and that key is wrapped by a root key anchor. Out of the box the vault runs on the **LOCAL** anchor, the master key in your `.env` file, which is all you need for evaluation or fully on-prem and air-gapped use. **AWS KMS** is an opt-in, resumable migration (activate the anchor, then re-wrap existing records) for deployments that want the root key held in an AWS-managed HSM. Payload data is always encrypted and decrypted locally. AWS only ever sees a wrapped data key.
 
+- [Examples](examples/README.md): runnable scripts to try store, fetch, search, validation and access control against a local instance.
 - [Architecture and roadmap](docs/architecture.md): envelope encryption, blind index search, LOCAL vs AWS KMS, what re-wrap is, and the plan for OpenBao, GCP KMS and Azure Key Vault.
 - [AWS KMS configuration guide](docs/aws-kms-configuration.md): CMK setup, IAM policy, activation, re-wrap, common mistakes and troubleshooting.
 

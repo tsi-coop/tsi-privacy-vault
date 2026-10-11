@@ -1,34 +1,62 @@
 {
-  "$schema": "http://json-schema.org/draft-04/schema#",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
-    "active": {
-      "type": "boolean"
-    },
-    "entity_code": {
-      "type": "string"
-    },
-    "entity_name": {
-      "type": "string"
-    },
-    "flavor": {
-      "type": "string"
-    },
-    "mime_types": {
-      "type": "string"
-    },
-    "validation_regex": {
-      "type": "string"
-    },
     "_func": {
       "type": "string"
+    },
+    "entity_code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 50,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "entity_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "flavor": {
+      "type": "string",
+      "enum": [
+        "ID",
+        "DATA",
+        "FILE",
+        "id",
+        "data",
+        "file"
+      ]
+    },
+    "validation_regex": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    },
+    "mime_types": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1000
+    },
+    "max_size_kb": {
+      "type": [
+        "integer",
+        "string",
+        "null"
+      ]
+    },
+    "active": {
+      "type": "boolean"
     }
   },
   "required": [
-    "active",
+    "_func",
     "entity_code",
     "entity_name",
     "flavor",
-    "_func"
+    "active"
   ]
 }

@@ -104,11 +104,16 @@
                 <input type="text" id="entity_name" name="entity_name" required class="w-full border border-slate-200 rounded p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
             <div>
-                <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Validation Regex (Optional)</label>
-                <input type="text" id="validation_regex" name="validation_regex" class="w-full border border-slate-200 rounded p-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500">
+                <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Validation Regex (Optional, ID and DATA only)</label>
+                <input type="text" id="validation_regex" name="validation_regex" maxlength="500" class="w-full border border-slate-200 rounded p-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500" placeholder="^[0-9]{12}$">
+                <p class="text-[10px] text-slate-400 mt-1">The whole value must match. Use Base64 content when you store.</p>
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Max Size in KB (Optional)</label>
+                <input type="number" min="1" id="max_size_kb" name="max_size_kb" class="w-full border border-slate-200 rounded p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="System limit applies if empty">
             </div>
             <div id="fileFields" class="p-3 bg-slate-50 rounded border border-slate-100">
-                <label class="block text-[10px] font-black text-indigo-500 uppercase mb-1">Accepted MIME Types</label>
+                <label class="block text-[10px] font-black text-indigo-500 uppercase mb-1">Accepted MIME Types (Required for FILE)</label>
                 <input type="text" id="mime_types" name="mime_types" class="w-full border border-slate-200 rounded p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="image/jpeg, application/pdf">
             </div>
             <div class="flex justify-end gap-3 pt-4">
@@ -166,14 +171,16 @@
                 }
 
                 // Render Table Rows
+                entityCache = {};
+                entities.forEach(e => { entityCache[e.entity_code] = e; });
                 tbody.innerHTML = entities.map(entity => `
                     <tr class="hover:bg-slate-50 transition">
-                        <td class="px-6 py-4 font-mono text-xs font-bold text-slate-700">${entity.entity_code}</td>
-                        <td class="px-6 py-4 text-slate-600 font-medium">${entity.entity_name}</td>
-                        <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 uppercase">${entity.flavor}</span></td>
+                        <td class="px-6 py-4 font-mono text-xs font-bold text-slate-700">${esc(entity.entity_code)}</td>
+                        <td class="px-6 py-4 text-slate-600 font-medium">${esc(entity.entity_name)}</td>
+                        <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 uppercase">${esc(entity.flavor)}</span></td>
                         <td class="px-6 py-4"><span class="text-xs font-bold ${entity.active ? 'text-green-600' : 'text-gray-400'}">${entity.active ? 'Active' : 'Inactive'}</span></td>
                         <td class="px-6 py-4 text-right">
-                            <button onclick='loadEdit("${entity.entity_code}", "${entity.entity_name}", "${entity.flavor}", "${entity.validation_regex || ''}", "${entity.mime_types || ''}")' class="text-indigo-600 hover:underline text-xs font-bold uppercase">Edit</button>
+                            <button data-code="${esc(entity.entity_code)}" onclick="loadEdit(this.dataset.code)" class="text-indigo-600 hover:underline text-xs font-bold uppercase">Edit</button>
                         </td>
                     </tr>
                 `).join('');
@@ -196,7 +203,8 @@
             "entity_name": document.getElementById('entity_name').value,
             "flavor": document.getElementById('flavor').value,
             "validation_regex": document.getElementById('validation_regex').value,
-            "mime_types": document.getElementById('mime_types').value
+            "mime_types": document.getElementById('mime_types').value,
+            "max_size_kb": document.getElementById('max_size_kb').value
         };
 
         const response = await fetch(API_URL, {
@@ -205,10 +213,17 @@
             body: JSON.stringify(payload)
         });
 
-        if (response.ok) { closeModal(); fetchEntities(); }
+        if (response.ok) { closeModal(); fetchEntities(); return; }
+        let msg = "Could not save the entity.";
+        try { const err = await response.json(); msg = err.message || err.error || msg; } catch (_) {}
+        alert(msg);
     };
 
-    function loadEdit(code, name, flavor, regex, mime) {
+    function loadEdit(code) {
+        const e = entityCache[code];
+        if (!e) return;
+        const name = e.entity_name, flavor = e.flavor;
+        const regex = e.validation_regex || '', mime = e.mime_types || '';
         document.getElementById('is-edit').value = "true";
         document.getElementById('modal-title').textContent = "Update Vault Entity";
         document.getElementById('entity_code').value = code;
@@ -217,7 +232,13 @@
         document.getElementById('flavor').value = flavor;
         document.getElementById('validation_regex').value = regex;
         document.getElementById('mime_types').value = mime;
+        document.getElementById('max_size_kb').value = (e.max_size_kb == null) ? '' : e.max_size_kb;
         document.getElementById('entityModal').style.display = 'flex';
+    }
+
+    let entityCache = {};
+    function esc(v) {
+        return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
 
     function openModal() {
