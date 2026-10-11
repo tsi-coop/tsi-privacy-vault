@@ -38,8 +38,10 @@ Now, edit the newly created .env file and fill in the placeholder values.
 
 Generate a random setup token and write it into `.env`:
 ```bash
-sed -i "s|^TSI_PRIVACY_VAULT_BOOTSTRAP_TOKEN=.*|TSI_PRIVACY_VAULT_BOOTSTRAP_TOKEN=$(openssl rand -hex 32)|" .env
+sed -i '/^TSI_PRIVACY_VAULT_BOOTSTRAP_TOKEN=/d' .env
+printf '\nTSI_PRIVACY_VAULT_BOOTSTRAP_TOKEN=%s\n' "$(openssl rand -hex 32)" >> .env
 ```
+The first line removes any old token line. The second line appends a new one. You can run both lines more than once.
 This is a mandatory security step. The first-run setup page (`/init.html`) asks for this value before it creates the administrator account, and setup is refused if it is not set. Remove it from `.env` once setup is done.
 
 4.  Start the TSI Privacy Vault service
