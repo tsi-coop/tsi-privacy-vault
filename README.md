@@ -12,6 +12,7 @@ Just as a physical safe secures valuable assets, TSI Privacy Vault isolates pers
 - Encrypted Search Capability: Creates a Deterministic Blind Index. It enables text search without decrypting the underlying data.
 - Utilities: Provides a utilities repository to manage API Keys, service credentials, and digital certificates.
 - Legal Evidence: Every request to the vault is cryptographically anchored to a user and a device, creating an immutable audit trail.
+- Erasure by Principal (planned): Purge all of one person's data with a single request by destroying their keys. See [Erasure by principal](#erasure-by-principal-planned).
 
 The key benefits of the sovereign vault include reducing the breach surface, supporting DPDPA compliance by easily fulfilling erasure requests, and maintaining tamper-proof evidence for BSA Section 63.
 
@@ -38,6 +39,26 @@ Cloud HSM or OpenBao handles the root key:
 - It controls unsealing, key rotation and access policy for that key.
 
 The vault never stores the root key in its database. The root key provider never sees your data. Each side does one job.
+
+## Erasure by principal (planned)
+
+Today each record is encrypted with its own key. Next, you will be able to tag records with a `principal_id`, an opaque ID for the person the data belongs to (not a name, PAN or phone number).
+
+When that person asks to be erased, you purge their `principal_id` and the vault:
+
+- destroys the keys for all their IDs, data and files, so the encrypted data can no longer be read;
+- removes their search index entries;
+- logs the purge in an Erasure Register and issues a certificate.
+
+Your ledgers and audit logs stay intact. They only hold the `reference_key`, which no longer points to anything.
+
+Things to know:
+
+- A purge cannot be undone.
+- After restoring an old backup, re-apply the Erasure Register so purged people stay purged.
+- Keep personal identifiers out of your own ledgers and link by `reference_key`.
+
+Details: [roadmap](docs/architecture.md#compliance-next-per-principal-keys-and-crypto-erasure).
 
 ## Installation
 
@@ -96,7 +117,7 @@ Follow the Guided Journey:
 Every record is encrypted with its own Data Encryption Key (DEK), and that key is wrapped by a root key anchor. Out of the box the vault runs on the **LOCAL** anchor, the master key in your `.env` file, which is all you need for evaluation or fully on-prem and air-gapped use. **AWS KMS** is an opt-in, resumable migration (activate the anchor, then re-wrap existing records) for deployments that want the root key held in an AWS-managed HSM. Payload data is always encrypted and decrypted locally. AWS only ever sees a wrapped data key.
 
 - [Examples](examples/README.md): runnable scripts to try store, fetch, search, validation and access control against a local instance.
-- [Architecture and roadmap](docs/architecture.md): envelope encryption, blind index search, LOCAL vs AWS KMS, what re-wrap is, and the plan for OpenBao, GCP KMS, Azure Key Vault and pluggable file storage (S3, GCS, Azure Blob).
+- [Architecture and roadmap](docs/architecture.md): envelope encryption, blind index search, LOCAL vs AWS KMS, what re-wrap is, and the plan for OpenBao, GCP KMS, Azure Key Vault, pluggable file storage (S3, GCS, Azure Blob) and per-principal erasure.
 - [AWS KMS configuration guide](docs/aws-kms-configuration.md): CMK setup, IAM policy, activation, re-wrap, common mistakes and troubleshooting.
 
 ## Testing

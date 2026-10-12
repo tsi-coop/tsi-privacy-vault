@@ -308,6 +308,11 @@ File storage is a third, independent dimension. Where the encrypted bytes of a
 later) does not depend on which key anchor is active. See
 [Storage backends](#storage-backends-next-pluggable-file-storage).
 
+Erasure is a fourth dimension, also independent of the anchor. Linking records
+to a principal lets one data principal's records be made unrecoverable without touching
+anyone else's. See
+[Per-principal keys and crypto-erasure](#compliance-next-per-principal-keys-and-crypto-erasure).
+
 ### Status
 
 | Milestone | Track | Contents | Status |
@@ -319,11 +324,14 @@ later) does not depend on which key anchor is active. See
 | M4 | Cloud | GCP KMS or Azure Key Vault provider, shared cloud provider base class, anchor migration runbook | Planned, on demand |
 | M5 | Storage | `FileStore` abstraction, `DATABASE` backend behind it (no behavior change), storage columns, `AWS_S3` and S3-compatible backend, health check | Planned |
 | M6 | Storage | `GCS` and `AZURE_BLOB` backends, backend-to-backend migration job, runbook | Planned, on demand |
+| M7 | Compliance | Per-principal keys: `principal_id` on store, Erasure Register (`principal_erasures`), resumable `shred` admin operation that destroys all DEKs linked to a principal, erasure certificate | Planned |
 
 The two next-phase key items are independent. They can ship in either order.
 Build the cloud provider that a real user asks for first. The shared base class
 makes the second one small. The storage milestones (M5 and M6) are independent
-of both key tracks.
+of both key tracks. M7 should land before M5 ships external storage, because
+the purge path must also delete external objects, and that is easier to build
+in than to retrofit.
 
 ### Design principles
 
@@ -550,6 +558,100 @@ bucket or prefix, and nothing else.
 - Audit: every external put, get and delete is logged to `event_log` with the
   backend and object key, using the existing forensic path.
 
+### Compliance next: per-principal keys and crypto-erasure
+
+Privacy law increasingly requires that a person's data can be erased on
+request, while financial and audit records must stay intact for regulators
+(for example India's DPDP Act erasure right alongside RBI retention rules).
+Deleting rows is not enough when copies live in backups, replicas and object
+stores. Destroying the key that makes the ciphertext readable is. The vault
+already encrypts every record under its own DEK, so this is a natural
+extension rather than a new design.
+
+**Principle.** Erasure is key destruction. Every record (ID, DATA and FILE)
+already has its own DEK. Linking records to a principal lets one purge request
+destroy all of that principal's DEKs. Once they are gone, the ciphertext is
+unrecoverable wherever it was copied, with no need to find and scrub each copy.
+No new key level is needed. The ledger and audit rows that reference the data
+stay in place, with no readable identity behind them.
+
+**Linking records to a principal**
+
+- A data principal is the person or entity whose data it is, identified by an
+  opaque `principal_id` supplied by the caller at store time. It must not be
+  a name, PAN, phone or any value that is itself personal data.
+- The store call accepts an optional `principal_id` next to `entityType`,
+  `entityName` and `content`. A store for an already shredded `principal_id` is
+  rejected. Search and retrieve are unchanged. Only the admin purge takes a
+  `principal_id`.
+- `vault_entities` gains a nullable, indexed `principal_id`. Records stored
+  without one behave exactly as today and can still be shredded one at a time
+  by `reference_key`. Existing deployments change nothing on upgrade.
+- The Erasure Register (`principal_erasures`) holds one row per shredded
+  principal:
+  `principal_id`, `state` (`SHREDDING` or `SHREDDED`), `requested_by`,
+  `shredded_at`, and the count of records destroyed. It holds no key material.
+
+**Shred operation**
+
+1. An authorized admin requests erasure for a `principal_id`, or for a single
+   `reference_key`.
+2. The vault checks for a legal hold or retention rule on the principal's
+   records and refuses while one is active. Which records fall under retention
+   is a policy decision the operator records, not something the vault infers.
+3. The register entry is written first with `state = SHREDDING`. From this moment
+   reads of the principal's records fail closed, and new stores for that
+   `principal_id` are rejected.
+4. In resumable batches: null `encrypted_data_key` and `encrypted_content`,
+   delete the blind index entries, and queue deletion of any external objects
+   for each record. The batch job is idempotent, so a crash mid-run resumes
+   instead of leaving a partial purge.
+5. When no record remains, the entry moves to `SHREDDED`, an `event_log`
+   entry records the shred with actor, principal and time, and an erasure
+   certificate is available from the existing legal export.
+6. Later reads fail with a distinct "erased" outcome, not a decryption error,
+   so callers can tell erasure from corruption.
+
+**What stays intact.** Transaction records, balances and audit events that the
+caller keeps outside the vault, plus the vault's own `event_log`, remain.
+They hold `reference_key` values that no longer resolve to anything. Callers
+must keep personal identifiers out of their ledgers and use the
+`reference_key` as the link, otherwise erasure in the vault does not erase the
+identity from the caller's system.
+
+**Limits to state plainly**
+
+- Shredding is only as strong as key destruction is complete. A database
+  backup or replica taken before the shred still holds the wrapped DEKs, and
+  the anchor can still unwrap them. Backup retention must be bounded and
+  documented, or the shred must be replayed from the Erasure Register when an
+  old backup is restored, before the data plane serves traffic. Keep the
+  register in a place the restore does not roll back.
+- The anchor's own key is shared and is never the shred target. Destroying it
+  would erase every principal at once.
+- Cost is proportional to the number of records the principal holds. That is
+  fine for ordinary principals, and the resumable batch design keeps a very
+  large one from holding a long transaction.
+- Blind index entries for a principal must go with the key. Left behind they
+  would still let someone test whether a known value was ever stored.
+- Shredding is irreversible by design. There is no recovery path, so the
+  operation needs explicit confirmation and should support two-person
+  approval for production.
+- This is an engineering control, not legal advice. Whether crypto-erasure
+  satisfies a given statute, and which records must be retained, is for the
+  operator's counsel to confirm.
+
+**Testing**
+
+- Shred, then read: every record of the principal returns "erased", other
+  principals are untouched.
+- Kill the shred job mid-batch and confirm it resumes, and that reads and new
+  stores for the principal stay blocked meanwhile.
+- Restore a pre-shred backup in a test environment and confirm the replay from
+the Erasure Register re-shreds before the data plane serves traffic.
+- Anchor re-wrap skips shredded records.
+- Mixed records with and without `principal_id` read correctly after upgrade.
+
 ### Testing expectations for remaining phases
 
 - **Unit:** wrap and unwrap round trips per provider; legacy CBC blobs still
@@ -561,6 +663,9 @@ bucket or prefix, and nothing else.
   MinIO or LocalStack, GCS and Azure via emulators). Cover put, get, delete,
   hash mismatch detection, orphan sweep, unreachable backend failing closed,
   and mixed `DATABASE` and external records reading correctly.
+- **Erasure:** a principal shred makes all of that principal's records
+  unreadable across database and external storage, leaves other principals
+  intact, and is audited. See the compliance section for the full list.
 - **Forensics:** every anchor activation, re-wrap, KMS failure and external
   storage operation appears in `event_log` with the machine anchor.
 - **Docs:** README, `.example`, `docker-compose.yml`, the tour and the user
