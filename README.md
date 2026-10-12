@@ -54,6 +54,7 @@ Your ledgers and audit logs stay intact. They only hold the `reference_key`, whi
 
 Things to know:
 
+- Records you are legally required to keep are not purged yet. They are erased automatically when their retention period ends, counted from creation or, for things like KYC, from when you tell the vault the account is closed. A legal hold blocks the purge.
 - A purge cannot be undone.
 - After restoring an old backup, re-apply the Erasure Register so purged people stay purged.
 - Keep personal identifiers out of your own ledgers and link by `reference_key`.

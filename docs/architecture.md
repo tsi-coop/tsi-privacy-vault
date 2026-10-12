@@ -324,7 +324,7 @@ anyone else's. See
 | M4 | Cloud | GCP KMS or Azure Key Vault provider, shared cloud provider base class, anchor migration runbook | Planned, on demand |
 | M5 | Storage | `FileStore` abstraction, `DATABASE` backend behind it (no behavior change), storage columns, `AWS_S3` and S3-compatible backend, health check | Planned |
 | M6 | Storage | `GCS` and `AZURE_BLOB` backends, backend-to-backend migration job, runbook | Planned, on demand |
-| M7 | Compliance | Per-principal keys: `principal_id` on store, Erasure Register (`principal_erasures`), resumable `shred` admin operation that destroys all DEKs linked to a principal, erasure certificate | Planned |
+| M7 | Compliance | Per-principal keys: `principal_id` on store, Erasure Register (`principal_erasures`), retention rules per entity type (from creation or from closure, with a `close` event) and legal holds per principal, resumable partial `shred` that destroys all erasable DEKs linked to a principal and defers retained ones, erasure certificate | Planned |
 
 The two next-phase key items are independent. They can ship in either order.
 Build the cloud provider that a real user asks for first. The shared base class
@@ -587,30 +587,82 @@ stay in place, with no readable identity behind them.
 - `vault_entities` gains a nullable, indexed `principal_id`. Records stored
   without one behave exactly as today and can still be shredded one at a time
   by `reference_key`. Existing deployments change nothing on upgrade.
-- The Erasure Register (`principal_erasures`) holds one row per shredded
-  principal:
-  `principal_id`, `state` (`SHREDDING` or `SHREDDED`), `requested_by`,
-  `shredded_at`, and the count of records destroyed. It holds no key material.
+- The Erasure Register (`principal_erasures`) holds one row per principal
+  with an erasure request: `principal_id`, `state` (`SHREDDING`, `PARTIAL` or
+  `SHREDDED`), `requested_by`, `requested_at`, `shredded_at`, the count of
+  records destroyed, the count retained and `next_due` (earliest
+  `retain_until` among retained records). It holds no key material.
+
+**Policy: retention rules and legal holds**
+
+The vault enforces policy and never decides it. Retention periods and holds
+come from the operator's compliance or legal team. There are two layers.
+
+- **Retention rule, per entity type (static).** `vault_entity_master` gains
+  `erasable` (yes or no), `retain_days` and `retain_from` (`CREATED` or
+  `CLOSURE`). Set once per `entity_code` by an admin in the console. Example:
+  KYC documents retain 5 years from closure of the account, marketing
+  preferences are erasable at once.
+- **Retention snapshot, per record.** At store time the vault copies the rule
+  in force then onto the row, so a later rule change does not silently shorten
+  or extend what was already promised:
+  - `retain_from = CREATED`: `retain_until` is creation time plus
+    `retain_days`.
+  - `retain_from = CLOSURE`: the record is retained and `retain_until` stays
+    empty, flagged `retention_open`, until a closure event arrives.
+  - `erasable = yes`: `retain_until` is empty and `retention_open` is false,
+    so the record is erasable now.
+- **Closure event.** The caller tells the vault the relationship has ended,
+  because only the caller knows. A client API call `close` takes a
+  `principal_id`, a `closure_date` and optionally a list of `entityName`
+  codes to scope it. The vault checks the API key against each entity code as
+  it does for any access, then sets `retain_until = closure_date +
+  retain_days` on the principal's open records of those types and clears
+  `retention_open`. The call is idempotent, a `closure_date` in the future is
+  rejected, and the event is audited in `event_log`. An admin can issue the
+  same event from the console. If the relationship resumes before the records
+  are shredded, a `reopen` call sets `retention_open` again and clears
+  `retain_until`.
+- **Legal hold, per principal (dynamic).** A `legal_holds` table with
+  `principal_id`, `reason`, `case_ref`, `placed_by`, `placed_at` and
+  `released_at`. Placed and released through admin operations, each audited in
+  `event_log`. A hold overrides retention. `reason` and `case_ref` must not
+  contain personal data.
 
 **Shred operation**
 
 1. An authorized admin requests erasure for a `principal_id`, or for a single
    `reference_key`.
-2. The vault checks for a legal hold or retention rule on the principal's
-   records and refuses while one is active. Which records fall under retention
-   is a policy decision the operator records, not something the vault infers.
-3. The register entry is written first with `state = SHREDDING`. From this moment
-   reads of the principal's records fail closed, and new stores for that
-   `principal_id` are rejected.
-4. In resumable batches: null `encrypted_data_key` and `encrypted_content`,
-   delete the blind index entries, and queue deletion of any external objects
-   for each record. The batch job is idempotent, so a crash mid-run resumes
-   instead of leaving a partial purge.
-5. When no record remains, the entry moves to `SHREDDED`, an `event_log`
-   entry records the shred with actor, principal and time, and an erasure
-   certificate is available from the existing legal export.
-6. Later reads fail with a distinct "erased" outcome, not a decryption error,
-   so callers can tell erasure from corruption.
+2. The vault checks for an open legal hold. If one exists, the whole request
+   is refused and logged with the reason. No keys are touched.
+3. With no hold, the vault splits the principal's records. Records with
+   `retain_until` empty and not `retention_open`, or in the past, are erasable
+   now. Records with a future `retain_until`, or `retention_open`, are
+   retained.
+4. The register entry is written first with `state = SHREDDING`. From this
+   moment reads of the erasable records fail closed, and new stores for that
+   `principal_id` are rejected. Retained records stay readable, because the
+   operator is obliged to keep them.
+5. In resumable batches, for each erasable record: null `encrypted_data_key`
+   and `encrypted_content`, delete its blind index entries, and queue deletion
+   of any external objects. The batch job is idempotent, so a crash mid-run
+   resumes instead of leaving a half-done purge.
+6. If nothing is retained, the entry moves to `SHREDDED`. Otherwise it moves
+   to `PARTIAL`, with the retained count and `next_due` recorded (empty while
+   only open-retention records remain, shown as "awaiting closure"). An
+   `event_log` entry records the outcome with actor, principal, and counts
+   destroyed and retained.
+7. A scheduled job picks up `PARTIAL` entries when `next_due` arrives, and a
+   `close` call on a principal with a `PARTIAL` entry recalculates its
+   `next_due`. The job re-checks for a legal hold, shreds the records whose
+   retention has expired by the same batch procedure, and moves the entry to
+   `SHREDDED` when none remain. If a hold is open, it skips and tries again
+   after release.
+8. The erasure certificate lists what was destroyed and what was retained with
+   its `retain_until` (or "awaiting closure"), so the operator can show a regulator why each record
+   was kept. It is available from the existing legal export.
+9. Later reads of erased records fail with a distinct "erased" outcome, not a
+   decryption error, so callers can tell erasure from corruption.
 
 **What stays intact.** Transaction records, balances and audit events that the
 caller keeps outside the vault, plus the vault's own `event_log`, remain.
@@ -634,6 +686,12 @@ identity from the caller's system.
   large one from holding a long transaction.
 - Blind index entries for a principal must go with the key. Left behind they
   would still let someone test whether a known value was ever stored.
+- Closure-based retention depends on the caller sending `close`. A principal
+  whose relationship is never closed in the vault is retained indefinitely.
+  The register shows these as "awaiting closure" so the operator can review
+  them. Closure is scoped by principal and entity code, not by individual
+  account, so a principal with one closed and one live relationship of the
+  same entity type needs separate `principal_id` values per relationship.
 - Shredding is irreversible by design. There is no recovery path, so the
   operation needs explicit confirmation and should support two-person
   approval for production.
@@ -645,6 +703,22 @@ identity from the caller's system.
 
 - Shred, then read: every record of the principal returns "erased", other
   principals are untouched.
+- Principal with mixed entity types and retention: erasable records are shredded,
+  retained ones stay readable, the entry is `PARTIAL`, and the scheduled job
+  shreds them once `retain_until` passes.
+- Closure-based retention: a purge before closure retains the records as
+  `retention_open`. A `close` call then sets `retain_until`, and the scheduled
+  job shreds them once it passes. A `closure_date` in the future is rejected,
+  a repeated `close` changes nothing, and `reopen` before shredding restores
+  open retention.
+- A `close` call scoped to some entity codes leaves the principal's other open
+  records untouched, and an API key without access to an entity code cannot
+  close it.
+- Open legal hold: the purge is refused, nothing is touched, and the refusal is
+  logged. A hold placed while a `PARTIAL` entry is waiting stops the scheduled
+  shred until it is released.
+- Changing `retain_days` on an entity type does not alter `retain_until` on
+  existing records.
 - Kill the shred job mid-batch and confirm it resumes, and that reads and new
   stores for the principal stay blocked meanwhile.
 - Restore a pre-shred backup in a test environment and confirm the replay from
