@@ -26,7 +26,7 @@ The vault supports two deployment tracks. Both work today.
 
 You pick one track for a deployment. You can move between tracks later. Only the small wrapped data keys are re-wrapped. Your data is never re-encrypted.
 
-### Who does what
+#### Who does what
 
 TSI Privacy Vault handles the data and the legal layer:
 - It receives personal data and encrypts each record with its own one-time key.
