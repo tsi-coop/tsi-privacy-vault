@@ -2,13 +2,15 @@
 
 An open-source digital safe that isolates personal and sensitive data for effortless compliance.
 
-## Why a vault
+Read the [launch post](https://techadvisory.substack.com/p/tsi-privacy-vault-an-open-source) for the background and the thinking behind it.
+
+## Why Privacy Vault
 
 Just as a physical safe secures valuable assets, TSI Privacy Vault keeps personal and sensitive data out of your business applications: IDs, personal records, contracts, scans. Your applications hold an opaque reference. The vault holds the data, encrypted, and records every touch.
 
 If you have ever had to answer "where does this person's data live?", "who has read it?" or "can you delete it?", this is built for you.
 
-## What you get
+## Key Features
 
 - **Three kinds of data.** IDs (PAN, Aadhaar, Voter ID), personal data (names, addresses, records) and sensitive files (contracts, X-rays).
 - **Search without decrypting.** Find a record by a name, a word or an identifier through a blind index. The vault never opens the data to look.
@@ -20,7 +22,7 @@ If you have ever had to answer "where does this person's data live?", "who has r
 
 In short: a smaller breach surface, a clean answer to DPDPA erasure requests, and tamper-proof evidence.
 
-## Try it in about ten minutes
+## Quick Start
 
 You need Docker and a terminal.
 
@@ -47,7 +49,7 @@ You need Docker and a terminal.
 
 Prefer to watch first? The [installation walkthrough](https://youtu.be/8zBjy5XQH-I) covers these steps.
 
-## Take the tour
+## Video Tour
 
 The tour is a hands-on walk through the vault, with no code to write.
 
@@ -59,7 +61,7 @@ The tour is a hands-on walk through the vault, with no code to write.
 | API tour | See every request and response | |
 | Court-ready evidence | Review the audit trail and evidence | [Watch](https://youtu.be/oRfr3wVTWnw) |
 
-## Then build on it
+## Developer Guides
 
 Pick what you want to do next.
 
@@ -77,7 +79,7 @@ The architecture document has the two diagrams that explain most of it:
 [envelope encryption](docs/design/images/envelope-encryption-diagram.png) and
 [blind index search](docs/design/images/blind-index-search-diagram.png).
 
-## Two ways to hold the root key
+## Key Management
 
 The vault encrypts every record with its own key, and a root key protects those. You choose where the root key lives, and you can change your mind later without re-encrypting your data.
 
