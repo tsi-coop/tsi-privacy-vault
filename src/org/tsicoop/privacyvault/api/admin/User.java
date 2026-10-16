@@ -88,6 +88,13 @@ public class User implements Action {
                 }
             }
 
+            // Every function other than the two token-protected bootstrap/recovery routes is
+            // user administration: SYSTEM_ADMIN only.
+            if (!setupRoute && !resetRoute
+                    && !RoleGuard.allowSystemAdminOnly(req, res, "USER", func)) {
+                return;
+            }
+
             switch (func.toLowerCase()) {
                 case "list_users": //
                     output = listUsers();

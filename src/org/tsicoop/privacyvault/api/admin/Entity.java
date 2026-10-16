@@ -9,13 +9,17 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
+import org.tsicoop.privacyvault.framework.RoleGuard;
 import java.sql.*;
+import java.util.Set;
 
 /**
  * Entity service for managing Vault flavors (ID, DATA, FILE).
  * Supports listing, creating, and updating entity definitions.
  */
 public class Entity implements Action {
+
+    private static final Set<String> MUTATING = Set.of("create_entity", "update_entity");
 
     @Override
     public void post(HttpServletRequest req, HttpServletResponse res) {
@@ -27,6 +31,8 @@ public class Entity implements Action {
                 OutputProcessor.errorResponse(res, 400, "Bad Request", "Missing _func", req.getRequestURI());
                 return;
             }
+
+            if (!RoleGuard.allow(req, res, "ENTITY", func, MUTATING)) return;
 
             switch (func.toLowerCase()) {
                 case "get_all_entities":
@@ -71,6 +77,17 @@ public class Entity implements Action {
             return;
         }
 
+        // Retention rule. Only validated when the caller sends one, so older clients that do not
+        // know the field leave an entity's existing rule untouched on update.
+        boolean hasRetention = input.containsKey("retain_days");
+        if (hasRetention) {
+            String retentionError = normalizeRetention(input);
+            if (retentionError != null) {
+                OutputProcessor.errorResponse(res, 400, "Bad Request", retentionError, req.getRequestURI());
+                return;
+            }
+        }
+
         // Persist the normalized values, not the raw input.
         input.put("flavor", def.flavor);
         input.put("validation_regex", def.validationRegex);
@@ -86,6 +103,29 @@ public class Entity implements Action {
                 throw e;
             }
         }
+    }
+
+    /**
+     * retain_days is the policy hold: days from creation during which a record cannot be erased.
+     * Empty or null means no hold. Normalized to an Integer, or null.
+     */
+    private static String normalizeRetention(JSONObject input) {
+        Object days = input.get("retain_days");
+        if (days == null || days.toString().trim().isEmpty()) {
+            input.put("retain_days", null);
+            return null;
+        }
+        int d;
+        try {
+            d = days instanceof Number ? ((Number) days).intValue() : Integer.parseInt(days.toString().trim());
+        } catch (NumberFormatException ex) {
+            return "retain_days must be a whole number.";
+        }
+        if (d < 0 || d > 36500) {
+            return "retain_days must be between 0 and 36500.";
+        }
+        input.put("retain_days", d);
+        return null;
     }
 
     private static Integer parseMaxSizeKb(Object raw) {
@@ -121,6 +161,8 @@ public class Entity implements Action {
                 int maxKb = rs.getInt("max_size_kb");
                 entity.put("max_size_kb", rs.wasNull() ? null : maxKb);
                 entity.put("active", rs.getBoolean("active"));
+                int retainDays = rs.getInt("retain_days");
+                entity.put("retain_days", rs.wasNull() ? null : retainDays);
                 entities.add(entity);
             }
         } finally {
@@ -140,9 +182,17 @@ public class Entity implements Action {
         Connection conn = null;
         PreparedStatement pstmt = null;
 
-        String sql = isUpdate 
-            ? "UPDATE vault_entity_master SET entity_name = ?, flavor = ?, validation_regex = ?, mime_types = ?, active = ?, max_size_kb = ? WHERE entity_code = ?"
-            : "INSERT INTO vault_entity_master (entity_name, flavor, validation_regex, mime_types, active, max_size_kb, entity_code) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        boolean withRetention = !isUpdate || input.containsKey("retain_days");
+        String sql;
+        if (isUpdate) {
+            sql = "UPDATE vault_entity_master SET entity_name = ?, flavor = ?, validation_regex = ?, mime_types = ?, active = ?, max_size_kb = ?"
+                + (withRetention ? ", retain_days = ?" : "")
+                + " WHERE entity_code = ?";
+        } else {
+            sql = "INSERT INTO vault_entity_master (entity_name, flavor, validation_regex, mime_types, active, max_size_kb"
+                + (withRetention ? ", retain_days" : "")
+                + ", entity_code) VALUES (?, ?, ?, ?, ?, ?" + (withRetention ? ", ?" : "") + ", ?)";
+        }
 
         try {
             conn = pool.getConnection();
@@ -158,7 +208,16 @@ public class Entity implements Action {
             } else {
                 pstmt.setInt(6, maxKb);
             }
-            pstmt.setString(7, (String) input.get("entity_code"));
+            int next = 7;
+            if (withRetention) {
+                Object rd = input.get("retain_days");
+                if (rd == null) {
+                    pstmt.setNull(next++, Types.INTEGER);
+                } else {
+                    pstmt.setInt(next++, ((Number) rd).intValue());
+                }
+            }
+            pstmt.setString(next, (String) input.get("entity_code"));
 
             int rows = pstmt.executeUpdate();
             JSONObject res = new JSONObject();

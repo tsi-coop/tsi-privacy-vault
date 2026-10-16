@@ -35,6 +35,7 @@
         <a href="apikeys.html" class="nav-link">API Keys</a>
         <a href="audit.html" class="nav-link">Audit</a>
         <a href="legal.html" class="nav-link">Legal</a>
+        <a href="erasure.html" class="nav-link">Erasure</a>
         <a href="keyanchor.html" class="nav-link">Key Anchor</a>
     </nav>
     
@@ -65,12 +66,13 @@
                         <th class="px-6 py-4">Entity Code</th>
                         <th class="px-6 py-4">Display Name</th>
                         <th class="px-6 py-4">Flavor</th>
+                        <th class="px-6 py-4">Rules</th>
                         <th class="px-6 py-4">Status</th>
                         <th class="px-6 py-4 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="entity-table-body" class="text-sm divide-y divide-slate-100">
-                    <tr><td colspan="5" class="px-6 py-10 text-center text-slate-400 italic">Synchronizing Vault Master...</td></tr>
+                    <tr><td colspan="6" class="px-6 py-10 text-center text-slate-400 italic">Synchronizing Vault Master...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -92,29 +94,35 @@
                 </div>
                 <div>
                     <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Entity Flavor</label>
-                    <select id="flavor" name="flavor" required class="w-full border border-slate-200 rounded p-2 text-sm bg-white outline-none focus:ring-2 focus:ring-indigo-500">
+                    <select id="flavor" name="flavor" required onchange="syncFlavor()" class="w-full border border-slate-200 rounded p-2 text-sm bg-white outline-none focus:ring-2 focus:ring-indigo-500">
                         <option value="ID">ID (Searchable String)</option>
                         <option value="DATA">DATA (Plaintext/Object)</option>
                         <option value="FILE">FILE (Binary Blob)</option>
                     </select>
                 </div>
             </div>
+            <p id="flavorHint" class="text-[10px] text-slate-500 bg-slate-50 border border-slate-100 rounded p-2"></p>
             <div>
                 <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Display Name</label>
                 <input type="text" id="entity_name" name="entity_name" required class="w-full border border-slate-200 rounded p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
-            <div>
-                <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Validation Regex (Optional, ID and DATA only)</label>
+            <div id="regexFields">
+                <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Validation Regex (Optional)</label>
                 <input type="text" id="validation_regex" name="validation_regex" maxlength="500" class="w-full border border-slate-200 rounded p-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500" placeholder="^[0-9]{12}$">
                 <p class="text-[10px] text-slate-400 mt-1">The whole value must match. Use Base64 content when you store.</p>
             </div>
             <div>
-                <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Max Size in KB (Optional)</label>
+                <label id="maxSizeLabel" class="block text-[10px] font-black text-slate-500 uppercase mb-1">Max Size in KB (Optional)</label>
                 <input type="number" min="1" id="max_size_kb" name="max_size_kb" class="w-full border border-slate-200 rounded p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="System limit applies if empty">
             </div>
             <div id="fileFields" class="p-3 bg-slate-50 rounded border border-slate-100">
                 <label class="block text-[10px] font-black text-indigo-500 uppercase mb-1">Accepted MIME Types (Required for FILE)</label>
                 <input type="text" id="mime_types" name="mime_types" class="w-full border border-slate-200 rounded p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="image/jpeg, application/pdf">
+            </div>
+            <div class="p-3 bg-slate-50 rounded border border-slate-100">
+                <label class="block text-[10px] font-black text-indigo-500 uppercase mb-1">Policy hold in days (Optional)</label>
+                <input type="number" min="0" max="36500" id="retain_days" name="retain_days" class="w-full border border-slate-200 rounded p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="No hold, erasable on request">
+                <p class="text-[10px] text-slate-400 mt-1">Records of this entity cannot be erased for this many days after they are stored, for example a statutory retention period. It applies to records stored from now on. When erasure is due is decided by consent, and open ended holds are placed as legal holds.</p>
             </div>
             <div class="flex justify-end gap-3 pt-4">
                 <button type="button" onclick="closeModal()" class="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Cancel</button>
@@ -152,7 +160,7 @@
                 if (entities.length === 0) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="5" class="px-6 py-20">
+                            <td colspan="6" class="px-6 py-20">
                                 <div class="flex flex-col items-center justify-center text-center">
                                     <div class="bg-slate-50 p-4 rounded-full mb-4 border border-slate-100">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -178,6 +186,7 @@
                         <td class="px-6 py-4 font-mono text-xs font-bold text-slate-700">${esc(entity.entity_code)}</td>
                         <td class="px-6 py-4 text-slate-600 font-medium">${esc(entity.entity_name)}</td>
                         <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 uppercase">${esc(entity.flavor)}</span></td>
+                        <td class="px-6 py-4 text-xs text-slate-500">${rulesSummary(entity)}</td>
                         <td class="px-6 py-4"><span class="text-xs font-bold ${entity.active ? 'text-green-600' : 'text-gray-400'}">${entity.active ? 'Active' : 'Inactive'}</span></td>
                         <td class="px-6 py-4 text-right">
                             <button data-code="${esc(entity.entity_code)}" onclick="loadEdit(this.dataset.code)" class="text-indigo-600 hover:underline text-xs font-bold uppercase">Edit</button>
@@ -188,13 +197,14 @@
         } catch (err) { 
             console.error(err); 
             document.getElementById('entity-table-body').innerHTML = `
-                <tr><td colspan="5" class="px-6 py-10 text-center text-red-400 font-bold uppercase text-[10px]">Registry Sync Failed: Connection Error</td></tr>`;
+                <tr><td colspan="6" class="px-6 py-10 text-center text-red-400 font-bold uppercase text-[10px]">Registry Sync Failed: Connection Error</td></tr>`;
         }
     }
     
     document.getElementById('entity-form').onsubmit = async (e) => {
         e.preventDefault();
         const isEdit = document.getElementById('is-edit').value === "true";
+        const isFile = document.getElementById('flavor').value === 'FILE';
         const payload = {
             // Function updated to use update_entity specifically for existing records
             "_func": isEdit ? "update_entity" : "create_entity",
@@ -202,10 +212,11 @@
             "entity_code": document.getElementById('entity_code').value,
             "entity_name": document.getElementById('entity_name').value,
             "flavor": document.getElementById('flavor').value,
-            "validation_regex": document.getElementById('validation_regex').value,
-            "mime_types": document.getElementById('mime_types').value,
+            "validation_regex": isFile ? '' : document.getElementById('validation_regex').value,
+            "mime_types": isFile ? document.getElementById('mime_types').value : '',
             "max_size_kb": document.getElementById('max_size_kb').value
         };
+        payload.retain_days = document.getElementById('retain_days').value;
 
         const response = await fetch(API_URL, {
             method: 'POST',
@@ -233,6 +244,8 @@
         document.getElementById('validation_regex').value = regex;
         document.getElementById('mime_types').value = mime;
         document.getElementById('max_size_kb').value = (e.max_size_kb == null) ? '' : e.max_size_kb;
+        document.getElementById('retain_days').value = (e.retain_days == null) ? '' : e.retain_days;
+        syncFlavor();
         document.getElementById('entityModal').style.display = 'flex';
     }
 
@@ -241,8 +254,34 @@
         return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
 
+    const FLAVOR_HINTS = {
+        ID: 'A short identifier such as PAN or Aadhaar. It is searchable through the blind index. A regex checks its format.',
+        DATA: 'Free-form personal data such as a name, address or JSON record. A regex can check the value.',
+        FILE: 'A binary document such as a scan or contract. Accepted MIME types are required, and the file content is checked against them.'
+    };
+    function syncFlavor() {
+        const f = document.getElementById('flavor').value;
+        const file = f === 'FILE';
+        document.getElementById('regexFields').style.display = file ? 'none' : 'block';
+        document.getElementById('fileFields').style.display = file ? 'block' : 'none';
+        document.getElementById('mime_types').required = file;
+        document.getElementById('flavorHint').textContent = FLAVOR_HINTS[f] || '';
+        document.getElementById('maxSizeLabel').textContent = file
+            ? 'Max File Size in KB (Optional)' : 'Max Value Size in KB (Optional)';
+    }
+
+    function rulesSummary(e) {
+        const parts = [];
+        if (e.flavor === 'FILE') parts.push(e.mime_types ? esc(e.mime_types) : 'no MIME types');
+        else if (e.validation_regex) parts.push('regex <code class="font-mono">' + esc(e.validation_regex) + '</code>');
+        if (e.max_size_kb != null) parts.push('max ' + esc(e.max_size_kb) + ' KB');
+        if (e.retain_days) parts.push('hold ' + esc(e.retain_days) + ' d');
+        return parts.length ? parts.join('<br>') : '<span class="text-slate-300">none</span>';
+    }
+
     function openModal() {
         document.getElementById('entity-form').reset();
+        syncFlavor();
         document.getElementById('is-edit').value = "false";
         document.getElementById('entity_code').readOnly = false;
         document.getElementById('modal-title').textContent = "Register New Vault Entity";

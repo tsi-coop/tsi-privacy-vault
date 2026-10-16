@@ -8,15 +8,21 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
+import org.tsicoop.privacyvault.framework.RoleGuard;
 import java.sql.*;
+import java.util.Set;
 
 public class Permission implements Action {
+
+    private static final Set<String> MUTATING = Set.of("create_permission", "delete_permission");
 
     @Override
     public void post(HttpServletRequest req, HttpServletResponse res) {
         try {
             JSONObject input = InputProcessor.getInput(req);
             String func = (String) input.get("_func");
+
+            if (!RoleGuard.allow(req, res, "PERMISSION", func, MUTATING)) return;
 
             switch (func.toLowerCase()) {
                 case "get_permissions_by_key":

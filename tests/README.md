@@ -1,9 +1,22 @@
 # Tests
 
+For contributors and CI. These tests start their own throwaway instances, and the Java
+tests are Maven's test sources (`java/`). If you want scripts to run against your own
+vault to try it or check its behavior, see [`../examples`](../examples/README.md).
+The end-to-end runner here (`runners/run-e2e.sh`) uses those example scripts as its
+test cases.
+
+All runner scripts are in [`runners/`](runners/). Each one creates and removes its own
+containers.
+
 | File | Purpose |
 |---|---|
 | [`test-cases.md`](test-cases.md) | Functional test cases for key management: LOCAL and AWS KMS anchors, activation, re-wrap, fail-closed behavior. Run by hand against a throwaway instance. |
 | [`load-testing-plan.md`](load-testing-plan.md) | Methodology, endpoint mapping, sizing and thresholds for load testing. Read this before a real run. |
+| `runners/run-minio-contract.sh` | JUnit contract test for the `FileStore` interface, run against a throwaway MinIO container over TLS. Needs docker, openssl, keytool, curl and mvn. Source in `java/`. |
+| `runners/run-audit-chain-tests.sh` | JUnit tests of the audit hash chain (edited, deleted and forged rows, append-only guard, concurrent writers). Same setup as the erasure runner. |
+| `runners/run-erasure-tests.sh` | JUnit tests of the erasure service (shred, policy hold, legal holds, resumability, external object cleanup) against a throwaway PostgreSQL with `db/*.sql` applied. Needs docker and mvn. |
+| `runners/run-e2e.sh` | Builds the war, starts it with a throwaway PostgreSQL and runs the fixtures setup and the store-fetch, search, access, validation, utilities and erasure example scripts over the HTTP APIs. Needs docker, mvn, curl and jq. |
 | `vault-data-plane-test.jmx` | Apache JMeter plan for the client data plane. |
 | `load-test.properties` | Concurrency, request counts and credentials for the JMeter plan. |
 

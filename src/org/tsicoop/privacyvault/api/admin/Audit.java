@@ -21,6 +21,7 @@ public class Audit implements Action {
 
     private static final String FUNCTION = "_func";
     private static final String GET_AUDIT_LOGS = "get_audit_logs";
+    private static final String VERIFY_AUDIT_CHAIN = "verify_audit_chain";
 
     @Override
     public void get(HttpServletRequest req, HttpServletResponse res) {
@@ -37,12 +38,81 @@ public class Audit implements Action {
             func = (String) input.get(FUNCTION);
             if (func != null && func.equalsIgnoreCase(GET_AUDIT_LOGS)) {
                 output = getAuditLogs(input);
+            } else if (func != null && func.equalsIgnoreCase(VERIFY_AUDIT_CHAIN)) {
+                output = verifyAuditChain(input);
             }
         } catch (Exception e) {
             OutputProcessor.sendError(res, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unknown server error");
             e.printStackTrace();
         }
         OutputProcessor.send(res, HttpServletResponse.SC_OK, output);
+    }
+
+    /**
+     * Walks the event_log hash chain (db/04_audit_chain.sql). Optional input:
+     *   from_seq           start the walk here instead of at the first row
+     *   expected_head_seq  } a head recorded earlier outside the database; the chain must still
+     *   expected_head_hash } contain that row with that hash, which exposes tail truncation
+     */
+    private JSONObject verifyAuditChain(JSONObject input) throws Exception {
+        Long fromSeq = input.get("from_seq") == null ? null : ((Number) input.get("from_seq")).longValue();
+        Long expSeq = input.get("expected_head_seq") == null ? null : ((Number) input.get("expected_head_seq")).longValue();
+        String expHash = (String) input.get("expected_head_hash");
+        if ((expSeq == null) != (expHash == null)) {
+            throw new Exception("expected_head_seq and expected_head_hash must be supplied together.");
+        }
+
+        JSONObject out = new JSONObject();
+        PoolDB pool = new PoolDB();
+        Connection conn = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        try {
+            conn = pool.getConnection();
+            ps = conn.prepareStatement("SELECT valid, rows_checked, first_bad_seq, reason, head_seq, head_hash FROM verify_event_log_chain(?)");
+            if (fromSeq == null) ps.setNull(1, java.sql.Types.BIGINT); else ps.setLong(1, fromSeq);
+            rs = ps.executeQuery();
+            if (!rs.next()) throw new Exception("Verification returned no result.");
+
+            boolean valid = rs.getBoolean("valid");
+            String reason = rs.getString("reason");
+            long badSeq = rs.getLong("first_bad_seq");
+            boolean hasBad = !rs.wasNull();
+            out.put("rows_checked", rs.getLong("rows_checked"));
+            long headSeq = rs.getLong("head_seq");
+            boolean hasHead = !rs.wasNull();
+            String headHash = rs.getString("head_hash");
+            rs.close();
+            ps.close();
+
+            if (valid && expSeq != null) {
+                ps = conn.prepareStatement("SELECT row_hash FROM event_log WHERE chain_seq = ?");
+                ps.setLong(1, expSeq);
+                rs = ps.executeQuery();
+                if (!rs.next()) {
+                    valid = false;
+                    badSeq = expSeq;
+                    hasBad = true;
+                    reason = "recorded head row is missing (the log was truncated)";
+                } else if (!expHash.equalsIgnoreCase(rs.getString(1))) {
+                    valid = false;
+                    badSeq = expSeq;
+                    hasBad = true;
+                    reason = "recorded head hash does not match";
+                }
+            }
+
+            out.put("valid", valid);
+            if (hasBad) out.put("first_bad_seq", badSeq);
+            if (reason != null) out.put("reason", reason);
+            if (hasHead) {
+                out.put("head_seq", headSeq);
+                out.put("head_hash", headHash);
+            }
+        } finally {
+            pool.cleanup(rs, ps, conn);
+        }
+        return out;
     }
 
     private JSONObject getAuditLogs(JSONObject input) throws Exception {
@@ -95,6 +165,20 @@ public class Audit implements Action {
             if (operationType != null && !operationType.trim().isEmpty()) {
                 sqlBuilder.append(" AND el.operation_type = ?");
                 sqlParams.add(operationType);
+            }
+            // Prefix match for operations whose name carries a variable suffix, such as
+            // ERASURE_SHRED:<principal>:condemned=<n>. Any one prefix may match.
+            Object prefixes = input.get("operationPrefixes");
+            if (prefixes instanceof JSONArray && !((JSONArray) prefixes).isEmpty()) {
+                sqlBuilder.append(" AND (");
+                boolean first = true;
+                for (Object o : (JSONArray) prefixes) {
+                    if (!first) sqlBuilder.append(" OR ");
+                    first = false;
+                    sqlBuilder.append("el.operation_type LIKE ? ESCAPE '\\'");
+                    sqlParams.add(String.valueOf(o).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%");
+                }
+                sqlBuilder.append(")");
             }
             if (entityCode != null && !entityCode.trim().isEmpty()) {
                 sqlBuilder.append(" AND el.entity_code = ?");

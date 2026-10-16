@@ -65,6 +65,20 @@
 
 <filter-mapping>
 	<filter-name>CONSOLE_AUTH_FILTER</filter-name>
+	<url-pattern>/erasure.html</url-pattern>
+	<dispatcher>REQUEST</dispatcher>
+	<dispatcher>FORWARD</dispatcher>
+</filter-mapping>
+
+<filter-mapping>
+	<filter-name>CONSOLE_AUTH_FILTER</filter-name>
+	<url-pattern>/erasure-jobs.html</url-pattern>
+	<dispatcher>REQUEST</dispatcher>
+	<dispatcher>FORWARD</dispatcher>
+</filter-mapping>
+
+<filter-mapping>
+	<filter-name>CONSOLE_AUTH_FILTER</filter-name>
 	<url-pattern>/users.html</url-pattern>
 	<dispatcher>REQUEST</dispatcher>
 	<dispatcher>FORWARD</dispatcher>

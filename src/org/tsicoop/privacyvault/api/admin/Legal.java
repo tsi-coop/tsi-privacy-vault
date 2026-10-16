@@ -6,6 +6,7 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.tsicoop.privacyvault.framework.Action;
 import org.tsicoop.privacyvault.framework.BSACertificateGenerator;
+import org.tsicoop.privacyvault.framework.BuildInfo;
 import org.tsicoop.privacyvault.framework.InputProcessor;
 import org.tsicoop.privacyvault.framework.OutputProcessor;
 import org.tsicoop.privacyvault.framework.PoolDB;
@@ -48,7 +49,7 @@ public class Legal implements Action {
                     break;
                 case "generate_entity_bsa_certificate":
                     handleEntityCertGen((String) input.get("referenceKey"), res);
-                    break;
+                    return; // the PDF or the error has been written; nothing more to send
                 default:
                     OutputProcessor.sendError(res, 404, "Function not found.");
             }
@@ -70,17 +71,25 @@ public class Legal implements Action {
             conn = pool.getConnection();
             
             // SQL remains the same, pulling from event_log
-            String sql = "SELECT v.hashed_value_sha256, e.machine_id, e.client_ip, e.log_datetime " +
+            // Certify the successful STORE event when there is one, else the earliest event.
+            String sql = "SELECT v.hashed_value_sha256, e.machine_id, e.client_ip, e.log_datetime, " +
+                        "e.chain_seq, e.row_hash " +
                         "FROM vault_entities v " +
                         "JOIN event_log e ON v.entity_ref = e.entity_ref " +
                         "WHERE v.entity_ref = ? " + 
-                        "ORDER BY e.log_datetime ASC LIMIT 1";
+                        "ORDER BY (e.operation_type LIKE 'STORE:%' AND e.outcome = 'SUCCESS') DESC, " +
+                        "e.log_datetime ASC LIMIT 1";
             
             ps = conn.prepareStatement(sql);
             ps.setObject(1, java.util.UUID.fromString(ref)); 
             rs = ps.executeQuery();
             
             if (rs.next()) {
+                // An erased record keeps no hash of its value, so there is nothing to certify.
+                // The erasure certificate (get_erasure_certificate) covers it instead.
+                if (rs.getString("hashed_value_sha256") == null) {
+                    throw new Exception("Record " + ref + " has been erased. Use the erasure certificate.");
+                }
                 // MATCH THESE KEYS TO YOUR PDF TEMPLATE
                 forensicData.put("sha256_hash", rs.getString("hashed_value_sha256")); // HASH (SHA256)
                 
@@ -93,7 +102,45 @@ public class Legal implements Action {
                 
                 // Map 'client_ip' or status to 'System Status' and 'Software Source'
                 forensicData.put("health_status", "ACTIVE_SECURE_VAULT");
-                forensicData.put("software_version", "TSI_PRIVACY_VAULT_V0.1");
+                forensicData.put("software_version", "TSI_PRIVACY_VAULT_V" + BuildInfo.version());
+
+                // Audit chain: cite the event row and the current head, after checking that
+                // the chain from that event to the head is intact. A certificate over a log
+                // known to be altered would be worse than none, so refuse.
+                long eventSeq = rs.getLong("chain_seq");
+                boolean chained = !rs.wasNull();
+                String eventHash = rs.getString("row_hash");
+                if (!chained) {
+                    OutputProcessor.sendError(res, 409, "The audit event for " + ref
+                            + " is not in the hash chain. Apply db/04_audit_chain.sql and retry.");
+                    return;
+                }
+                PreparedStatement vps = null;
+                ResultSet vrs = null;
+                try {
+                    vps = conn.prepareStatement("SELECT valid, first_bad_seq, reason, head_seq, head_hash "
+                            + "FROM verify_event_log_chain(?)");
+                    vps.setLong(1, eventSeq);
+                    vrs = vps.executeQuery();
+                    if (!vrs.next()) {
+                        OutputProcessor.sendError(res, 409, "Audit chain verification returned no result, certificate not issued.");
+                        return;
+                    }
+                    if (!vrs.getBoolean("valid")) {
+                        OutputProcessor.sendError(res, 409, "Audit chain verification failed at sequence "
+                                + vrs.getLong("first_bad_seq") + " (" + vrs.getString("reason")
+                                + "), certificate not issued.");
+                        return;
+                    }
+                    forensicData.put("chain_event_seq", eventSeq);
+                    forensicData.put("chain_event_hash", eventHash);
+                    forensicData.put("chain_head_seq", vrs.getLong("head_seq"));
+                    forensicData.put("chain_head_hash", vrs.getString("head_hash"));
+                    forensicData.put("chain_verified_at", java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC).toString());
+                } finally {
+                    if (vrs != null) try { vrs.close(); } catch (Exception ignored) { }
+                    if (vps != null) try { vps.close(); } catch (Exception ignored) { }
+                }
             }
         } finally {
             pool.cleanup(rs, ps, conn);

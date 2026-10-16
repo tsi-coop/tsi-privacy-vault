@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.3.0 (unreleased)
+
+Three themes: files can live in object storage, a data principal's records can be
+erased, and the audit log can prove it has not been altered. Admin write access is
+also now limited to `SYSTEM_ADMIN`.
+
+### Upgrade notes
+- **Apply the database scripts** to existing databases, in order: `db/02_file_storage.sql`, `db/03_erasure.sql`, `db/04_audit_chain.sql`. Fresh installs pick them up automatically. `04` chains existing audit rows from that point on and makes `event_log` append-only, so make sure no clean-up job updates or deletes audit rows.
+- **Write access is `SYSTEM_ADMIN` only.** Any other console role is now read only. Check who manages entities, keys, anchors and secrets before upgrading. See [Audit and access control](docs/guides/audit-and-access-control.md#1-admin-roles).
+
+### Added
+- **Pluggable file storage.** `FILE` content can be kept in AWS S3 or an S3-compatible store (MinIO, Ceph) instead of PostgreSQL, selected with `TSI_PRIVACY_VAULT_FILE_STORE`. Only ciphertext reaches the bucket. The default stays `DATABASE`. The dashboard shows a File Storage card. Design: [Storage backends](docs/design/architecture.md#storage-backends-next-pluggable-file-storage). Setup: [AWS S3 configuration guide](docs/guides/aws-s3-configuration.md).
+- **Erasure by principal (crypto-erasure).** `store_data` accepts an opaque `principal_id`. A `SYSTEM_ADMIN` shreds a principal through `/api/admin/erasure`, which destroys the key, content, search index entries and any object-store copy of every erasable record, while records inside their policy hold stay readable. Reads of erased records return `410`. Includes a policy hold per entity (days from creation), legal holds, a resumable batch job and an erasure certificate. Design: [Per-principal keys and crypto-erasure](docs/design/architecture.md#compliance-next-per-principal-keys-and-crypto-erasure). Operation: [Erasure management guide](docs/guides/erasure-management.md).
+- **Erasure page in the admin console** (`/erasure.html`). A read-only monitor of the register, certificates, legal holds and recent erasure events, whether requests came from the API, the example scripts or your own application. See [Erasure management, section 9](docs/guides/erasure-management.md#9-reports-and-audit).
+- **Erasure card on the dashboard.** Counts of the Erasure Register by state (`SHREDDING`, `PARTIAL`, `SHREDDED`), shreds stuck for more than 24 hours, partial shreds whose retention has elapsed, and open legal holds. Counts only, no principal ids. `get_dashboard_stats` returns them under `erasure`.
+- **Erasure job history.** Every pass of the erasure job, scheduled or manual, is recorded in `erasure_job_runs` (re-apply `db/03_erasure.sql`). `get_erasure_job` on `/api/admin/erasure` reports status (`HEALTHY`, `FAILING`, `OVERDUE`, `WAITING`, `DISABLED`), last success, consecutive failures and 30 day totals. The Erasure page has a job summary and links to a new run history page (`/erasure-jobs.html`). Overdue means no success within twice the interval.
+- **Erasure from the client API.** `shred_principal` and `get_erasure_certificate` on `/api/client/vault`, using the same API key as store and fetch. The key needs write (shred) or read (certificate) access to every entity type that holds the person's records, and legal and policy holds apply as for an admin. The Data Client has an **Erase a person** action, and the Erasure console page shows whether each request came from a client key or an administrator.
+- **Tamper-evident audit log.** Every `event_log` row is hash-chained to the one before it by a database trigger, and the table is append-only. `verify_audit_chain` on `/api/admin/audit` reports the first broken row and returns the current head, which you can record and check later to detect truncation. Design: [Tamper-evident audit log](docs/design/architecture.md#tamper-evident-audit-log). Operation: [Audit and access control guide](docs/guides/audit-and-access-control.md#2-tamper-evident-audit-log).
+- **Audit integrity in the BSA Section 63 certificate.** The certificate cites the certified event and the log head at issue. The chain is verified first, and issuing returns `409` if it is broken. The certified event is now the successful `STORE` event. See [what the certificate shows](docs/guides/audit-and-access-control.md#24-what-the-bsa-certificate-shows).
+- Entity definitions take `retain_days`, a policy hold in days from creation, editable on the Entities page. The Entities form now shows only the fields that apply to the chosen flavor (regex for ID and DATA, MIME types for FILE) and a Rules column.
+- `get_audit_logs` accepts `operationPrefixes` for operations with a variable suffix.
+- Tests, all under [`tests/`](tests/README.md): service and contract tests against throwaway PostgreSQL and MinIO, audit chain and role tests, and an end-to-end runner (`tests/runners/run-e2e.sh`) that drives the example scripts over HTTP.
+
+### Security
+- **Mutating admin APIs require `SYSTEM_ADMIN`.** Previously any signed-in console user could create users and recovery keys, activate or re-wrap key anchors, edit entities, issue API keys and permissions, and enroll, check out or rotate secrets. A missing role is refused. Refusals return `403` and are audited as `ADMIN_<AREA>:<FUNCTION>`. The `setup` and `resetpass` routes keep their bootstrap-token and recovery-key protection. Design: [Admin roles](docs/design/architecture.md#admin-roles).
+
+### Fixed
+- A file store that failed its boot health check kept the data plane at 503 until a restart. It now re-checks at most every 30 seconds and recovers on its own.
+- Several data-plane audit entries used the outcome `FAILURE`, which `event_log` rejects, so they were never written. They now use `DENIED` or `ERROR`.
+- The BSA certificate printed a software version from an environment variable and ignored the one computed for it. It now prints the build's `pom.xml` version (`0.3.0-SNAPSHOT`; bump `<version>` when you cut a release).
+- The legal certificate endpoint appended `{}` to the PDF stream.
+
 ## v0.2.1
 
 ### Security

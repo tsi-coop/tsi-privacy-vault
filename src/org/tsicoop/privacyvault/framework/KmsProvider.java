@@ -7,7 +7,7 @@ public interface KmsProvider {
     byte[] aesEncrypt(byte[] data, byte[] key) throws Exception;
     byte[] aesDecrypt(byte[] encryptedData, byte[] key) throws Exception;
 
-    /** Key-ring version under which new DEKs are wrapped (docs/architecture.md Phase 0). */
+    /** Key-ring version under which new DEKs are wrapped (docs/design/architecture.md Phase 0). */
     default int getActiveKeyVersion() {
         return 1;
     }

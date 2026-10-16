@@ -80,6 +80,7 @@
         <a href="apikeys.html" class="nav-link">API Keys</a>
         <a href="audit.html" class="nav-link">Audit</a>
         <a href="legal.html" class="nav-link">Legal</a>
+        <a href="erasure.html" class="nav-link">Erasure</a>
         <a href="keyanchor.html" class="nav-link">Key Anchor</a>
     </nav>
 
@@ -116,6 +117,45 @@
             <div class="card p-6 bg-red-50 border-red-100">
                 <p class="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Auth Failures</p>
                 <h3 class="text-3xl font-black text-red-600" id="stat-failures">...</h3>
+            </div>
+        </div>
+
+        <div class="card mb-8" id="file-storage-card">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                <h2 class="font-black text-slate-800 uppercase tracking-tighter">File Storage</h2>
+                <span class="text-[10px] font-black uppercase tracking-widest flex items-center gap-2" id="fs-health">
+                    <span class="status-dot bg-slate-300"></span> Checking
+                </span>
+            </div>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Active Backend</p>
+                    <h3 class="text-xl font-black text-slate-900" id="fs-backend">...</h3>
+                    <p class="text-[11px] text-slate-500 mt-1" id="fs-hint"></p>
+                </div>
+                <div>
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Location</p>
+                    <p class="text-sm font-mono text-slate-700 break-all" id="fs-location">...</p>
+                </div>
+                <div>
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Files By Backend</p>
+                    <div class="text-sm text-slate-700" id="fs-counts">...</div>
+                </div>
+            </div>
+            <div class="px-6 pb-6 text-[11px] text-slate-400">
+                Read-only. Set with <code>TSI_PRIVACY_VAULT_FILE_STORE</code> in <code>.env</code> and restart. It applies to files stored from then on. Existing files stay where they are.
+            </div>
+        </div>
+
+        <div class="card mb-8" id="erasure-card">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                <h2 class="font-black text-slate-800 uppercase tracking-tighter">Erasure</h2>
+                <a href="erasure.html" class="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline">Open Register</a>
+            </div>
+            <div class="p-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6" id="erasure-tiles"></div>
+            <div class="px-6 pb-2 text-[11px] text-slate-500" id="erasure-job"></div>
+            <div class="px-6 pb-6 text-[11px] text-slate-400" id="erasure-note">
+                Counts only. Partial shreds wait on a policy or legal hold. Legal holds do not expire on their own.
             </div>
         </div>
 
@@ -175,11 +215,100 @@
                 document.getElementById('stat-flavors').textContent = data.entity_flavors;
                 document.getElementById('stat-failures').textContent = data.auth_failures;
 
+                renderFileStorage(data.file_storage);
+                renderErasure(data.erasure);
+
                 // Render Live Audit Stream
                 renderAuditTable(data.recent_logs);
             }
         } catch (err) {
             console.error("Failed to load vault stats", err);
+        }
+    }
+
+    const BACKEND_LABELS = {
+        DATABASE: 'PostgreSQL',
+        AWS_S3: 'AWS S3',
+        S3_COMPATIBLE: 'S3-compatible'
+    };
+
+    function esc(v) {
+        return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function renderFileStorage(fs) {
+        const card = document.getElementById('file-storage-card');
+        if (!fs) { card.style.display = 'none'; return; }
+        card.style.display = '';
+
+        const label = BACKEND_LABELS[fs.backend] || fs.backend;
+        document.getElementById('fs-backend').textContent = label;
+        document.getElementById('fs-hint').textContent =
+            fs.backend === 'DATABASE' ? 'Encrypted files are kept in the vault database.' : 'Only encrypted bytes are written to the bucket.';
+
+        let location = 'vault database';
+        if (fs.backend !== 'DATABASE') {
+            const parts = [];
+            if (fs.bucket) parts.push('bucket ' + fs.bucket);
+            if (fs.prefix) parts.push('prefix ' + fs.prefix);
+            if (fs.region) parts.push('region ' + fs.region);
+            if (fs.endpoint_host) parts.push('endpoint ' + fs.endpoint_host);
+            location = parts.length ? parts.join(' / ') : 'not configured';
+        }
+        document.getElementById('fs-location').textContent = location;
+
+        const health = document.getElementById('fs-health');
+        if (fs.healthy) {
+            health.innerHTML = '<span class="status-dot bg-green-500"></span><span class="text-green-700">Healthy</span>';
+        } else {
+            health.innerHTML = '<span class="status-dot bg-red-500"></span><span class="text-red-600">Unavailable: data plane is returning 503</span>';
+        }
+        if (!fs.healthy && fs.health_error) {
+            document.getElementById('fs-hint').textContent = fs.health_error;
+        }
+
+        const counts = document.getElementById('fs-counts');
+        if (fs.files_by_backend == null) {
+            counts.innerHTML = '<span class="text-slate-400 italic">' + esc(fs.counts_error || 'Unavailable') + '</span>';
+        } else {
+            const entries = Object.entries(fs.files_by_backend);
+            counts.innerHTML = entries.length === 0
+                ? '<span class="text-slate-400 italic">No files stored yet</span>'
+                : entries.map(([b, n]) => '<div><span class="font-bold">' + Number(n).toLocaleString() + '</span> <span class="text-slate-500">' + esc(BACKEND_LABELS[b] || b) + '</span></div>').join('');
+        }
+    }
+
+    function renderErasure(er) {
+        const card = document.getElementById('erasure-card');
+        const tiles = document.getElementById('erasure-tiles');
+        if (!er) { card.style.display = 'none'; return; }
+        card.style.display = '';
+        if (er.by_state == null) {
+            tiles.innerHTML = '<span class="text-slate-400 italic text-sm col-span-full">' + esc(er.error || 'Unavailable') + '</span>';
+            return;
+        }
+        const tile = (label, n, warn) =>
+            '<div><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">' + label + '</p>' +
+            '<h3 class="text-2xl font-black ' + (warn && n > 0 ? 'text-red-600' : 'text-slate-900') + '">' + Number(n || 0).toLocaleString() + '</h3></div>';
+        const s = er.by_state;
+        tiles.innerHTML =
+            tile('Shredding', s.SHREDDING) +
+            tile('Partial', s.PARTIAL) +
+            tile('Shredded', s.SHREDDED) +
+            tile('Stuck &gt; 24h', er.stuck, true) +
+            tile('Retention Elapsed', er.retention_elapsed, true) +
+            tile('Open Legal Holds', er.open_legal_holds);
+        const jobEl = document.getElementById('erasure-job');
+        if (er.job) {
+            const when = er.job.last_success ? new Date(er.job.last_success).toLocaleString() : 'never';
+            jobEl.innerHTML = 'Job: <span class="font-black">' + esc(er.job.status) + '</span>, last success ' + esc(when) +
+                '. <a href="erasure-jobs.html" class="text-indigo-600 font-bold hover:underline">Job history</a>';
+        } else {
+            jobEl.textContent = '';
+        }
+        if (er.oldest_hold) {
+            document.getElementById('erasure-note').textContent =
+                'Counts only. Oldest open legal hold placed ' + er.oldest_hold.substring(0, 10) + '. Legal holds do not expire on their own.';
         }
     }
 

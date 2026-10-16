@@ -3,7 +3,7 @@
 Functional test cases for the vault's key management and data plane: provider
 factory, key-version metadata, fail-closed boot gate, the AWS KMS anchor,
 anchor activation and the DEK re-wrap migration. They cover milestones M0 to
-M2 in the [roadmap](../docs/architecture.md#7-roadmap).
+M2 in the [roadmap](../docs/design/architecture.md#7-roadmap).
 
 These cases are executed by hand because they change environment variables,
 restart containers, and stop or detach KMS. For throughput and latency

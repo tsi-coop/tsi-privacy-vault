@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "list_legal_holds",
+  "type": "object",
+  "properties": {
+    "_func": { "type": "string", "const": "list_legal_holds" },
+    "open_only": { "type": "boolean" }
+  },
+  "required": ["_func"],
+  "additionalProperties": false
+}

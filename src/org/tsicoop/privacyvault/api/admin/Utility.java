@@ -9,6 +9,7 @@ import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -18,6 +19,8 @@ import java.util.UUID;
 public class Utility implements Action {
 
     private static final String FUNCTION = "_func";
+    // checkout returns a secret in the clear, so it is gated like the writes
+    private static final Set<String> MUTATING = Set.of("enroll", "checkout", "rotate");
 
     @Override
     public void post(HttpServletRequest req, HttpServletResponse res) {
@@ -40,6 +43,8 @@ public class Utility implements Action {
                 OutputProcessor.sendError(res, HttpServletResponse.SC_BAD_REQUEST, "Missing _func parameter.");
                 return;
             }
+
+            if (!RoleGuard.allow(req, res, "UTILITY", func, MUTATING)) return;
 
             // Route operations
             if (func.equalsIgnoreCase("enroll")) {

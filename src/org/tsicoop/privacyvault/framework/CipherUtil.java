@@ -7,7 +7,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.security.SecureRandom;
 
 /**
- * Payload cipher primitives selected per key-ring version (docs/architecture.md Phase 0).
+ * Payload cipher primitives selected per key-ring version (docs/design/architecture.md Phase 0).
  * AES_CBC_PKCS5 is retained for legacy (key_version 1) records; AES_GCM is used for
  * all new key versions. Both formats prepend the IV/nonce to the ciphertext blob.
  */

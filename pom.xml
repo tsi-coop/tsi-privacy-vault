@@ -6,7 +6,7 @@
 
     <groupId>org.tsicoop.privacy</groupId>
     <artifactId>tsi_privacy_vault</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>0.3.0-SNAPSHOT</version>
     <packaging>war</packaging>
 
     <name>TSI_Privacy_Vault</name>
@@ -135,16 +135,40 @@
             <version>2.20.100</version>
         </dependency>
 
+        <!-- File storage backend (AWS_S3, S3_COMPATIBLE). Keep in step with the kms version. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>2.20.100</version>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>
             <version>3.0.6</version>
+        </dependency>
+
+        <!-- Tests (tests/java). The MinIO contract test skips itself unless TSI_TEST_S3_ENDPOINT is set. -->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
     <build>
         <finalName>${project.artifactId}</finalName>
         <sourceDirectory>src</sourceDirectory>
+        <testSourceDirectory>tests/java</testSourceDirectory>
+
+        <resources>
+            <!-- version.properties is filtered so the running vault can report the pom version -->
+            <resource>
+                <directory>src/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
 
         <plugins>
             <plugin>

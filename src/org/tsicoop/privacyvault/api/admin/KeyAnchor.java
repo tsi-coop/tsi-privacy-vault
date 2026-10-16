@@ -8,10 +8,11 @@ import org.tsicoop.privacyvault.framework.*;
 
 import java.sql.*;
 import java.time.LocalDateTime;
+import java.util.Set;
 import java.util.UUID;
 
 /**
- * Key anchor administration (docs/architecture.md Phase 1, milestone M2).
+ * Key anchor administration (docs/design/architecture.md Phase 1, milestone M2).
  * - get_key_anchor_status : key ring, health and pending re-wrap counts
  * - activate_key_anchor   : create a new ACTIVE key-ring version under an anchor
  * - rewrap_data_keys      : batched LOCAL -> active anchor DEK re-wrap migration
@@ -19,6 +20,7 @@ import java.util.UUID;
 public class KeyAnchor implements Action {
 
     private static final String FUNCTION = "_func";
+    private static final Set<String> MUTATING = Set.of("activate_key_anchor", "rewrap_data_keys");
     private static final int DEFAULT_BATCH_SIZE = 500;
     private static final int MAX_BATCH_SIZE = 5000;
 
@@ -35,6 +37,8 @@ public class KeyAnchor implements Action {
 
             if (func == null) {
                 OutputProcessor.sendError(res, HttpServletResponse.SC_BAD_REQUEST, "Missing _func parameter.");
+            } else if (!RoleGuard.allow(req, res, "KEY_ANCHOR", func, MUTATING)) {
+                return;
             } else if (func.equalsIgnoreCase("get_key_anchor_status")) {
                 handleStatus(res);
             } else if (func.equalsIgnoreCase("activate_key_anchor")) {

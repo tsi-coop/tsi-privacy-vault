@@ -3,7 +3,7 @@ package org.tsicoop.privacyvault.framework;
 import java.util.Map;
 
 /**
- * Key-version-aware KmsProvider facade (docs/architecture.md Phase 0).
+ * Key-version-aware KmsProvider facade (docs/design/architecture.md Phase 0).
  * Routes DEK wrap/unwrap to the anchor recorded in vault_key_ring for the
  * relevant key version and selects the payload cipher per version. All
  * data-plane code obtains this via KmsProviderFactory.getProvider().

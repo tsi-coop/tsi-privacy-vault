@@ -40,9 +40,12 @@
             <h1 class="text-3xl font-black text-slate-900 tracking-tight uppercase italic">TSI <span class="text-[#006A67]">Vault</span></h1>
             <p id="sessionDisplay" class="text-slate-500 text-[10px] font-mono mt-2 uppercase tracking-widest">Interface: Sovereign Layer</p>
         </div>
+        <div class="flex items-end gap-4">
+        <button onclick="openErasePopup('')" class="px-4 py-2 text-[10px] font-black uppercase border border-rose-200 text-rose-700 rounded-md hover:bg-rose-50">Erase a person</button>
         <div class="bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm text-right">
             <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Protocol Active</p>
             <p class="text-xs font-bold text-teal-600 uppercase tracking-tighter">● Online</p>
+        </div>
         </div>
     </header>
 
@@ -92,6 +95,12 @@
                         <textarea id="storeContent" rows="3" class="w-full border border-slate-200 rounded-xl p-4 mt-1 font-mono text-sm outline-none focus:ring-2 focus:ring-teal-500" placeholder="Enter sensitive text..."></textarea>
                     </div>
 
+                    <div>
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Principal ID (Optional)</label>
+                        <input type="text" id="storePrincipalId" maxlength="100" class="w-full border border-slate-200 rounded-xl p-4 mt-1 font-mono text-sm outline-none focus:ring-2 focus:ring-teal-500" placeholder="Opaque ID, e.g. cust-8841. Never a name or PAN.">
+                        <p class="text-[10px] text-slate-400 mt-1">Links this record to a person so it can be erased with all their other records.</p>
+                    </div>
+
                     <div id="fileContentContainer" class="hidden">
                         <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Select File for Vaulting</label>
                         <input type="file" id="fileUploadInput" class="w-full border border-dashed border-slate-300 rounded-xl p-8 mt-1 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100">
@@ -104,6 +113,7 @@
                 <div id="storeResult" class="hidden">
                     <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Reference Receipt</label>
                     <div id="newRefOutput" class="data-entry text-teal-700 font-bold"></div>
+                    <button id="eraseLink" type="button" onclick="openErasePopup(this.dataset.principal)" class="hidden mt-3 text-[10px] font-black text-rose-600 uppercase tracking-widest hover:underline">Erase this person&rsquo;s records &rarr;</button>
                 </div>
             </div>
 
@@ -124,6 +134,27 @@
                 </div>
             </div>
             
+            <div id="eraseView" class="hidden space-y-4">
+                <p class="text-xs text-slate-500 leading-relaxed">Destroys the keys, content and search entries of every record linked to this
+                    principal. Records inside their policy hold stay readable until it ends, and a legal hold refuses the request.
+                    Your key needs write access to every entity type that holds the person&rsquo;s records. This cannot be undone.</p>
+                <div>
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Principal ID</label>
+                    <input type="text" id="erasePrincipal" maxlength="100" oninput="syncErase()" class="w-full border border-slate-200 rounded-xl p-4 mt-1 font-mono text-sm outline-none focus:ring-2 focus:ring-rose-400" placeholder="cust-8841">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Type the principal ID again to confirm</label>
+                    <input type="text" id="eraseConfirm" maxlength="100" oninput="syncErase()" autocomplete="off" class="w-full border border-slate-200 rounded-xl p-4 mt-1 font-mono text-sm outline-none focus:ring-2 focus:ring-rose-400">
+                </div>
+                <button id="eraseBtn" onclick="executeErase()" disabled class="w-full bg-rose-700 text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-rose-800 disabled:bg-slate-300 disabled:cursor-not-allowed">Erase</button>
+                <div id="eraseResult" class="hidden">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Result</label>
+                    <div id="eraseOutput" class="data-entry"></div>
+                    <p class="text-[10px] text-slate-400 mt-2">Fetch one of the person&rsquo;s reference keys to see it answer &ldquo;erased&rdquo;. The request is also on the
+                        <b>Erasure</b> page of the admin console.</p>
+                </div>
+            </div>
+
             <button onclick="closeModal()" class="w-full mt-6 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition">Cancel</button>
         </div>
     </div>
@@ -258,6 +289,8 @@
                     outputDiv.textContent = res.value;
                 }
             }
+        } else if (res.status === 410) {
+            alert("This record has been erased. Its keys were destroyed, so it can no longer be read.");
         } else {
             alert("Reference not found or unauthorized.");
         }
@@ -306,22 +339,72 @@
             fileName = "text_payload.txt";
         }
 
-        const res = await vaultRequest("store_data", { 
+        const params = {
             "entityType": flavor,
             "entityName": entityCode,
             "content": base64Payload,
-            "fileName": fileName 
-        });
+            "fileName": fileName
+        };
+        const principalId = document.getElementById('storePrincipalId').value.trim();
+        if (principalId) params.principal_id = principalId;
+        const res = await vaultRequest("store_data", params);
 
         if(res.success && res.reference_key) {
             document.getElementById('newRefOutput').textContent = res.reference_key;
+            const linkedPrincipal = document.getElementById('storePrincipalId').value.trim();
+            const eraseLink = document.getElementById('eraseLink');
+            if (linkedPrincipal) {
+                eraseLink.dataset.principal = linkedPrincipal;
+                eraseLink.classList.remove('hidden');
+            } else {
+                eraseLink.classList.add('hidden');
+            }
             document.getElementById('storeResult').classList.remove('hidden');
         } else {
             alert("Storage failed: " + (res.error || res.message || "Protocol Error"));
         }
     }
 
+    function openErasePopup(principal) {
+        resetModal();
+        document.getElementById('opModal').style.display = 'flex';
+        document.getElementById('eraseView').classList.remove('hidden');
+        document.getElementById('modalTitle').textContent = "Erase a Person";
+        document.getElementById('erasePrincipal').value = principal || '';
+        syncErase();
+    }
+
+    function syncErase() {
+        const p = document.getElementById('erasePrincipal').value.trim();
+        document.getElementById('eraseBtn').disabled = !p || document.getElementById('eraseConfirm').value !== p;
+    }
+
+    function plain(v) {
+        const d = document.createElement('div');
+        d.textContent = v == null ? '' : String(v);
+        return d.innerHTML;
+    }
+
+    async function executeErase() {
+        const p = document.getElementById('erasePrincipal').value.trim();
+        const out = document.getElementById('eraseOutput');
+        const res = await vaultRequest("shred_principal", { "principal_id": p, "confirm": document.getElementById('eraseConfirm').value });
+        document.getElementById('eraseResult').classList.remove('hidden');
+        if (res && res.success) {
+            out.innerHTML = `State <b>${plain(res.state)}</b>. Destroyed: ${plain(res.records_destroyed)}. Retained: ${plain(res.records_retained)}`
+                + (res.next_due ? `. Next due: ${plain(res.next_due)}` : '') + '.';
+        } else {
+            out.innerHTML = plain((res && (res.error || res.message)) || 'The request was refused.');
+        }
+        document.getElementById('eraseConfirm').value = '';
+        syncErase();
+    }
+
     function resetModal() {
+        document.getElementById('eraseView').classList.add('hidden');
+        document.getElementById('eraseResult').classList.add('hidden');
+        document.getElementById('erasePrincipal').value = '';
+        document.getElementById('eraseConfirm').value = '';
         // Hide all views
         document.getElementById('fetchView').classList.add('hidden');
         document.getElementById('storeView').classList.add('hidden');
@@ -342,6 +425,7 @@
         
         // Clear Store Inputs and Results
         document.getElementById('storeContent').value = '';
+        document.getElementById('storePrincipalId').value = '';
         document.getElementById('fileUploadInput').value = '';
         document.getElementById('newRefOutput').textContent = '';
         document.getElementById('storeEntityName').value = '';

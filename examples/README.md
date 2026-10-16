@@ -1,7 +1,12 @@
 # Examples
 
+For the request and response reference these scripts exercise, see the
+[API integration guide](../docs/guides/api-integration.md).
+
 Runnable scripts for trying the vault and checking its behavior against a live
-instance. They use `curl` and `jq` only.
+instance. They use `curl` and `jq` only. They run against *your* instance. To run them
+against a throwaway one that is built and removed for you, use
+[`tests/runners/run-e2e.sh`](../tests/README.md).
 
 **Use a local or staging instance only. Never production, never real personal
 data.** The scripts create entities, API keys and records.
@@ -18,11 +23,12 @@ data.** The scripts create entities, API keys and records.
 | Script | What it checks |
 |---|---|
 | [`scripts/setup/setup-test-fixtures.sh`](scripts/setup/setup-test-fixtures.sh) | Creates an ID, DATA and FILE entity, a KEYS and a CERT utility, a read-write key and a read-only key, seeds one searchable ID record, writes the credentials to `scripts/setup/.fixtures.env`, and writes `tests/load-test.local.properties` for the [JMeter plan](../tests/README.md). |
-| [`scripts/store-fetch/test-store-fetch.sh`](scripts/store-fetch/test-store-fetch.sh) | Stores one ID, DATA and FILE record, fetches each back, and compares the value. |
+| [`scripts/store-fetch/test-store-fetch.sh`](scripts/store-fetch/test-store-fetch.sh) | Stores one ID, DATA and FILE record, fetches each back, and compares the value. Also stores a record with a `principal_id` and checks that an invalid one is rejected. |
 | [`scripts/search/test-blind-index-search.sh`](scripts/search/test-blind-index-search.sh) | Finds a stored record by full value, one word and a 3 character prefix. Checks that case and spacing do not matter. |
 | [`scripts/validation/test-entity-validation.sh`](scripts/validation/test-entity-validation.sh) | Regex mismatch, flavor mismatch, MIME type and extension checks, missing file name, size limit, and invalid entity definitions. |
 | [`scripts/utilities/test-utilities.sh`](scripts/utilities/test-utilities.sh) | Discovers and resolves utilities (KEYS and CERT) as a client, checks grants and unknown labels, lists them through the admin API, and rotates one. |
 | [`scripts/access/test-access-control.sh`](scripts/access/test-access-control.sh) | Wrong secret, read-only key, key with no grant, unknown entity. |
+| [`scripts/erasure/test-erasure.sh`](scripts/erasure/test-erasure.sh) | Erasure by principal: store with `principal_id`, shred with a policy-held record, legal hold, the scheduled job, HTTP 410 on erased records, the register and the certificate. Creates its own entities and keys, and needs a `SYSTEM_ADMIN` login. |
 
 Each test script prints `PASS` or `FAIL` per check, a summary line, and exits
 non-zero when any check fails.
@@ -43,6 +49,16 @@ ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='<password>' ./setup/setup-test-fix
 ./utilities/test-utilities.sh
 ```
 
+The erasure script does not use the fixtures. It logs in as an admin with the `SYSTEM_ADMIN` role and creates its own entities and keys:
+
+```bash
+ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='<password>' \
+VIEWER_EMAIL=viewer@example.com VIEWER_PASSWORD='<password>' \
+  ./erasure/test-erasure.sh
+```
+
+`VIEWER_*` is optional. It is a second admin with any other role, used to check that only `SYSTEM_ADMIN` can destroy data. Run `db/02_file_storage.sql` and `db/03_erasure.sql` on an existing database first.
+
 The validation script also checks entity definitions through the admin API. It
 uses the admin token the setup script saved. The token expires. If those checks fail with HTTP 401, run setup again.
 
@@ -62,6 +78,8 @@ uses the admin token the setup script saved. The token expires. If those checks 
 | `UTILITY_LABEL`, `UTILITY_CERT_LABEL` | utilities | from `.fixtures.env` (`EX_SERVICE_KEY`, `EX_TLS_CERT`) |
 | `ADMIN_TOKEN` | validation (definition checks), utilities (list and rotate) | from `.fixtures.env`. Checks are skipped when unset. |
 | `MAX_UPLOAD_KB` | validation | `5120`. Set it to your `TSI_PRIVACY_VAULT_MAX_UPLOAD_KB`. |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | erasure | required. Must be a `SYSTEM_ADMIN`. |
+| `VIEWER_EMAIL`, `VIEWER_PASSWORD` | erasure | optional. Enables the role check. |
 
 ## Running against your own build
 

@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Single source of KmsProvider instances (docs/architecture.md Phase 0/1).
+ * Single source of KmsProvider instances (docs/design/architecture.md Phase 0/1).
  * Anchor providers and their clients are built once and reused for the
  * application lifetime. Also owns the boot-time fail-closed health gate:
  * the data plane refuses traffic until a wrap/unwrap round-trip against
@@ -43,7 +43,7 @@ public class KmsProviderFactory {
                     return new AwsKmsProvider();
                 default:
                     throw new IllegalArgumentException("Unsupported KMS anchor: " + t
-                            + " (see docs/architecture.md Phase 2/3)");
+                            + " (see docs/design/architecture.md Phase 2/3)");
             }
         });
     }

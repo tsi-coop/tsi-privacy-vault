@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSI Privacy Vault - Erasure</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root { --vault-primary: #0f172a; --vault-accent: #6366f1; --background: #f8fafc; }
+        body { background-color: var(--background); font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; }
+        .sidebar { width: 260px; background-color: var(--vault-primary); color: white; position: fixed; height: 100vh; z-index: 50; }
+        .nav-link { display: flex; align-items: center; padding: 12px 24px; color: #94a3b8; font-size: 0.875rem; font-weight: 500; }
+        .nav-link:hover, .nav-link.active { background-color: #1e293b; color: white; border-right: 4px solid var(--vault-accent); }
+        .card { background: white; border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        @media (min-width: 1024px) { main { padding-left: 260px; } }
+            .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; }
+        .modal-bg { background: rgba(15,23,42,.55); }
+    </style>
+</head>
+<body class="flex">
+
+<aside class="sidebar hidden lg:flex flex-col">
+    <div class="p-8">
+        <h2 class="text-lg font-black tracking-tighter uppercase">TSI Privacy Vault</h2>
+        <p class="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">Secure Data Isolation</p>
+    </div>
+    <nav class="flex-1 mt-4">
+        <a href="dashboard.html" class="nav-link">Dashboard</a>
+        <a href="entities.html" class="nav-link">Entities</a>
+        <a href="utilities.html" class="nav-link">Utilities</a>
+        <a href="users.html" class="nav-link">Users</a>
+        <a href="apikeys.html" class="nav-link">API Keys</a>
+        <a href="audit.html" class="nav-link">Audit</a>
+        <a href="legal.html" class="nav-link">Legal</a>
+        <a href="erasure.html" class="nav-link active">Erasure</a>
+        <a href="keyanchor.html" class="nav-link">Key Anchor</a>
+    </nav>
+    <div class="p-6 border-t border-slate-800">
+        <div class="flex items-center gap-3">
+            <div class="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs" id="user-initials">ER</div>
+            <div>
+                <p class="text-xs font-bold" id="display-name">Administrator</p>
+                <a href="#" onclick="handleLogout()" class="text-[10px] text-red-400 font-bold uppercase hover:underline">Sign Out</a>
+            </div>
+        </div>
+    </div>
+</aside>
+
+<main class="flex-1 min-h-screen">
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-40">
+        <h1 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Erasure Monitor</h1>
+        <div class="flex items-center gap-4">
+            <span id="last-sync" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest"></span>
+            <label class="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                <input type="checkbox" id="auto-refresh" checked> Auto refresh
+            </label>
+            <button onclick="refreshAll()" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition">Refresh</button>
+        </div>
+    </header>
+
+    <div class="p-8 space-y-8">
+        <p class="text-xs text-slate-500 leading-relaxed max-w-3xl">
+            Every erasure request appears here, whether it came from a client application (the Data Client or your own
+            code, through <span class="font-mono">shred_principal</span> on the client API), an example script or an
+            administrator. The <b>Requested</b> column says which. This page is read-only. Legal holds and the manual
+            job are run through <span class="font-mono">/api/admin/erasure</span> with a SYSTEM_ADMIN account.
+        </p>
+
+        <div id="error-banner" class="hidden card border-red-200 bg-red-50 text-red-700 text-xs font-bold px-6 py-4"></div>
+
+        <section class="grid grid-cols-2 lg:grid-cols-5 gap-4" id="tiles"></section>
+
+        <section>
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-xs font-black text-slate-700 uppercase tracking-widest">Erasure job</h2>
+                <a href="erasure-jobs.html" class="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline">View job history &rarr;</a>
+            </div>
+            <div class="card px-6 py-5 grid grid-cols-2 lg:grid-cols-4 gap-6" id="job-summary">
+                <p class="text-slate-400 italic text-xs col-span-full">Loading job status...</p>
+            </div>
+        </section>
+
+        <section>
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-xs font-black text-slate-700 uppercase tracking-widest">Erasure register</h2>
+                <div class="flex gap-3">
+                    <select id="state-filter" class="text-xs border rounded-lg px-3 py-2 outline-none">
+                        <option value="">All states</option>
+                        <option value="SHREDDING">Shredding</option>
+                        <option value="PARTIAL">Partial</option>
+                        <option value="SHREDDED">Shredded</option>
+                    </select>
+                    <input type="text" id="register-search" placeholder="Find principal..." class="text-xs border rounded-lg px-4 py-2 w-56 outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+            </div>
+            <div class="card overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
+                            <th class="px-6 py-4">Principal</th>
+                            <th class="px-6 py-4">State</th>
+                            <th class="px-6 py-4">Destroyed</th>
+                            <th class="px-6 py-4">Retained</th>
+                            <th class="px-6 py-4">Requested</th>
+                            <th class="px-6 py-4 text-right">Certificate</th>
+                        </tr>
+                    </thead>
+                    <tbody id="register-body" class="text-sm divide-y divide-slate-100">
+                        <tr><td colspan="6" class="px-6 py-10 text-center text-slate-400 italic">Loading register...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="register-info" class="mt-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest"></div>
+        </section>
+
+        <section>
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-xs font-black text-slate-700 uppercase tracking-widest">Legal holds</h2>
+                <label class="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                    <input type="checkbox" id="open-holds-only" checked> Open holds only
+                </label>
+            </div>
+            <div class="card overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
+                            <th class="px-6 py-4">Hold</th>
+                            <th class="px-6 py-4">Principal</th>
+                            <th class="px-6 py-4">Reason and case</th>
+                            <th class="px-6 py-4">Placed</th>
+                            <th class="px-6 py-4">Released</th>
+                        </tr>
+                    </thead>
+                    <tbody id="holds-body" class="text-sm divide-y divide-slate-100">
+                        <tr><td colspan="5" class="px-6 py-10 text-center text-slate-400 italic">Loading holds...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section>
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-xs font-black text-slate-700 uppercase tracking-widest">Recent erasure activity</h2>
+                <select id="outcome-filter" class="text-xs border rounded-lg px-3 py-2 outline-none">
+                    <option value="">All outcomes</option>
+                    <option value="SUCCESS">Success</option>
+                    <option value="DENIED">Denied</option>
+                    <option value="ERROR">Error</option>
+                </select>
+            </div>
+            <div class="card overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
+                            <th class="px-6 py-4">Time</th>
+                            <th class="px-6 py-4">Actor</th>
+                            <th class="px-6 py-4">Operation</th>
+                            <th class="px-6 py-4">Outcome</th>
+                            <th class="px-6 py-4">Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activity-body" class="text-sm divide-y divide-slate-100">
+                        <tr><td colspan="5" class="px-6 py-10 text-center text-slate-400 italic">Loading activity...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="activity-info" class="mt-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest"></div>
+        </section>
+    </div>
+</main>
+
+<div id="cert-modal" class="hidden fixed inset-0 z-[60] modal-bg flex items-center justify-center p-6" onclick="if(event.target===this) closeCert()">
+    <div class="card w-full max-w-3xl max-h-[85vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+            <h3 class="text-xs font-black text-slate-700 uppercase tracking-widest">Erasure certificate</h3>
+            <button onclick="closeCert()" class="text-slate-400 hover:text-slate-700 text-lg leading-none">&times;</button>
+        </div>
+        <div id="cert-body" class="p-6 text-sm"></div>
+    </div>
+</div>
+
+<script>
+    const ERASURE_API = 'api/admin/erasure';
+    const AUDIT_API = 'api/admin/audit';
+    const TOKEN = localStorage.getItem('vaultToken');
+    const USER = localStorage.getItem('username') || 'Administrator';
+    if (!TOKEN) window.location.href = 'index.html';
+
+    // Operation names written by ErasureService and RoleGuard for the erasure endpoint.
+    const ACTIVITY_PREFIXES = ['ERASURE_', 'LEGAL_HOLD_', 'ADMIN_ERASURE:'];
+    const STATE_STYLE = {
+        SHREDDING: 'bg-amber-100 text-amber-700',
+        PARTIAL: 'bg-sky-100 text-sky-700',
+        SHREDDED: 'bg-green-100 text-green-700'
+    };
+    let register = [];
+
+    function esc(v) {
+        return String(v === null || v === undefined ? '' : v)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    function when(v) {
+        if (!v) return '<span class="text-slate-300">-</span>';
+        const d = new Date(String(v).replace(' ', 'T'));
+        return isNaN(d) ? esc(v) : esc(d.toLocaleString());
+    }
+    function setError(msg) {
+        const b = document.getElementById('error-banner');
+        if (msg) { b.textContent = msg; b.classList.remove('hidden'); } else { b.classList.add('hidden'); }
+    }
+
+    async function call(url, payload) {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+            body: JSON.stringify(payload)
+        });
+        if (res.status === 401) { window.location.href = 'index.html'; throw new Error('Session expired'); }
+        let data = null;
+        try { data = await res.json(); } catch (e) { /* non-JSON body */ }
+        if (!res.ok) throw new Error((data && (data.error || data.message)) || ('HTTP ' + res.status));
+        return data;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('display-name').textContent = USER;
+        document.getElementById('user-initials').textContent = USER.substring(0, 2).toUpperCase();
+        document.getElementById('state-filter').addEventListener('change', renderRegister);
+        document.getElementById('register-search').addEventListener('input', renderRegister);
+        document.getElementById('open-holds-only').addEventListener('change', loadHolds);
+        document.getElementById('outcome-filter').addEventListener('change', loadActivity);
+        refreshAll();
+        setInterval(() => {
+            if (document.getElementById('auto-refresh').checked && !document.hidden) refreshAll();
+        }, 15000);
+    });
+
+    async function refreshAll() {
+        setError(null);
+        await Promise.all([loadRegister(), loadHolds(), loadActivity(), loadJob()]);
+        document.getElementById('last-sync').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    }
+
+    // ---- register ---------------------------------------------------------------------
+
+    async function loadRegister() {
+        try {
+            const data = await call(ERASURE_API, { _func: 'get_erasure_register' });
+            register = data.register || [];
+            renderTiles();
+            renderRegister();
+        } catch (e) {
+            setError('Could not load the erasure register: ' + e.message +
+                '. If the schema is missing, apply db/03_erasure.sql.');
+            document.getElementById('register-body').innerHTML =
+                '<tr><td colspan="6" class="px-6 py-10 text-center text-red-400">Register unavailable.</td></tr>';
+        }
+    }
+
+    function renderTiles() {
+        const count = s => register.filter(r => r.state === s).length;
+        const tiles = [
+            ['Principals', register.length, 'text-slate-800'],
+            ['Shredding', count('SHREDDING'), 'text-amber-600'],
+            ['Partial', count('PARTIAL'), 'text-sky-600'],
+            ['Shredded', count('SHREDDED'), 'text-green-600'],
+            ['On legal hold', register.filter(r => r.on_hold).length, 'text-red-600']
+        ];
+        document.getElementById('tiles').innerHTML = tiles.map(t =>
+            `<div class="card px-5 py-4">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${t[0]}</p>
+                <p class="text-3xl font-black mt-1 ${t[2]}">${t[1]}</p>
+            </div>`).join('');
+    }
+
+    function viaBadge(by) {
+        const s = String(by || '');
+        if (s.startsWith('VAULT:')) {
+            return '<span class="badge bg-teal-100 text-teal-700">Client API</span> ' + esc(s.substring(6));
+        }
+        if (s === 'SYSTEM') return '<span class="badge bg-slate-100 text-slate-600">Scheduled job</span>';
+        return '<span class="badge bg-indigo-100 text-indigo-700">Admin</span> ' + esc(s);
+    }
+
+    function retainedCell(r) {
+        if (!r.records_retained) return '<span class="text-slate-300">0</span>';
+        const note = r.next_due ? 'next due ' + new Date(r.next_due).toLocaleDateString() : '';
+        return `<div class="font-bold text-slate-700">${esc(r.records_retained)}</div>` +
+               (note ? `<div class="text-[9px] text-slate-400 uppercase tracking-tighter">${esc(note)}</div>` : '');
+    }
+
+    function renderRegister() {
+        const state = document.getElementById('state-filter').value;
+        const term = document.getElementById('register-search').value.trim().toLowerCase();
+        const rows = register.filter(r =>
+            (!state || r.state === state) && (!term || String(r.principal_id).toLowerCase().includes(term)));
+        const body = document.getElementById('register-body');
+        document.getElementById('register-info').textContent =
+            `Showing ${rows.length} of ${register.length} principals` + (register.length >= 500 ? ' (the register lists the 500 most recent)' : '');
+        if (rows.length === 0) {
+            body.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-400 italic">No erasure requests match.</td></tr>';
+            return;
+        }
+        body.innerHTML = rows.map(r => `
+            <tr class="hover:bg-slate-50 transition">
+                <td class="px-6 py-4">
+                    <div class="font-mono text-[12px] font-bold text-slate-700">${esc(r.principal_id)}</div>
+                    ${r.on_hold ? '<span class="badge bg-red-100 text-red-700 mt-1">Legal hold</span>' : ''}
+                </td>
+                <td class="px-6 py-4"><span class="badge ${STATE_STYLE[r.state] || 'bg-slate-100 text-slate-600'}">${esc(r.state)}</span></td>
+                <td class="px-6 py-4 font-bold text-slate-700">${esc(r.records_destroyed)}</td>
+                <td class="px-6 py-4">${retainedCell(r)}</td>
+                <td class="px-6 py-4">
+                    <div class="text-[11px] font-mono text-slate-500">${when(r.requested_at)}</div>
+                    <div class="text-[9px] text-slate-400">${viaBadge(r.requested_by)}</div>
+                </td>
+                <td class="px-6 py-4 text-right">
+                    <button data-principal="${esc(r.principal_id)}" onclick="showCert(this.dataset.principal)"
+                        class="bg-slate-900 text-white px-3 py-1.5 rounded text-[9px] font-black uppercase tracking-widest hover:bg-indigo-600 transition">View</button>
+                </td>
+            </tr>`).join('');
+    }
+
+    // ---- certificate ------------------------------------------------------------------
+
+    function recordTable(rows, kind) {
+        if (!rows || rows.length === 0) return '<p class="text-xs text-slate-400 italic">None.</p>';
+        const last = kind === 'destroyed' ? 'Erased' : 'Retained until';
+        return `<table class="w-full text-left text-xs mt-2">
+            <thead><tr class="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
+                <th class="py-2 pr-4">Reference key</th><th class="py-2 pr-4">Entity</th><th class="py-2 pr-4">Flavour</th><th class="py-2">${last}</th>
+            </tr></thead><tbody class="divide-y divide-slate-100">` +
+            rows.map(r => `<tr>
+                <td class="py-2 pr-4 font-mono text-[11px]">${esc(r.reference_key)}</td>
+                <td class="py-2 pr-4">${esc(r.entity_code)}</td>
+                <td class="py-2 pr-4">${esc(r.flavor)}</td>
+                <td class="py-2">${kind === 'destroyed'
+                    ? when(r.erased_at) + (r.key_destroyed === false ? ' <span class="badge bg-amber-100 text-amber-700">key still held</span>' : '')
+                    : (r.retain_until ? 'held until ' + new Date(r.retain_until).toLocaleDateString() : '')}</td>
+            </tr>`).join('') + '</tbody></table>';
+    }
+
+    async function showCert(principal) {
+        const modal = document.getElementById('cert-modal');
+        const body = document.getElementById('cert-body');
+        body.innerHTML = '<p class="text-slate-400 italic">Loading certificate...</p>';
+        modal.classList.remove('hidden');
+        try {
+            const c = await call(ERASURE_API, { _func: 'get_erasure_certificate', principal_id: principal });
+            body.innerHTML = `
+                <div class="grid grid-cols-2 gap-4 text-xs mb-6">
+                    <div><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Principal</p><p class="font-mono font-bold">${esc(c.principal_id)}</p></div>
+                    <div><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">State</p><span class="badge ${STATE_STYLE[c.state] || 'bg-slate-100 text-slate-600'}">${esc(c.state)}</span></div>
+                    <div><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Requested by</p><p>${esc(c.requested_by)} &middot; ${when(c.requested_at)}</p></div>
+                    <div><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Completed</p><p>${when(c.shredded_at)}</p></div>
+                    <div class="col-span-2"><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Machine anchor</p><p class="font-mono text-[11px]">${esc(c.machine_id)}</p></div>
+                </div>
+                <h4 class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Destroyed (${(c.destroyed || []).length})</h4>
+                ${recordTable(c.destroyed, 'destroyed')}
+                <h4 class="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-6">Retained (${(c.retained || []).length})</h4>
+                ${recordTable(c.retained, 'retained')}
+                <p class="text-[10px] text-slate-400 mt-6">Generated ${when(c.generated_at)}. Reference keys and entity codes only; no personal data is held here.</p>`;
+        } catch (e) {
+            body.innerHTML = `<p class="text-red-500 text-xs font-bold">${esc(e.message)}</p>`;
+        }
+    }
+    function closeCert() { document.getElementById('cert-modal').classList.add('hidden'); }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCert(); });
+
+    // ---- legal holds ------------------------------------------------------------------
+
+    async function loadHolds() {
+        const body = document.getElementById('holds-body');
+        try {
+            const data = await call(ERASURE_API, {
+                _func: 'list_legal_holds',
+                open_only: document.getElementById('open-holds-only').checked
+            });
+            const holds = data.holds || [];
+            if (holds.length === 0) {
+                body.innerHTML = '<tr><td colspan="5" class="px-6 py-10 text-center text-slate-400 italic">No legal holds.</td></tr>';
+                return;
+            }
+            body.innerHTML = holds.map(h => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="px-6 py-4 font-mono text-[12px] font-bold text-slate-700">#${esc(h.hold_id)}</td>
+                    <td class="px-6 py-4 font-mono text-[12px]">${esc(h.principal_id)}</td>
+                    <td class="px-6 py-4">
+                        <div class="text-xs text-slate-700">${esc(h.reason)}</div>
+                        <div class="text-[9px] text-slate-400 uppercase tracking-tighter">${esc(h.case_ref)}</div>
+                    </td>
+                    <td class="px-6 py-4 text-[11px] font-mono text-slate-500">${when(h.placed_at)}<div class="text-[9px] text-slate-400">${esc(h.placed_by)}</div></td>
+                    <td class="px-6 py-4 text-[11px] font-mono text-slate-500">${h.released_at
+                        ? when(h.released_at) + `<div class="text-[9px] text-slate-400">${esc(h.released_by)}</div>`
+                        : '<span class="badge bg-red-100 text-red-700">Open</span>'}</td>
+                </tr>`).join('');
+        } catch (e) {
+            body.innerHTML = `<tr><td colspan="5" class="px-6 py-10 text-center text-red-400">${esc(e.message)}</td></tr>`;
+        }
+    }
+
+    // ---- job --------------------------------------------------------------------------
+
+    const JOB_STYLE = {
+        HEALTHY: 'bg-green-100 text-green-700',
+        WAITING: 'bg-slate-100 text-slate-600',
+        OVERDUE: 'bg-amber-100 text-amber-700',
+        FAILING: 'bg-red-100 text-red-700',
+        DISABLED: 'bg-slate-200 text-slate-600'
+    };
+
+    async function loadJob() {
+        const box = document.getElementById('job-summary');
+        try {
+            const j = await call(ERASURE_API, { _func: 'get_erasure_job', limit: 1 });
+            const last = j.last_run;
+            const cfg = j.config || {};
+            const cell = (label, html) =>
+                `<div><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">${label}</p>${html}</div>`;
+            const every = cfg.enabled ? 'every ' + esc(cfg.interval_minutes) + ' min' : (cfg.interval_minutes === 0 ? 'disabled' : 'not started');
+            box.innerHTML =
+                cell('Status', `<span class="badge ${JOB_STYLE[j.status] || 'bg-slate-100 text-slate-600'}">${esc(j.status)}</span>` +
+                    `<div class="text-[10px] text-slate-400 mt-1">${every}</div>`) +
+                cell('Last run', last
+                    ? `<div class="text-xs font-mono text-slate-600">${when(last.started_at)}</div>` +
+                      `<div class="text-[10px] mt-1 font-black uppercase ${last.status === 'OK' ? 'text-green-600' : 'text-red-500'}">${esc(last.status)} &middot; ${esc(last.trigger)}</div>`
+                    : '<span class="text-xs text-slate-400 italic">No runs recorded</span>') +
+                cell('Last success', `<div class="text-xs font-mono text-slate-600">${when(j.last_success)}</div>` +
+                    (j.consecutive_failures > 0 ? `<div class="text-[10px] mt-1 font-black uppercase text-red-500">${esc(j.consecutive_failures)} failed since</div>` : '')) +
+                cell('Next expected', `<div class="text-xs font-mono text-slate-600">${when(cfg.next_expected)}</div>`);
+            if (j.status === 'FAILING' || j.status === 'OVERDUE') {
+                setError('The erasure job is ' + j.status.toLowerCase() + '. Shreds run on request still complete, but partial principals past retention wait for the job. See the job history.');
+            }
+        } catch (e) {
+            box.innerHTML = '<p class="text-xs text-slate-400 italic col-span-full">Job status unavailable: ' + esc(e.message) +
+                '. If the schema is missing, apply db/03_erasure.sql.</p>';
+        }
+    }
+
+    // ---- activity ---------------------------------------------------------------------
+
+    async function loadActivity() {
+        const body = document.getElementById('activity-body');
+        try {
+            const data = await call(AUDIT_API, {
+                _func: 'get_audit_logs',
+                operationPrefixes: ACTIVITY_PREFIXES,
+                outcome: document.getElementById('outcome-filter').value,
+                page: 0,
+                size: 25
+            });
+            const logs = data.content || [];
+            document.getElementById('activity-info').textContent =
+                `Showing ${logs.length} of ${data.totalElements || 0} erasure events. Full history is on the Audit page.`;
+            if (logs.length === 0) {
+                body.innerHTML = '<tr><td colspan="5" class="px-6 py-10 text-center text-slate-400 italic">No erasure activity yet.</td></tr>';
+                return;
+            }
+            body.innerHTML = logs.map(l => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="px-6 py-4 text-[11px] font-mono text-slate-500">${when(l.logDatetime)}</td>
+                    <td class="px-6 py-4 text-xs font-bold text-slate-700">${esc(l.apiKey || 'System')}</td>
+                    <td class="px-6 py-4"><span class="font-mono text-[10px] font-bold text-slate-600 break-all">${esc(l.operationType)}</span></td>
+                    <td class="px-6 py-4"><span class="text-[10px] font-black uppercase ${l.outcome === 'SUCCESS' ? 'text-green-600' : 'text-red-500'}">${esc(l.outcome)}</span></td>
+                    <td class="px-6 py-4 text-xs text-slate-500">${esc(l.failureReason)}</td>
+                </tr>`).join('');
+        } catch (e) {
+            body.innerHTML = `<tr><td colspan="5" class="px-6 py-10 text-center text-red-400">${esc(e.message)}</td></tr>`;
+        }
+    }
+
+    function handleLogout() {
+        const t = localStorage.getItem('vaultToken');
+        fetch('api/admin/logout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + t },
+            body: JSON.stringify({ _func: 'logout' })
+        }).catch(() => {}).finally(() => {
+            localStorage.clear();
+            window.location.href = 'index.html';
+        });
+    }
+</script>
+</body>
+</html>

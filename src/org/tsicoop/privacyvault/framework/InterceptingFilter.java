@@ -52,11 +52,17 @@ public class InterceptingFilter implements Filter {
                 return;
             }
 
-            // Fail closed (docs/architecture.md Roadmap): refuse data-plane traffic while
+            // Fail closed (docs/design/architecture.md Roadmap): refuse data-plane traffic while
             // the key anchor is unhealthy. Admin login/status stay reachable.
             if (isDataPlane(servletPath) && !KmsProviderFactory.isHealthy()) {
                 OutputProcessor.sendError(res, HttpServletResponse.SC_SERVICE_UNAVAILABLE,
                         "Vault key anchor unavailable: " + KmsProviderFactory.getHealthError());
+                return;
+            }
+
+            if (isDataPlane(servletPath) && !FileStoreFactory.isHealthy()) {
+                OutputProcessor.sendError(res, HttpServletResponse.SC_SERVICE_UNAVAILABLE,
+                        "Vault file store unavailable: " + FileStoreFactory.getHealthError());
                 return;
             }
 
@@ -120,6 +126,8 @@ public class InterceptingFilter implements Filter {
         JSONSchemaValidator.createInstance(filterConfig.getServletContext());
         System.out.println("Loaded TSI Schema Validator");
         KmsProviderFactory.healthCheck();
+        FileStoreFactory.healthCheck();
+        ErasureService.startScheduler();
         System.out.println("TSI Privacy Vault started in "+System.getenv("TSI_PRIVACY_VAULT_ENV")+" environment");
     }
 }

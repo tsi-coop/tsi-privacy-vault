@@ -15,9 +15,11 @@ load_fixtures
 require_client_env
 : "${ID_ENTITY:?Set ID_ENTITY}" "${DATA_ENTITY:?Set DATA_ENTITY}" "${FILE_ENTITY:?Set FILE_ENTITY}"
 
-store() { # flavor entity base64content [fileName]
-  vault_call "$(jq -nc --arg t "$1" --arg e "$2" --arg c "$3" --arg f "${4:-}" \
-    '{_func:"store_data",entityType:$t,entityName:$e,content:$c} + (if $f=="" then {} else {fileName:$f} end)')"
+store() { # flavor entity base64content [fileName] [principal_id]
+  vault_call "$(jq -nc --arg t "$1" --arg e "$2" --arg c "$3" --arg f "${4:-}" --arg p "${5:-}" \
+    '{_func:"store_data",entityType:$t,entityName:$e,content:$c}
+     + (if $f=="" then {} else {fileName:$f} end)
+     + (if $p=="" then {} else {principal_id:$p} end)')"
 }
 fetch() {
   vault_call "$(jq -nc --arg r "$1" '{_func:"fetch_data","reference-key":$r}')"
@@ -52,6 +54,19 @@ fetch "$REF"
 expect_status 200 "fetch PDF file"
 expect_jq '.value' "$CONTENT" "fetched content equals stored content"
 expect_jq '.fileName' "example-contract.pdf" "file name is preserved"
+
+section "Linking a record to a principal"
+# principal_id is optional and opaque. It lets one request erase all of a person's records later.
+PRINCIPAL="example-principal-$(date +%s)"
+CONTENT="$(b64 "Note linked to $PRINCIPAL")"
+store DATA "$DATA_ENTITY" "$CONTENT" "" "$PRINCIPAL"
+expect_status 201 "store DATA value with principal_id"
+REF="$(jqr '.reference_key')"
+fetch "$REF"
+expect_status 200 "fetch record stored with principal_id"
+expect_jq '.value' "$CONTENT" "fetched value equals stored content"
+store DATA "$DATA_ENTITY" "$CONTENT" "" "not a valid id!"
+expect_status 400 "principal_id with unsafe characters is rejected"
 
 section "Unknown reference"
 fetch "00000000-0000-0000-0000-000000000000"

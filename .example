@@ -23,8 +23,6 @@ TSI_PRIVACY_VAULT_MASTER_KEY=6S6vH7pW2zN9kX4jR8mB3vC5xZ1aQ7yP0oL9iK2uJ4M
 TSI_PRIVACY_VAULT_BOOTSTRAP_TOKEN=
 # JWT Secret 
 TSI_PRIVACY_VAULT_JWT_SECRET=v7N2xQ9mR4kL1jP8bW5tZ3yX6sC0vA2d
-# Software Version
-TSI_PRIVACY_VAULT_SOFTWARE_VERSION=TSI PRIVACY VAULT v0.1
 # Max upload size (in KB)
 TSI_PRIVACY_VAULT_MAX_UPLOAD_KB=5120
 # Search Index Secret Key
@@ -32,7 +30,7 @@ TSI_PRIVACY_VAULT_INDEX_SECRET=k9#z!L2@P$5m*N8^qV1&bX7*jR3+fW0_
 # Data Export Path
  TSI_EXPORT_PATH=/var/lib/tsi/exports/
 
-# --- Key Management (docs/architecture.md) ---
+# --- Key Management (docs/design/architecture.md) ---
 # Intended root key anchor: LOCAL | AWS_KMS
 # Note: the wrapping anchor is switched via the activate_key_anchor admin API;
 # this variable declares operator intent and gates AWS configuration.
@@ -46,3 +44,21 @@ TSI_PRIVACY_VAULT_KMS_PROVIDER=LOCAL
 # Only set these when no instance role/profile is available:
 #AWS_ACCESS_KEY_ID=
 #AWS_SECRET_ACCESS_KEY=
+
+# --- File Storage (docs/design/architecture.md, Storage backends) ---
+# Where new FILE records are stored: DATABASE (default) | AWS_S3 | S3_COMPATIBLE
+# Only ciphertext is ever written to the object store. Existing records stay where they are.
+# Apply db/02_file_storage.sql to existing databases before enabling an object store.
+TSI_PRIVACY_VAULT_FILE_STORE=DATABASE
+#TSI_PRIVACY_VAULT_S3_BUCKET=my-vault-files
+#TSI_PRIVACY_VAULT_S3_REGION=ap-south-1
+# S3_COMPATIBLE only (MinIO, Ceph RGW). HTTPS required.
+#TSI_PRIVACY_VAULT_S3_ENDPOINT=https://minio.internal:9000
+# Optional key prefix so one bucket can serve several vaults
+#TSI_PRIVACY_VAULT_S3_PREFIX=vault-prod/
+# Credentials resolve via the AWS default chain (IAM role preferred).
+
+# --- Erasure by principal (docs/design/architecture.md, per-principal keys and crypto-erasure) ---
+# Minutes between scheduled erasure passes (shreds PARTIAL principals whose retention has expired).
+# 0 disables the job. Apply db/03_erasure.sql to existing databases first.
+#TSI_PRIVACY_VAULT_ERASURE_JOB_MINUTES=60

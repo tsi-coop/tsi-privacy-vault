@@ -16,3 +16,4 @@
 /api/admin/keyanchor=org.tsicoop.privacyvault.api.admin.KeyAnchor
 /api/admin/audit=org.tsicoop.privacyvault.api.admin.Audit
 /api/admin/legal=org.tsicoop.privacyvault.api.admin.Legal
+/api/admin/erasure=org.tsicoop.privacyvault.api.admin.Erasure

@@ -4,6 +4,7 @@ import org.tsicoop.privacyvault.framework.Action;
 import org.tsicoop.privacyvault.framework.PoolDB;
 import org.tsicoop.privacyvault.framework.InputProcessor;
 import org.tsicoop.privacyvault.framework.OutputProcessor;
+import org.tsicoop.privacyvault.framework.RoleGuard;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.json.simple.JSONArray;
@@ -15,6 +16,7 @@ import java.security.SecureRandom;
 import java.security.spec.KeySpec;
 import java.sql.*;
 import java.util.Base64;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -22,6 +24,8 @@ import java.util.UUID;
  * Implements the multi-part key generation and enterprise-grade PBKDF2 hashing pattern.
  */
 public class ApiKey implements Action {
+
+    private static final Set<String> MUTATING = Set.of("create_key", "update_key");
 
     @Override
     public void post(HttpServletRequest req, HttpServletResponse res) {
@@ -33,6 +37,8 @@ public class ApiKey implements Action {
                 OutputProcessor.errorResponse(res, 400, "Bad Request", "Missing _func", req.getRequestURI());
                 return;
             }
+
+            if (!RoleGuard.allow(req, res, "API_KEY", func, MUTATING)) return;
 
             switch (func.toLowerCase()) {
                 case "get_all_keys":

@@ -4,7 +4,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.sql.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.security.MessageDigest;
@@ -52,7 +54,13 @@ public class Vault implements Action {
                     break;
                 case "search_data":
                     handleSearch(input, apiKey, res);
-                    break;              
+                    break;
+                case "shred_principal":
+                    handleShredPrincipal(input, apiKey, clientIp, userAgent, res);
+                    break;
+                case "get_erasure_certificate":
+                    handleErasureCertificate(input, apiKey, res);
+                    break;
                 default:
                     OutputProcessor.sendError(res, 404, "Function not found.");
             }
@@ -85,7 +93,7 @@ public class Vault implements Action {
                          "FROM vault_search_index s " +
                          "JOIN vault_entities e ON s.entity_ref = e.entity_ref " +
                          "JOIN vault_entity_master m ON e.id_type_code = m.entity_code " +
-                         "WHERE s.index_hash = ? AND m.active = true";
+                         "WHERE s.index_hash = ? AND m.active = true AND e.erased_at IS NULL";
             
             ps = conn.prepareStatement(sql);
             ps.setString(1, queryHash);
@@ -269,7 +277,7 @@ public class Vault implements Action {
                     utilityId, 
                     ip, 
                     ua, 
-                    "FAILURE",
+                    "DENIED",
                     null,
                     utilityRef
                 );
@@ -301,6 +309,8 @@ public class Vault implements Action {
         String entityCode = (String) input.get("entityName");
         String plainValue = (String) input.get("content");
         String originalFileName = (String) input.get("fileName");
+        String principalId = input.get("principal_id") == null ? null : input.get("principal_id").toString().trim();
+        if (principalId != null && principalId.isEmpty()) principalId = null;
 
         if (entityCode == null || plainValue == null) {
             OutputProcessor.sendError(res, 400, "entityName and content are required.");
@@ -409,23 +419,74 @@ public class Vault implements Action {
         String ciphertextB64 = Base64.getEncoder().encodeToString(ciphertext);
 
         UUID referenceKey = UUID.randomUUID();
+
+        // Only FILE content moves to an external backend. ID and DATA stay in the database.
+        FileStore externalStore = isFile ? FileStoreFactory.getExternal(FileStoreFactory.getActiveBackend()) : null;
+        String storageBackend = FileStoreFactory.STORE_DATABASE;
+        String storageKey = null;
+        String contentSha256 = null;
+        String storedContent = ciphertextB64;
+        if (externalStore != null) {
+            // Upload first: a failure after this point leaves an orphan object, never a row pointing at nothing.
+            storageKey = referenceKey.toString();
+            contentSha256 = sha256Hex(ciphertext);
+            try {
+                externalStore.put(storageKey, ciphertext);
+            } catch (Exception e) {
+                e.printStackTrace();
+                rejectStore(apiKey, entityType, entityCode, ip, ua);
+                OutputProcessor.sendError(res, 503, "File storage backend unavailable.");
+                return;
+            }
+            storageBackend = externalStore.backendName();
+            storedContent = "";
+        }
+
         Connection conn = null;
         PreparedStatement ps = null;
         PoolDB pool = new PoolDB();
 
         try {
             conn = pool.getConnection();
-            String sql = "INSERT INTO vault_entities (entity_type, id_type_code, entity_ref, encrypted_content, encrypted_data_key, hashed_value_sha256, file_name, key_version, payload_cipher) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            if (principalId != null) {
+                // One transaction per principal store, serialised against a concurrent shred of the
+                // same principal, so a record can never slip in behind an erasure request.
+                conn.setAutoCommit(false);
+                ErasureService.lockPrincipal(conn, principalId);
+                if (ErasureService.isPrincipalErased(conn, principalId)) {
+                    conn.rollback();
+                    conn.setAutoCommit(true);
+                    if (externalStore != null) {
+                        try { externalStore.delete(storageKey); } catch (Exception ignored) { }
+                    }
+                    logVaultEvent(conn, apiKey, "STORE", entityType + ":" + entityCode + ":PRINCIPAL_ERASED", ip, ua, "DENIED", null, null);
+                    OutputProcessor.sendError(res, 409, "Principal has been erased. New records cannot be stored for it.");
+                    return;
+                }
+            }
+
+            // Policy hold: the rule in force now stays with the record.
+            Timestamp retainUntil = null;
+            if (def.retainDays != null && def.retainDays > 0) {
+                retainUntil = Timestamp.valueOf(LocalDateTime.now().plusDays(def.retainDays));
+            }
+
+            String sql = "INSERT INTO vault_entities (entity_type, id_type_code, entity_ref, encrypted_content, encrypted_data_key, hashed_value_sha256, file_name, key_version, payload_cipher, storage_backend, storage_key, content_sha256, principal_id, retain_until) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             ps = conn.prepareStatement(sql);
             ps.setString(1, entityType);
             ps.setString(2, entityCode);
             ps.setObject(3, referenceKey);
-            ps.setString(4, ciphertextB64);
+            ps.setString(4, storedContent);
             ps.setString(5, encryptedDataKey);
             ps.setString(6, computeHash(plainValue));
             ps.setString(7, safeFileName); // Sanitized name, null for non-file entities
             ps.setInt(8, keyVersion);
             ps.setString(9, payloadCipher);
+            ps.setString(10, storageBackend);
+            ps.setString(11, storageKey);
+            ps.setString(12, contentSha256);
+            ps.setString(13, principalId);
+            ps.setTimestamp(14, retainUntil);
             ps.executeUpdate();
 
             // --- INVERTED INDEXING ---
@@ -461,6 +522,7 @@ public class Vault implements Action {
             // --- END INDEXING ---
 
             logVaultEvent(conn, apiKey, "STORE", entityType+":"+entityCode+":"+referenceKey, ip, ua, "SUCCESS", referenceKey, null);
+            if (principalId != null) conn.commit();
 
             JSONObject out = new JSONObject();
             out.put("success", true);
@@ -468,13 +530,95 @@ public class Vault implements Action {
             OutputProcessor.send(res, 201, out);
         } catch (Exception e) {
             e.printStackTrace();
+            if (externalStore != null) {
+                try {
+                    externalStore.delete(storageKey); // best effort; a leftover object is an orphan, not a leak
+                } catch (Exception cleanup) {
+                    System.err.println("Orphan object left in " + storageBackend + ": " + storageKey);
+                }
+            }
             if (conn != null) {
+                try { if (!conn.getAutoCommit()) { conn.rollback(); conn.setAutoCommit(true); } } catch (Exception ignored) { }
                 logVaultEvent(conn, apiKey, "STORE", entityType+":"+entityCode+":"+referenceKey, ip, ua, "ERROR", referenceKey, null);
             }
             OutputProcessor.sendError(res, 500, "Store failed.");
         } finally {
             pool.cleanup(null, ps, conn);
         }
+    }
+
+    /** Every entity code under which the principal holds records, erased or not. */
+    private List<String> entityCodesOf(String principalId) throws SQLException {
+        List<String> codes = new ArrayList<>();
+        Connection conn = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        PoolDB pool = new PoolDB();
+        try {
+            conn = pool.getConnection();
+            ps = conn.prepareStatement("SELECT DISTINCT id_type_code FROM vault_entities WHERE principal_id = ?");
+            ps.setString(1, principalId);
+            rs = ps.executeQuery();
+            while (rs.next()) codes.add(rs.getString(1));
+        } finally {
+            pool.cleanup(rs, ps, conn);
+        }
+        return codes;
+    }
+
+    /**
+     * Erasure requested by a client application. The key must have WRITE on every entity type that
+     * holds a record of the principal, so a key can never erase data it is not allowed to change.
+     * Policy holds and legal holds are enforced by ErasureService exactly as for an admin.
+     */
+    private void handleShredPrincipal(JSONObject input, String apiKey, String ip, String ua, HttpServletResponse res) throws Exception {
+        String principalId = (String) input.get("principal_id");
+        if (principalId == null || principalId.trim().isEmpty()) {
+            OutputProcessor.sendError(res, 400, "principal_id is required.");
+            return;
+        }
+        if (!principalId.equals(input.get("confirm"))) {
+            OutputProcessor.sendError(res, 400, "confirm must equal principal_id. Shredding is irreversible.");
+            return;
+        }
+        String actor = "VAULT:" + apiKey;
+        List<String> codes = entityCodesOf(principalId);
+        if (codes.isEmpty()) {
+            OutputProcessor.sendError(res, 404, "No records are linked to this principal_id.");
+            return;
+        }
+        for (String code : codes) {
+            if (!isAuthorized(apiKey, code, "WRITE")) {
+                ErasureService.audit("ERASURE_SHRED:" + principalId, actor, ip, ua, "DENIED", "no write access to " + code);
+                OutputProcessor.sendError(res, 403, "Write access denied for entity " + code
+                        + ". Erasing a principal needs write access to every entity type that holds its records.");
+                return;
+            }
+        }
+        ErasureService.Outcome o = ErasureService.shredPrincipal(principalId, actor, ip, ua);
+        OutputProcessor.send(res, o.status, o.body);
+    }
+
+    /** Erasure certificate for a principal. The key needs READ on every entity type involved. */
+    private void handleErasureCertificate(JSONObject input, String apiKey, HttpServletResponse res) throws Exception {
+        String principalId = (String) input.get("principal_id");
+        if (principalId == null || principalId.trim().isEmpty()) {
+            OutputProcessor.sendError(res, 400, "principal_id is required.");
+            return;
+        }
+        List<String> codes = entityCodesOf(principalId);
+        if (codes.isEmpty()) {
+            OutputProcessor.sendError(res, 404, "No erasure request for this principal.");
+            return;
+        }
+        for (String code : codes) {
+            if (!isAuthorized(apiKey, code, "READ")) {
+                OutputProcessor.sendError(res, 403, "Read access denied for entity " + code + ".");
+                return;
+            }
+        }
+        ErasureService.Outcome o = ErasureService.certificate(principalId);
+        OutputProcessor.send(res, o.status, o.body);
     }
 
     /** Entity rules loaded from vault_entity_master. */
@@ -484,6 +628,7 @@ public class Vault implements Action {
         String mimeTypes;
         Integer maxSizeKb;
         boolean active;
+        Integer retainDays;
     }
 
     private EntityDefinition loadEntityDefinition(String entityCode) throws SQLException {
@@ -493,7 +638,7 @@ public class Vault implements Action {
         PoolDB pool = new PoolDB();
         try {
             conn = pool.getConnection();
-            ps = conn.prepareStatement("SELECT flavor, validation_regex, mime_types, max_size_kb, active FROM vault_entity_master WHERE entity_code = ?");
+            ps = conn.prepareStatement("SELECT flavor, validation_regex, mime_types, max_size_kb, active, retain_days FROM vault_entity_master WHERE entity_code = ?");
             ps.setString(1, entityCode);
             rs = ps.executeQuery();
             if (!rs.next()) return null;
@@ -504,6 +649,8 @@ public class Vault implements Action {
             int kb = rs.getInt("max_size_kb");
             d.maxSizeKb = rs.wasNull() ? null : kb;
             d.active = rs.getBoolean("active");
+            int days = rs.getInt("retain_days");
+            d.retainDays = rs.wasNull() ? null : days;
             return d;
         } finally {
             pool.cleanup(rs, ps, conn);
@@ -573,7 +720,7 @@ public class Vault implements Action {
             pool = new PoolDB();
             conn = pool.getConnection();
             // SELECT now includes the file_name
-            ps = conn.prepareStatement("SELECT entity_type, id_type_code, encrypted_content, encrypted_data_key, file_name, key_version, payload_cipher FROM vault_entities WHERE entity_ref = ?");
+            ps = conn.prepareStatement("SELECT entity_type, id_type_code, encrypted_content, encrypted_data_key, file_name, key_version, payload_cipher, storage_backend, storage_key, content_sha256, erased_at FROM vault_entities WHERE entity_ref = ?");
             ps.setObject(1, UUID.fromString(ref));
             rs = ps.executeQuery();
             
@@ -587,14 +734,48 @@ public class Vault implements Action {
                     return;
                 }
                 
+                // Erased is a distinct outcome so callers can tell erasure from corruption.
+                if (rs.getTimestamp("erased_at") != null) {
+                    logVaultEvent(conn, apiKey, "FETCH", entityType+":"+entityCode+":"+ref+":ERASED", ip, ua, "DENIED", UUID.fromString(ref), null);
+                    OutputProcessor.sendError(res, 410, "Record erased.");
+                    return;
+                }
+
                 // Decryption Logic
                 String ciphertextB64 = rs.getString("encrypted_content");
+                String storageBackend = rs.getString("storage_backend");
+                byte[] ciphertext;
+                FileStore store = FileStoreFactory.getExternal(storageBackend); // routes by the row, not the active backend
+                if (store == null) {
+                    ciphertext = Base64.getDecoder().decode(ciphertextB64);
+                } else {
+                    String storageKey = rs.getString("storage_key");
+                    byte[] stored;
+                    try {
+                        stored = store.get(storageKey);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        logVaultEvent(conn, apiKey, "FETCH", ref, ip, ua, "ERROR", UUID.fromString(ref), null);
+                        OutputProcessor.sendError(res, 503, "File storage backend unavailable.");
+                        return;
+                    }
+                    String expected = rs.getString("content_sha256");
+                    if (stored == null || expected == null || !expected.equals(sha256Hex(stored))) {
+                        // Integrity failure, never a silent bad read
+                        System.err.println("INTEGRITY: " + storageBackend + " object " + storageKey
+                                + (stored == null ? " is missing" : " failed its SHA-256 check"));
+                        logVaultEvent(conn, apiKey, "FETCH", ref + ":INTEGRITY_FAILURE:" + storageBackend + ":" + storageKey,
+                                ip, ua, "ERROR", UUID.fromString(ref), null);
+                        OutputProcessor.sendError(res, 500, "Stored file failed its integrity check.");
+                        return;
+                    }
+                    ciphertext = stored;
+                }
                 String encryptedDataKey = rs.getString("encrypted_data_key");
                 int keyVersion = rs.getInt("key_version");
                 String payloadCipher = rs.getString("payload_cipher");
                 String plaintextDataKeyB64 = kms.decryptDataKey(encryptedDataKey, keyVersion);
                 byte[] rawPlaintextKey = Base64.getDecoder().decode(plaintextDataKeyB64);
-                byte[] ciphertext = Base64.getDecoder().decode(ciphertextB64);
                 byte[] decryptedBytes = kms.aesDecrypt(ciphertext, rawPlaintextKey, payloadCipher);
                 String decrypted = new String(decryptedBytes, "UTF-8");
 
@@ -612,7 +793,7 @@ public class Vault implements Action {
                 out.put("fileName", fileName); // Return filename in JSON for UI flexibility
                 OutputProcessor.send(res, 200, out);
             } else {
-                logVaultEvent(conn, apiKey, "FETCH", ref, ip, ua, "FAILURE", UUID.fromString(ref), null);
+                logVaultEvent(conn, apiKey, "FETCH", ref, ip, ua, "ERROR", UUID.fromString(ref), null);
                 OutputProcessor.sendError(res, 404, "Reference not found.");
             }
         } finally {
@@ -652,6 +833,13 @@ public class Vault implements Action {
         } finally {
             try { if (ps != null) ps.close(); } catch (Exception ignored) {}
         }
+    }
+
+    private static String sha256Hex(byte[] data) throws Exception {
+        byte[] digest = MessageDigest.getInstance("SHA-256").digest(data);
+        StringBuilder sb = new StringBuilder();
+        for (byte b : digest) sb.append(String.format("%02x", b));
+        return sb.toString();
     }
 
     private String computeHash(String input) throws Exception {
