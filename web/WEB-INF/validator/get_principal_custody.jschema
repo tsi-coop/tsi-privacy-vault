@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "get_principal_custody",
+  "type": "object",
+  "properties": {
+    "_func": { "type": "string", "const": "get_principal_custody" },
+    "principal_id": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "reference_key": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "limit": { "type": "integer", "minimum": 1, "maximum": 1000 }
+  },
+  "required": ["_func"],
+  "additionalProperties": false
+}

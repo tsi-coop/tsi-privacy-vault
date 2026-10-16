@@ -600,6 +600,11 @@ public class ErasureService {
     /** Interval of the scheduler in minutes. 0 means disabled, -1 means not started in this process. */
     private static volatile long intervalMinutes = -1;
 
+    /** Scheduler interval in minutes for display: 0 disabled, -1 not started in this process. */
+    public static long getIntervalMinutes() {
+        return intervalMinutes;
+    }
+
     /**
      * Writes one row to erasure_job_runs. Never throws: losing the history must not fail the job,
      * and the table is absent until db/03_erasure.sql has been re-applied. The error text carries

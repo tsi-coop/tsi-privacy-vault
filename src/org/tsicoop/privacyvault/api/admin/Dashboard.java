@@ -75,7 +75,7 @@ public class Dashboard implements Action {
      * degrade to an error note instead of failing the dashboard, for example before
      * db/02_file_storage.sql has been applied.
      */
-    private JSONObject getFileStorage(Connection conn, PoolDB pool) {
+    static JSONObject getFileStorage(Connection conn, PoolDB pool) {
         JSONObject fs = FileStoreFactory.describeActive();
         fs.put("healthy", FileStoreFactory.isHealthy());
         fs.put("health_error", FileStoreFactory.getHealthError());

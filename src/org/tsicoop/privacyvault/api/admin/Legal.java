@@ -7,6 +7,7 @@ import org.json.simple.JSONObject;
 import org.tsicoop.privacyvault.framework.Action;
 import org.tsicoop.privacyvault.framework.BSACertificateGenerator;
 import org.tsicoop.privacyvault.framework.BuildInfo;
+import org.tsicoop.privacyvault.framework.CustodyService;
 import org.tsicoop.privacyvault.framework.InputProcessor;
 import org.tsicoop.privacyvault.framework.OutputProcessor;
 import org.tsicoop.privacyvault.framework.PoolDB;
@@ -47,14 +48,44 @@ public class Legal implements Action {
                 case "get_legal_ledger":
                     output = getLegalLedger(input);
                     break;
+                case "get_principal_custody": {
+                    int limit = input.get("limit") instanceof Number ? ((Number) input.get("limit")).intValue()
+                            : CustodyService.DEFAULT_EVENT_LIMIT;
+                    OutputProcessor.send(res, HttpServletResponse.SC_OK,
+                            CustodyService.build((String) input.get("principal_id"), (String) input.get("reference_key"),
+                                    Math.max(1, Math.min(limit, 1000))));
+                    return;
+                }
+                case "generate_principal_certificate": {
+                    JSONObject data = CustodyService.certificate((String) input.get("principal_id"),
+                            (String) input.get("reference_key"));
+                    JSONObject subj = (JSONObject) data.get("subject");
+                    String name = subj.get("principal_id") != null ? String.valueOf(subj.get("principal_id"))
+                            : String.valueOf(input.get("reference_key"));
+                    res.setContentType("application/pdf");
+                    res.setHeader("Content-Disposition", "attachment; filename=\"BSA_Custody_"
+                            + name.replaceAll("[^A-Za-z0-9._-]", "_") + ".pdf\"");
+                    certGenerator.streamCustodyCertificate(data, res.getOutputStream());
+                    return;
+                }
                 case "generate_entity_bsa_certificate":
                     handleEntityCertGen((String) input.get("referenceKey"), res);
                     return; // the PDF or the error has been written; nothing more to send
+                case "generate_utility_bsa_certificate":
+                    OutputProcessor.sendError(res, 400, "Certificates are issued for stored records only. "
+                            + "Utility events are in the audit log but are not certifiable.");
+                    return;
                 default:
                     OutputProcessor.sendError(res, 404, "Function not found.");
             }
+        } catch (CustodyService.CustodyException e) {
+            OutputProcessor.sendError(res, e.status, e.getMessage());
         } catch (Exception e) {
-            OutputProcessor.sendError(res, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Forensic query failed");
+            if (e instanceof IllegalArgumentException) {
+                OutputProcessor.sendError(res, 400, "Invalid reference key.");
+            } else {
+                OutputProcessor.sendError(res, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Forensic query failed: " + e.getMessage());
+            }
             e.printStackTrace();
         }
         OutputProcessor.send(res, HttpServletResponse.SC_OK, output);
@@ -88,7 +119,9 @@ public class Legal implements Action {
                 // An erased record keeps no hash of its value, so there is nothing to certify.
                 // The erasure certificate (get_erasure_certificate) covers it instead.
                 if (rs.getString("hashed_value_sha256") == null) {
-                    throw new Exception("Record " + ref + " has been erased. Use the erasure certificate.");
+                    OutputProcessor.sendError(res, 410, "Record " + ref
+                            + " has been erased, so there is no value to certify. Use the erasure certificate on the Erasure page.");
+                    return;
                 }
                 // MATCH THESE KEYS TO YOUR PDF TEMPLATE
                 forensicData.put("sha256_hash", rs.getString("hashed_value_sha256")); // HASH (SHA256)
@@ -141,6 +174,10 @@ public class Legal implements Action {
                     if (vrs != null) try { vrs.close(); } catch (Exception ignored) { }
                     if (vps != null) try { vps.close(); } catch (Exception ignored) { }
                 }
+            } else {
+                OutputProcessor.sendError(res, 404, "No stored record with an audit event was found for " + ref
+                        + ". A certificate can only be issued for a record that was stored.");
+                return;
             }
         } finally {
             pool.cleanup(rs, ps, conn);

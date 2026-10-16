@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TSI Privacy Vault - Legal Evidence</title>
+    <title>TSI Privacy Vault - Legal Custody</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { --vault-primary: #0f172a; --vault-accent: #6366f1; --background: #f8fafc; }
@@ -12,6 +12,10 @@
         .nav-link { display: flex; align-items: center; padding: 12px 24px; color: #94a3b8; font-size: 0.875rem; font-weight: 500; }
         .nav-link:hover, .nav-link.active { background-color: #1e293b; color: white; border-right: 4px solid var(--vault-accent); }
         .card { background: white; border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; }
+        .tl { position: relative; margin-left: 6px; border-left: 2px solid #e2e8f0; }
+        .tl > div { position: relative; padding: 0 0 14px 18px; }
+        .tl > div::before { content: ""; position: absolute; left: -6px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: var(--dot, #94a3b8); border: 2px solid white; }
         @media (min-width: 1024px) { main { padding-left: 260px; } }
     </style>
 </head>
@@ -31,7 +35,7 @@
         <a href="audit.html" class="nav-link">Audit</a>
         <a href="legal.html" class="nav-link active">Legal</a>
         <a href="erasure.html" class="nav-link">Erasure</a>
-        <a href="keyanchor.html" class="nav-link">Key Anchor</a>
+        <a href="settings.html" class="nav-link">Settings</a>
     </nav>
     <div class="p-6 border-t border-slate-800">
         <div class="flex items-center gap-3">
@@ -46,31 +50,34 @@
 
 <main class="flex-1 min-h-screen">
     <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-40">
-        <h1 class="text-sm font-bold text-slate-500 uppercase tracking-widest text-[10px]">BSA Forensic Evidence Ledger</h1>
-        <div class="flex gap-4">
-            <input type="text" id="legal-search" placeholder="Search UUID or Principal..." class="text-xs border rounded-lg px-4 py-2 w-64 outline-none focus:ring-2 focus:ring-indigo-500">
-            <button onclick="fetchLegalLogs()" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition">Refresh</button>
-        </div>
+        <h1 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Custody &amp; Evidence</h1>
+        <span id="last-sync" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest"></span>
     </header>
 
-    <div class="p-8">
-        <div class="card overflow-hidden">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
-                        <th class="px-6 py-4">Forensic Reference</th>
-                        <th class="px-6 py-4">Operation</th>
-                        <th class="px-6 py-4">Machine ID & IP</th>
-                        <th class="px-6 py-4">Timestamp</th>
-                        <th class="px-6 py-4 text-right">Action</th>
-                    </tr>
-                </thead>
-                <tbody id="legal-table-body" class="text-sm divide-y divide-slate-100">
-                    <tr><td colspan="5" class="px-6 py-10 text-center text-slate-400 italic">Synchronizing legal ledger...</td></tr>
-                </tbody>
-            </table>
+    <div class="p-8 space-y-6">
+        <form id="search-form" class="card p-5 flex flex-wrap items-center gap-3">
+            <select id="search-mode" class="text-xs border rounded-lg px-3 py-2 outline-none">
+                <option value="principal">Principal ID</option>
+                <option value="reference">Reference key</option>
+            </select>
+            <input type="text" id="search-input" autocomplete="off" placeholder="Enter a principal ID"
+                   class="flex-1 min-w-[260px] text-sm border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
+            <button type="submit" class="bg-slate-900 text-white px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition">Find custody trail</button>
+        </form>
+
+        <div id="message" class="hidden card px-6 py-4 text-xs font-bold"></div>
+
+        <div id="empty" class="card px-8 py-12 text-center">
+            <p class="text-sm font-black text-slate-700 uppercase tracking-widest">Start with a person</p>
+            <p class="text-xs text-slate-500 mt-3 max-w-xl mx-auto leading-relaxed">
+                Search by principal ID to see every record the vault holds for them and, against each record, what has
+                happened to it: when it was stored, who fetched or searched it, and whether it has been erased. One
+                certificate covers the whole custody lifecycle. Records stored without a principal ID can be found by
+                their reference key.
+            </p>
         </div>
-        <div id="pagination-info" class="mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest"></div>
+
+        <div id="result" class="hidden space-y-6"></div>
     </div>
 </main>
 
@@ -78,105 +85,253 @@
     const LEGAL_API = 'api/admin/legal';
     const TOKEN = localStorage.getItem('vaultToken');
     const USER = localStorage.getItem('username') || 'LegalOfficer';
+    if (!TOKEN) window.location.href = 'index.html';
+
+    let current = null;   // { principal_id, reference_key } of the last successful search
+
+    const KIND_STYLE = {
+        STORE:  { dot: '#16a34a', badge: 'bg-green-100 text-green-700' },
+        FETCH:  { dot: '#0284c7', badge: 'bg-sky-100 text-sky-700' },
+        SEARCH: { dot: '#7c3aed', badge: 'bg-violet-100 text-violet-700' },
+        ERASE:  { dot: '#dc2626', badge: 'bg-red-100 text-red-700' },
+        OTHER:  { dot: '#94a3b8', badge: 'bg-slate-100 text-slate-600' }
+    };
+    const STATE_STYLE = {
+        SHREDDING: 'bg-amber-100 text-amber-700',
+        PARTIAL: 'bg-sky-100 text-sky-700',
+        SHREDDED: 'bg-green-100 text-green-700'
+    };
+
+    function esc(v) {
+        return String(v === null || v === undefined ? '' : v)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    function when(v) {
+        if (!v) return '<span class="text-slate-300">-</span>';
+        const d = new Date(v);
+        return isNaN(d) ? esc(v) : esc(d.toLocaleString());
+    }
+    function day(v) {
+        if (!v) return '-';
+        const d = new Date(v);
+        return isNaN(d) ? esc(v) : esc(d.toLocaleDateString());
+    }
+    function showMessage(text, isError) {
+        const m = document.getElementById('message');
+        if (!text) { m.classList.add('hidden'); return; }
+        m.className = 'card px-6 py-4 text-xs font-bold ' + (isError ? 'border-red-200 bg-red-50 text-red-700' : 'text-slate-600');
+        m.textContent = text;
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('display-name').textContent = USER;
         document.getElementById('user-initials').textContent = USER.substring(0, 2).toUpperCase();
-        fetchLegalLogs();
-
-        document.getElementById('legal-search').addEventListener('input', (e) => {
-            const term = e.target.value.toLowerCase();
-            const rows = document.querySelectorAll('#legal-table-body tr');
-            rows.forEach(row => {
-                row.style.display = row.innerText.toLowerCase().includes(term) ? '' : 'none';
-            });
+        document.getElementById('search-mode').addEventListener('change', e => {
+            document.getElementById('search-input').placeholder =
+                e.target.value === 'principal' ? 'Enter a principal ID' : 'Enter a reference key (UUID)';
         });
+        document.getElementById('search-form').addEventListener('submit', e => { e.preventDefault(); search(); });
+        // Deep link from other pages: legal.html?principal=ABC or ?ref=<uuid>
+        const q = new URLSearchParams(location.search);
+        if (q.get('principal')) { document.getElementById('search-input').value = q.get('principal'); search(); }
+        else if (q.get('ref')) {
+            document.getElementById('search-mode').value = 'reference';
+            document.getElementById('search-input').value = q.get('ref'); search();
+        }
     });
 
-    async function fetchLegalLogs() {
-        try {
-            const res = await fetch(LEGAL_API, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
-                body: JSON.stringify({ 
-                    "_func": "get_legal_ledger",
-                    "search_term": document.getElementById('legal-search').value 
-                })
-            });
-            const data = await res.json();
-            const tbody = document.getElementById('legal-table-body');
-            
-            if (res.ok) {
-                const logs = data.content || []; 
-                if (logs.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-10 text-center text-slate-400 italic">No certifiable evidence found.</td></tr>';
-                    return;
-                }
-                if(data.totalElements) {
-                    document.getElementById('pagination-info').textContent = `Showing ${logs.length} forensic records`;
-                }
+    function request() {
+        const v = document.getElementById('search-input').value.trim();
+        if (!v) return null;
+        return document.getElementById('search-mode').value === 'principal'
+            ? { principal_id: v } : { reference_key: v };
+    }
 
-                tbody.innerHTML = logs.map(log => `
-                    <tr class="hover:bg-slate-50 transition">
-                        <td class="px-6 py-4">
-                            <div class="font-mono text-[11px] font-bold text-slate-700">${log.referenceKey}</div>
-                            <div class="text-[9px] text-indigo-500 font-bold uppercase tracking-tighter mt-1">${log.refType} SOURCE</div>
-                        </td>
-                        <td class="px-6 py-4">
-                            <span class="px-2 py-0.5 rounded text-[10px] font-black bg-slate-100 text-slate-600 uppercase">${log.operationType}</span>
-                            <div class="text-[10px] font-bold text-slate-400 mt-1 uppercase">${log.apiKey || 'System'}</div>
-                        </td>
-                        <td class="px-6 py-4">
-                            <div class="text-[10px] font-mono text-indigo-600 font-bold">${log.machineId || 'N/A'}</div>
-                            <div class="text-[9px] text-slate-400">${log.clientIp}</div>
-                        </td>
-                        <td class="px-6 py-4 text-[11px] font-mono text-slate-500">
-                            ${new Date(log.logDatetime).toLocaleString()}
-                        </td>
-                        <td class="px-6 py-4 text-right">
-                            <button onclick="generateBSAEvidence('${log.referenceKey}', '${log.refType}')" 
-                                    class="bg-slate-900 text-white px-3 py-1.5 rounded text-[9px] font-black uppercase tracking-widest hover:bg-indigo-600 transition shadow-sm">
-                                Generate Certificate
-                            </button>
-                        </td>
-                    </tr>`).join('');
+    async function post(payload) {
+        return fetch(LEGAL_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+            body: JSON.stringify(payload)
+        });
+    }
+
+    async function errorText(res) {
+        try { const b = await res.json(); return b.error || b.message || ('HTTP ' + res.status); }
+        catch (e) { return 'HTTP ' + res.status; }
+    }
+
+    async function search() {
+        const req = request();
+        if (!req) { showMessage('Enter a principal ID or a reference key.', true); return; }
+        showMessage('Loading custody trail...', false);
+        try {
+            const res = await post(Object.assign({ _func: 'get_principal_custody' }, req));
+            if (res.status === 401) { window.location.href = 'index.html'; return; }
+            if (!res.ok) {
+                current = null;
+                document.getElementById('result').classList.add('hidden');
+                document.getElementById('empty').classList.add('hidden');
+                showMessage(await errorText(res), true);
+                return;
             }
-        } catch (err) { 
-            console.error("Forensic sync failed", err);
-            tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-10 text-center text-red-400">Connectivity Error: Failed to reach legal ledger.</td></tr>';
+            const data = await res.json();
+            current = req;
+            showMessage(null);
+            document.getElementById('empty').classList.add('hidden');
+            render(data);
+            document.getElementById('last-sync').textContent = 'Loaded ' + new Date().toLocaleTimeString();
+        } catch (err) {
+            showMessage('Could not reach the legal service: ' + err.message, true);
         }
     }
 
-    async function generateBSAEvidence(refKey, refType) {
-        // Determine correct function based on source type
-        const func = refType === 'ENTITY' ? 'generate_entity_bsa_certificate' : 'generate_utility_bsa_certificate';
-        
-        try {
-            const response = await fetch(LEGAL_API, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
-                body: JSON.stringify({ 
-                    "_func": func,
-                    "referenceKey": refKey 
-                })
-            });
+    function tile(label, value, color) {
+        return `<div class="card px-5 py-4">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${label}</p>
+            <p class="text-3xl font-black mt-1 ${color || 'text-slate-800'}">${esc(value)}</p></div>`;
+    }
 
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `BSA_Cert_${refKey}.pdf`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-            } else {
-                alert("Error: Evidence cannot be generated for this record.");
-            }
+    function render(d) {
+        const s = d.subject, sum = d.summary, er = s.erasure;
+        const isPrincipal = s.mode === 'PRINCIPAL';
+        const openHolds = (s.holds || []).filter(h => !h.released_at);
+
+        let html = `
+        <div class="card p-6 flex flex-wrap items-center justify-between gap-4">
+            <div>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${isPrincipal ? 'Data principal' : 'Single record'}</p>
+                <p class="text-xl font-black text-slate-900 font-mono break-all">${isPrincipal ? esc(s.principal_id) : esc(d.records[0] && d.records[0].reference_key)}</p>
+                <div class="mt-2 flex flex-wrap gap-2">
+                    ${er ? `<span class="badge ${STATE_STYLE[er.state] || 'bg-slate-100 text-slate-600'}">Erasure ${esc(er.state)}</span>` : ''}
+                    ${openHolds.length ? `<span class="badge bg-red-100 text-red-700">Legal hold (${openHolds.length})</span>` : ''}
+                </div>
+                ${s.note ? `<p class="text-[11px] text-amber-700 font-bold mt-3">${esc(s.note)}</p>` : ''}
+            </div>
+            <button onclick="downloadCertificate()" class="bg-indigo-600 text-white px-5 py-3 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition shadow">
+                Generate custody certificate
+            </button>
+        </div>
+        <div class="grid grid-cols-2 lg:grid-cols-6 gap-4">
+            ${tile('Records', sum.records)}
+            ${tile('Held', sum.held, 'text-green-600')}
+            ${tile('Erased', sum.erased, 'text-red-600')}
+            ${tile('Stores', sum.store_events)}
+            ${tile('Fetches', sum.fetch_events, 'text-sky-600')}
+            ${tile('Searches', sum.search_events, 'text-violet-600')}
+        </div>`;
+
+        if (isPrincipal && (er || (s.erasure_events || []).length || (s.holds || []).length)) {
+            html += erasureCard(s);
+        }
+
+        html += '<div><h2 class="text-xs font-black text-slate-700 uppercase tracking-widest mb-3">Records and their custody lifecycle</h2><div class="space-y-4">';
+        html += d.records.length ? d.records.map(recordCard).join('')
+            : '<div class="card px-6 py-8 text-center text-xs text-slate-400 italic">No records remain for this principal.</div>';
+        html += '</div></div>';
+
+        const el = document.getElementById('result');
+        el.innerHTML = html;
+        el.classList.remove('hidden');
+    }
+
+    function erasureCard(s) {
+        const er = s.erasure;
+        let rows = '';
+        if (er) {
+            rows += `<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                <div><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Requested</p>${when(er.requested_at)}<div class="text-[10px] text-slate-400">${esc(er.requested_by)}</div></div>
+                <div><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Completed</p>${when(er.shredded_at)}</div>
+                <div><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Destroyed / retained</p><span class="font-bold">${esc(er.records_destroyed)}</span> / <span class="font-bold">${esc(er.records_retained)}</span></div>
+                <div><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Next due</p>${day(er.next_due)}</div>
+            </div>`;
+        }
+        const holds = (s.holds || []).map(h => `<div class="text-xs text-slate-600 mt-3">
+            <span class="badge ${h.released_at ? 'bg-slate-100 text-slate-600' : 'bg-red-100 text-red-700'}">${h.released_at ? 'Released' : 'Open'}</span>
+            Hold #${esc(h.hold_id)} placed ${when(h.placed_at)} by ${esc(h.placed_by)}${h.case_ref ? ', case ' + esc(h.case_ref) : ''}
+            <span class="text-slate-400">${esc(h.reason)}</span></div>`).join('');
+        const evs = (s.erasure_events || []).map(e => `<div class="text-[11px] font-mono text-slate-500 mt-1">
+            ${when(e.at)} &middot; ${esc(e.outcome)} &middot; ${esc(e.who)} &middot; ${esc(e.operation)}</div>`).join('');
+        return `<div class="card p-6"><h2 class="text-xs font-black text-slate-700 uppercase tracking-widest mb-4">Erasure and holds</h2>${rows}${holds}${evs ? '<div class="mt-4">' + evs + '</div>' : ''}</div>`;
+    }
+
+    function recordCard(r) {
+        const erased = r.status === 'ERASED';
+        const c = r.counts || {};
+        const events = (r.events || []).map(eventRow).join('');
+        return `<div class="card">
+            <div class="p-5 flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <div class="font-mono text-[12px] font-bold text-slate-800 break-all">${esc(r.reference_key)}</div>
+                    <div class="text-[10px] text-slate-500 font-bold uppercase tracking-tighter mt-1">${esc(r.flavor)} &middot; ${esc(r.entity_code)}</div>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        <span class="badge ${erased ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${erased ? 'Erased ' + day(r.erased_at) : 'Held'}</span>
+                        ${!erased && r.retain_until ? `<span class="badge bg-amber-100 text-amber-700">Retained until ${day(r.retain_until)}</span>` : ''}
+                    </div>
+                </div>
+                <div class="text-[11px] text-slate-500 space-y-1 text-right">
+                    <div>Stored ${when(r.created_at)}</div>
+                    <div>Last access ${when(r.last_access)}</div>
+                    <div class="font-bold text-slate-700">${esc(c.store || 0)} store &middot; ${esc(c.fetch || 0)} fetch &middot; ${esc(c.search || 0)} search &middot; ${esc(c.erase || 0)} erase</div>
+                    ${erased ? '' : `<button data-ref="${esc(r.reference_key)}" onclick="recordCertificate(this.dataset.ref)" class="mt-1 text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline">Record-only certificate</button>`}
+                </div>
+            </div>
+            <details class="border-t border-slate-100">
+                <summary class="px-5 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest cursor-pointer select-none">Lifecycle (${esc(c.total || 0)} events)</summary>
+                <div class="px-6 pb-4 pt-2">
+                    ${r.events_truncated ? '<p class="text-[10px] text-amber-700 font-bold mb-3">Showing the latest events. The certificate covers all of them.</p>' : ''}
+                    ${events ? '<div class="tl">' + events + '</div>' : '<p class="text-xs text-slate-400 italic">No events recorded.</p>'}
+                    ${!erased && r.sha256 ? `<p class="text-[10px] font-mono text-slate-400 break-all mt-2">SHA-256 ${esc(r.sha256)}</p>` : ''}
+                </div>
+            </details>
+        </div>`;
+    }
+
+    function eventRow(e) {
+        const st = KIND_STYLE[e.kind] || KIND_STYLE.OTHER;
+        const bad = e.outcome !== 'SUCCESS';
+        return `<div style="--dot:${bad ? '#f59e0b' : st.dot}">
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="badge ${st.badge}">${esc(e.kind)}</span>
+                <span class="text-[10px] font-black uppercase ${bad ? 'text-amber-600' : 'text-green-600'}">${esc(e.outcome)}</span>
+                <span class="text-[11px] font-mono text-slate-500">${when(e.at)}</span>
+            </div>
+            <div class="text-[11px] text-slate-600 mt-1">${esc(e.who)}${e.via === 'PRINCIPAL_ERASURE' ? ' <span class="text-slate-400">(erased with the principal)</span>' : ''}
+                ${e.reason ? '<span class="text-amber-700"> &middot; ' + esc(e.reason) + '</span>' : ''}</div>
+            <div class="text-[10px] font-mono text-slate-400">${e.chain_seq != null ? 'audit seq ' + esc(e.chain_seq) + ' &middot; ' : ''}${esc(e.machine_id || '')} ${esc(e.ip || '')}</div>
+        </div>`;
+    }
+
+    // ---- certificates -------------------------------------------------------------------
+
+    async function saveBlob(res, filename) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }
+
+    async function downloadCertificate() {
+        if (!current) return;
+        try {
+            const res = await post(Object.assign({ _func: 'generate_principal_certificate' }, current));
+            if (!res.ok) { alert('Custody certificate cannot be generated.\n\n' + await errorText(res)); return; }
+            await saveBlob(res, 'BSA_Custody_' + (current.principal_id || current.reference_key).replace(/[^A-Za-z0-9._-]/g, '_') + '.pdf');
         } catch (err) {
-            console.error("Certificate generation error:", err);
-            alert("Error connecting to legal service.");
+            alert('Error connecting to legal service: ' + err.message);
+        }
+    }
+
+    async function recordCertificate(ref) {
+        try {
+            const res = await post({ _func: 'generate_entity_bsa_certificate', referenceKey: ref });
+            if (!res.ok) { alert('Evidence cannot be generated for this record.\n\n' + await errorText(res)); return; }
+            await saveBlob(res, 'BSA_Cert_' + ref + '.pdf');
+        } catch (err) {
+            alert('Error connecting to legal service: ' + err.message);
         }
     }
 

@@ -81,7 +81,7 @@
         <a href="audit.html" class="nav-link">Audit</a>
         <a href="legal.html" class="nav-link">Legal</a>
         <a href="erasure.html" class="nav-link">Erasure</a>
-        <a href="keyanchor.html" class="nav-link">Key Anchor</a>
+        <a href="settings.html" class="nav-link">Settings</a>
     </nav>
 
     <div class="p-6 border-t border-slate-800">
@@ -120,30 +120,13 @@
             </div>
         </div>
 
-        <div class="card mb-8" id="file-storage-card">
-            <div class="p-6 border-b border-slate-100 flex justify-between items-center">
-                <h2 class="font-black text-slate-800 uppercase tracking-tighter">File Storage</h2>
-                <span class="text-[10px] font-black uppercase tracking-widest flex items-center gap-2" id="fs-health">
-                    <span class="status-dot bg-slate-300"></span> Checking
-                </span>
-            </div>
-            <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="card mb-8 border-red-200 bg-red-50" id="file-storage-card" style="display:none">
+            <div class="p-6 flex justify-between items-center">
                 <div>
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Active Backend</p>
-                    <h3 class="text-xl font-black text-slate-900" id="fs-backend">...</h3>
-                    <p class="text-[11px] text-slate-500 mt-1" id="fs-hint"></p>
+                    <h2 class="font-black text-red-700 uppercase tracking-tighter">File Storage Unavailable</h2>
+                    <p class="text-[11px] text-red-600 mt-1">The data plane is returning 503 until the store recovers. <span id="fs-hint"></span></p>
                 </div>
-                <div>
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Location</p>
-                    <p class="text-sm font-mono text-slate-700 break-all" id="fs-location">...</p>
-                </div>
-                <div>
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Files By Backend</p>
-                    <div class="text-sm text-slate-700" id="fs-counts">...</div>
-                </div>
-            </div>
-            <div class="px-6 pb-6 text-[11px] text-slate-400">
-                Read-only. Set with <code>TSI_PRIVACY_VAULT_FILE_STORE</code> in <code>.env</code> and restart. It applies to files stored from then on. Existing files stay where they are.
+                <a href="settings.html#file-storage" class="text-[10px] font-black text-red-700 uppercase tracking-widest hover:underline">Settings &rarr;</a>
             </div>
         </div>
 
@@ -226,56 +209,16 @@
         }
     }
 
-    const BACKEND_LABELS = {
-        DATABASE: 'PostgreSQL',
-        AWS_S3: 'AWS S3',
-        S3_COMPATIBLE: 'S3-compatible'
-    };
-
     function esc(v) {
         return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
 
+    // Shown only when the file store is unhealthy. Configuration and counts are under Settings.
     function renderFileStorage(fs) {
         const card = document.getElementById('file-storage-card');
-        if (!fs) { card.style.display = 'none'; return; }
+        if (!fs || fs.healthy) { card.style.display = 'none'; return; }
         card.style.display = '';
-
-        const label = BACKEND_LABELS[fs.backend] || fs.backend;
-        document.getElementById('fs-backend').textContent = label;
-        document.getElementById('fs-hint').textContent =
-            fs.backend === 'DATABASE' ? 'Encrypted files are kept in the vault database.' : 'Only encrypted bytes are written to the bucket.';
-
-        let location = 'vault database';
-        if (fs.backend !== 'DATABASE') {
-            const parts = [];
-            if (fs.bucket) parts.push('bucket ' + fs.bucket);
-            if (fs.prefix) parts.push('prefix ' + fs.prefix);
-            if (fs.region) parts.push('region ' + fs.region);
-            if (fs.endpoint_host) parts.push('endpoint ' + fs.endpoint_host);
-            location = parts.length ? parts.join(' / ') : 'not configured';
-        }
-        document.getElementById('fs-location').textContent = location;
-
-        const health = document.getElementById('fs-health');
-        if (fs.healthy) {
-            health.innerHTML = '<span class="status-dot bg-green-500"></span><span class="text-green-700">Healthy</span>';
-        } else {
-            health.innerHTML = '<span class="status-dot bg-red-500"></span><span class="text-red-600">Unavailable: data plane is returning 503</span>';
-        }
-        if (!fs.healthy && fs.health_error) {
-            document.getElementById('fs-hint').textContent = fs.health_error;
-        }
-
-        const counts = document.getElementById('fs-counts');
-        if (fs.files_by_backend == null) {
-            counts.innerHTML = '<span class="text-slate-400 italic">' + esc(fs.counts_error || 'Unavailable') + '</span>';
-        } else {
-            const entries = Object.entries(fs.files_by_backend);
-            counts.innerHTML = entries.length === 0
-                ? '<span class="text-slate-400 italic">No files stored yet</span>'
-                : entries.map(([b, n]) => '<div><span class="font-bold">' + Number(n).toLocaleString() + '</span> <span class="text-slate-500">' + esc(BACKEND_LABELS[b] || b) + '</span></div>').join('');
-        }
+        document.getElementById('fs-hint').textContent = fs.health_error || '';
     }
 
     function renderErasure(er) {

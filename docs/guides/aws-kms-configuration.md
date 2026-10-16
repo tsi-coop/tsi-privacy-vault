@@ -18,7 +18,7 @@ Manual verification steps for this whole flow are in
   an account-admin identity (root user or an IAM admin role) - not the
   vault's own runtime credentials, which stay least-privilege (see step 3).
 - Admin credentials for the vault console - steps 6-7 are done on the
-  **Key Anchor** page (`keyanchor.html`) in the admin console.
+  **Settings** page (`settings.html`, **Key Anchor** tab) in the admin console.
 
 ## 2. Create the KMS key
 
@@ -138,7 +138,7 @@ the vault is ready. Activation switches the wrapping anchor for **new**
 writes immediately; existing records stay readable under the old version
 until step 7 re-wraps them.
 
-Log in to the admin console and open the **Key Anchor** page:
+Log in to the admin console and open **Settings** and the **Key Anchor** tab:
 
 1. **Configured Anchor** should already read `AWS_KMS` (from step 5), while
    the **Key Ring** table still shows version 1 as `LOCAL` / `ACTIVE` - that
@@ -157,7 +157,7 @@ Troubleshooting (step 10) - nothing has been changed in the key ring.
 
 ## 7. Migrate existing records (re-wrap)
 
-Still on the **Key Anchor** page, use the **Rewrap Data Keys** card. This
+Still on the **Key Anchor** tab, use the **Rewrap Data Keys** card. This
 re-wraps only the ~48-byte wrapped data key per row - payload ciphertext is
 untouched, so it's cheap and safely resumable:
 
@@ -205,7 +205,7 @@ The vault now has no local root key material; the AWS CMK is the sole anchor.
 |---|---|
 | `TSI_PRIVACY_VAULT_AWS_KMS_KEY_ID is not set` | Variable missing in `.env` or not passed by compose; recreate the container after editing. |
 | `Anchor AWS_KMS failed verification` on activate | Wrong region, bad key ARN, key disabled/pending deletion, or missing IAM permissions. Check CloudTrail for the denied call. |
-| Data plane returns 503 `Vault key anchor unavailable` | Boot health check failed (KMS unreachable, credentials expired). Fix the cause, then click **Refresh** on the Key Anchor page - it re-runs the check and reopens the data plane without a restart. |
+| Data plane returns 503 `Vault key anchor unavailable` | Boot health check failed (KMS unreachable, credentials expired). Fix the cause, then click **Refresh** on the Settings > Key Anchor tab - it re-runs the check and reopens the data plane without a restart. |
 | `AccessDeniedException` in logs | IAM policy not attached, or missing `kms:Encrypt` during re-wrap (step 3). |
 | `AccessDeniedException ... not authorized to perform: kms:CreateKey` | The signed-in identity is the vault's least-privilege runtime user, not an account admin. Use an account-admin identity in the console for step 2, then attach the step 3 policy to the runtime identity. |
 | `MalformedPolicyDocumentException: Policy contains a statement with no principal` on `CreateKey` | The step 3 IAM policy was pasted into the key's policy field during step 2. Key policies require a `Principal` per statement; accept the default key policy in step 2 and attach the step 3 policy to the runtime identity separately. |

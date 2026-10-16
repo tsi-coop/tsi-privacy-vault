@@ -53,7 +53,7 @@ public class Vault implements Action {
                     handleFetch(input, apiKey, clientIp, userAgent, res);
                     break;
                 case "search_data":
-                    handleSearch(input, apiKey, res);
+                    handleSearch(input, apiKey, clientIp, userAgent, res);
                     break;
                 case "shred_principal":
                     handleShredPrincipal(input, apiKey, clientIp, userAgent, res);
@@ -70,7 +70,10 @@ public class Vault implements Action {
         }
     }
 
-    private void handleSearch(JSONObject input, String apiKey, HttpServletResponse res) throws Exception {
+    /** Upper bound of SEARCH events written for one search, so a broad term cannot flood the audit log. */
+    private static final int MAX_SEARCH_EVENTS = 100;
+
+    private void handleSearch(JSONObject input, String apiKey, String ip, String ua, HttpServletResponse res) throws Exception {
         String searchTerm = (String) input.get("searchTerm");
         if (searchTerm == null || searchTerm.trim().isEmpty()) {
             OutputProcessor.sendError(res, 400, "Missing search term.");
@@ -100,6 +103,7 @@ public class Vault implements Action {
             rs = ps.executeQuery();
 
             JSONArray results = new JSONArray();
+            List<Object[]> hits = new ArrayList<>();
             while (rs.next()) {
                 String entityCode = rs.getString("entity_code");
                 // 3. Filter results based on API Key authorization
@@ -108,7 +112,15 @@ public class Vault implements Action {
                     match.put("reference_key", rs.getString("entity_ref"));
                     match.put("flavor", rs.getString("flavor"));
                     results.add(match);
+                    hits.add(new Object[]{rs.getString("entity_ref"), rs.getString("flavor"), entityCode});
                 }
+            }
+            // Custody trail: one SEARCH event per record that matched and was returned to the caller.
+            // The search term is never logged (it is personal data); the matched record is.
+            for (int i = 0; i < hits.size() && i < MAX_SEARCH_EVENTS; i++) {
+                Object[] h = hits.get(i);
+                logVaultEvent(conn, apiKey, "SEARCH", h[1] + ":" + h[2] + ":" + h[0], ip, ua, "SUCCESS",
+                        UUID.fromString((String) h[0]), null);
             }
 
             JSONObject out = new JSONObject();

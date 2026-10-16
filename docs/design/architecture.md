@@ -185,7 +185,7 @@ AWS at all to use the vault.
 |---|---|---|
 | Root key | `TSI_PRIVACY_VAULT_MASTER_KEY` env var (SHA-256 normalized, held in process memory) | AWS KMS Customer Managed Key, never leaves AWS |
 | Best for | Local evaluation, air-gapped and on-prem deployments | Production deployments wanting cloud HSM custody, automatic rotation and CloudTrail audit logging |
-| Setup | Works out of the box via `.env` | One-time: create the CMK, attach a least-privilege IAM policy, activate the anchor and re-wrap existing records from the Key Anchor page |
+| Setup | Works out of the box via `.env` | One-time: create the CMK, attach a least-privilege IAM policy, activate the anchor and re-wrap existing records from the Settings > Key Anchor tab |
 
 Payload ciphertext is always decrypted locally either way. AWS only ever sees a
 wrapped data key of about 48 bytes, never your data.
@@ -215,7 +215,7 @@ Rules:
 ### Switching anchors
 
 1. Configure the new anchor (for AWS KMS: region, key ARN, IAM policy).
-2. Activate it from the Key Anchor page (`activate_key_anchor`). The vault
+2. Activate it from the Settings > Key Anchor tab (`activate_key_anchor`). The vault
    first performs a `GenerateDataKey` plus `Decrypt` round trip, and only then
    creates the new ACTIVE version and demotes the old one to `DECRYPT_ONLY`.
 3. Run the re-wrap job (`rewrap_data_keys`) in batches until nothing is
@@ -239,7 +239,7 @@ Activation and re-wrap are separate because activating a new anchor only
 affects new writes. Existing records keep pointing at the old key version until
 you migrate them. Re-wrap does that in batches, resumable, while the vault stays
 online, and retires the old version when nothing references it. It runs from
-the Key Anchor page (**Rewrap Data Keys**, **Run Batch**) or through the
+the Settings > Key Anchor tab (**Rewrap Data Keys**, **Run Batch**) or through the
 `rewrap_data_keys` admin API call.
 
 ### AWS KMS specifics
@@ -280,7 +280,7 @@ At startup, `KmsProviderFactory.healthCheck()` loads the key ring and runs a
 - On failure the data plane stays closed (no degraded read-only mode) and the
   failure is written to `event_log` as `KMS_HEALTH_CHECK` with outcome `ERROR`.
 - Admin login and status stay reachable. After fixing the cause, **Refresh** on
-  the Key Anchor page re-runs the check and reopens the data plane without a
+  the Settings > Key Anchor tab re-runs the check and reopens the data plane without a
   restart.
 
 If `TSI_PRIVACY_VAULT_KMS_PROVIDER` differs from the ACTIVE ring anchor, the
