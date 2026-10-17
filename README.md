@@ -24,7 +24,7 @@ In short: a smaller breach surface, a clean answer to DPDPA erasure requests, an
 
 ## Functional Walkthrough
 
-See the vault working end to end before you install it: defining entities, storing, searching and erasing data, and reviewing the audit trail.
+Defining entities, storing, searching and erasing data, and reviewing the audit trail.
 
 [Watch the functional walkthrough](https://youtu.be/tiOwUc3VyWE)
 
