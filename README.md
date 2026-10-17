@@ -66,17 +66,18 @@ The tour is a hands-on walk through the vault, with no code to write.
 New here? Start with [Guides: where to start](docs/guides/README.md). It explains the
 terms and gives the reading order. In short:
 
-| Step | I want to... | Go to |
+| Stage | I want to... | Go to |
 |---|---|---|
-| 1. Configure | Define what the vault holds and who may use it | [Entities, API keys and permissions](docs/guides/entity-management.md) |
-| 1. Configure | Keep credentials and certificates in the vault | [Utilities guide](docs/guides/utilities-management.md) |
-| 2. Integrate | Call the vault from my application | [API integration guide](docs/guides/api-integration.md) |
-| 2. Integrate | Run scripts that exercise store, fetch, search and erasure | [Examples](examples/README.md) |
-| 3. Operate | Handle a data erasure request, and set retention | [Erasure management guide](docs/guides/erasure-management.md) |
-| 3. Operate | Restrict admin roles, and verify the audit log is untampered | [Audit and access control guide](docs/guides/audit-and-access-control.md) |
-| 4. Production | Hold the root key in AWS KMS | [AWS KMS configuration guide](docs/guides/aws-kms-configuration.md) |
-| 4. Production | Keep files in AWS S3 | [AWS S3 configuration guide](docs/guides/aws-s3-configuration.md) |
-| Reference | Understand how it works and where it is going | [Architecture and roadmap](docs/design/architecture.md) |
+| **1. Install** | Start the vault and create the administrator | [Quick Start](#quick-start) |
+| **2. Configure** | Define what the vault holds and who may use it | [Entities, API keys and permissions](docs/guides/entity-management.md) |
+| | Keep credentials and certificates in the vault | [Utilities guide](docs/guides/utilities-management.md) |
+| **3. Integrate** | Call the vault from my application | [API integration guide](docs/guides/api-integration.md) |
+| | Run scripts that exercise store, fetch, search and erasure | [Examples](examples/README.md) |
+| **4. Operate** | Handle a data erasure request, and set retention | [Erasure management guide](docs/guides/erasure-management.md) |
+| | Restrict admin roles, and verify the audit log is untampered | [Audit and access control guide](docs/guides/audit-and-access-control.md) |
+| **5. Production** | Hold the root key in AWS KMS | [AWS KMS configuration guide](docs/guides/aws-kms-configuration.md) |
+| | Keep files in AWS S3 | [AWS S3 configuration guide](docs/guides/aws-s3-configuration.md) |
+| **Reference** | Understand how it works and where it is going | [Architecture and roadmap](docs/design/architecture.md) |
 
 The architecture document has the two diagrams that explain most of it:
 [envelope encryption](docs/design/images/envelope-encryption-diagram.png) and
