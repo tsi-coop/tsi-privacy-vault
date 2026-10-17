@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.0 (unreleased)
+## v0.3.0
 
 Three themes: files can live in object storage, a data principal's records can be
 erased, and the audit log can prove it has not been altered. Admin write access is
