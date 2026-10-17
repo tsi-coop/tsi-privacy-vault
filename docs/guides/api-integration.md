@@ -1,9 +1,13 @@
-# API Integration Guide: Store, Fetch and Search
+# API Integration Guide: Store, Fetch, Search and Erase
 
 How an application talks to the vault's data plane. It covers the three calls you
-build a product on (`store_data`, `fetch_data`, `search_data`), the rules the vault
+build a product on (`store_data`, `fetch_data`, `search_data`), how to erase a person
+(`shred_principal`), the rules the vault
 enforces on them, and the errors you must handle. Request and response shapes here
 match what the server does today.
+
+Read [Entities, API Keys and Permissions](entity-management.md) first: you need an entity
+and a key with a grant before any call here works. Next: [Erasure Management](erasure-management.md).
 
 Related guides:
 [Erasure Management](erasure-management.md) for `principal_id`, the policy hold and erasure,
@@ -40,7 +44,7 @@ curl -s -X POST "$BASE_URL/api/client/vault" \
 ```
 
 - Create keys and grant per-entity read and write on the **API Keys** page of the admin
-  console. The secret is shown once.
+  console, as described in [Entities, API Keys and Permissions](entity-management.md#6-create-an-api-key-for-each-application). The secret is shown once.
 - Send the secret from a server, never from a browser or mobile app. The tour pages
   put it in a browser only because they are a demo.
 - Only `POST` is accepted. Any other method returns `405`.
@@ -77,7 +81,8 @@ source of truth, and the vault enforces it on every store.
 
 If the `entityType` you send does not match the entity's flavour, the store is
 rejected. Treat the entity definition as part of your contract and keep both sides
-in step.
+in step. How to define entities, create keys and grant access is in the
+[Entities, API Keys and Permissions guide](entity-management.md). Do that first.
 
 ## 4. Store
 
@@ -266,7 +271,90 @@ Hashes are salted with `TSI_PRIVACY_VAULT_INDEX_SECRET`. **Do not change it** on
 records exist, or every existing record stops matching until it is re-stored. Back it up
 with the rest of the vault's secrets.
 
-## 7. Error format
+## 7. Erase a person
+
+When a person asks for their data to be erased, your backend can do it with the same key
+and secret it uses to store and fetch. Two calls cover it: `shred_principal` erases, and
+`get_erasure_certificate` gives you the evidence. Both rely on the `principal_id` you sent
+with each `store_data` call (section 4). Records stored without one cannot be erased this
+way. The concepts, policy holds and the admin side are in
+[Erasure Management](erasure-management.md).
+
+### Request the erasure
+
+```bash
+curl -s -X POST "$BASE_URL/api/client/vault" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $API_KEY" -H "X-API-Secret: $API_SECRET" \
+  -d '{"_func":"shred_principal","principal_id":"cust-8841","confirm":"cust-8841"}'
+```
+
+| Field | Required | Meaning |
+|---|---|---|
+| `principal_id` | yes | The opaque ID you stored the person's records under |
+| `confirm` | yes | Must repeat `principal_id` exactly. A mismatch returns `400` and touches nothing |
+
+Response:
+
+```json
+{
+  "success": true,
+  "principal_id": "cust-8841",
+  "state": "PARTIAL",
+  "records_destroyed": 4,
+  "records_retained": 2,
+  "next_due": "2031-03-31T00:00:00Z"
+}
+```
+
+| `state` | Meaning |
+|---|---|
+| `SHREDDED` | Everything is destroyed. Nothing is retained |
+| `PARTIAL` | Some records are inside a policy hold and stay readable until `next_due`. They are destroyed automatically after that |
+| `SHREDDING` | The destruction job is still running. Call again, or check the certificate |
+
+Erasure is **irreversible**. The wrapped keys are destroyed, so the records cannot come
+back, including files kept in S3. The call is idempotent, so it is safe to repeat on a
+`SHREDDING` or `PARTIAL` principal. It re-evaluates the policy hold and finishes what is left.
+
+### Get the certificate
+
+```bash
+curl -s -X POST "$BASE_URL/api/client/vault" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $API_KEY" -H "X-API-Secret: $API_SECRET" \
+  -d '{"_func":"get_erasure_certificate","principal_id":"cust-8841"}'
+```
+
+The response lists what was `destroyed` and what is `retained` (with `retain_until`), by
+`reference_key` and entity code only, never by value. The full shape is in
+[Erasure Management](erasure-management.md#53-check-the-result). Keep it as evidence for
+the requester or a regulator.
+
+### Access and errors
+
+- **Write access needed to erase.** The key needs **write** on every entity type that holds
+  a record of the person, or the request returns `403` and nothing is touched. The
+  certificate needs **read** on the same types. Give write on erasable entities only to the
+  key that handles erasure requests.
+- **Audit.** The call is logged as `ERASURE_SHRED:<principal>` by `VAULT:<api key id>`. A
+  refusal for missing write access is logged as `DENIED`.
+
+| Status | Meaning |
+|---|---|
+| `400` | `principal_id` missing, or `confirm` does not match it |
+| `403` | The key lacks write access (or read, for the certificate) on an entity type the person has records in |
+| `404` | No records are linked to this `principal_id`. Also returned for a certificate with no erasure request |
+| `409` | An open legal hold blocks the erasure. Nothing was changed |
+| `503` | Retry with backoff, as for other calls |
+
+### What happens afterwards
+
+Fetching an erased record returns `410`, search no longer matches it, and `store_data` for
+the same `principal_id` returns `409`. Remove your own references to the person's
+`reference_key` values once the certificate shows them destroyed.
+
+## 8. Error format
 
 Errors from the vault return JSON with the HTTP status:
 
@@ -285,7 +373,7 @@ request that fails schema validation returns `400` with the validator's message 
 | `500` | No, until you have looked at it |
 | `503` | Yes, with exponential backoff and a cap. The vault fails closed by design when its key anchor or file store is down |
 
-## 8. A minimal client
+## 9. A minimal client
 
 Python, using only the standard library plus `requests`:
 
@@ -334,7 +422,7 @@ The same three calls from the shell are in
 [`examples/scripts/store-fetch/test-store-fetch.sh`](../../examples/scripts/store-fetch/test-store-fetch.sh)
 and [`examples/scripts/search/test-blind-index-search.sh`](../../examples/scripts/search/test-blind-index-search.sh).
 
-## 9. Integration checklist
+## 10. Integration checklist
 
 - [ ] Secrets stay on the server. Calls come from your backend, over TLS.
 - [ ] You store `reference_key` and not the personal value, and your ledgers and logs
@@ -344,16 +432,19 @@ and [`examples/scripts/search/test-blind-index-search.sh`](../../examples/script
       to erase them later.
 - [ ] `410` removes the reference on your side. `503` retries with backoff.
 - [ ] Your retry logic cannot create duplicates silently on a timed-out store.
+- [ ] Your erasure handler checks identity first, sends `shred_principal` with a matching
+      `confirm`, treats `409` (legal hold) as a refusal to relay, and stores the certificate.
+- [ ] The key that handles erasure is separate and has write access to the erasable entities.
 - [ ] You tested size limits, a rejected file type and a regex failure for each entity.
 - [ ] You treat a `403` on store as either a missing grant or a wrong entity code.
 - [ ] The index secret and the vault's other secrets are backed up.
 
-## 10. Related operations
+## 11. Related operations
 
 These share the endpoint but are covered in their own guides:
 
 | Operation | Where |
 |---|---|
-| `get_authorized_utilities`, `resolve_utility` | [Utility Client tour](../../web/tour/util-client.html) |
-| `shred_principal`, `get_erasure_certificate` | [Erasure Management](erasure-management.md#55-erase-from-a-client-application) |
+| `get_authorized_utilities`, `resolve_utility` | [Utilities guide](utilities-management.md) and the [Utility Client tour](../../web/tour/util-client.html) |
+| `shred_principal`, `get_erasure_certificate` | [Section 7](#7-erase-a-person) here, and [Erasure Management](erasure-management.md#55-erase-from-a-client-application) |
 | Single-record shred, legal holds, register (admin API) | [Erasure Management](erasure-management.md) |

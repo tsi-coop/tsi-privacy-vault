@@ -237,7 +237,7 @@ public class Vault implements Action {
         UUID utilityRef = null;
 
         // SQL joins permissions and vault_utilities to verify access and fetch the secret
-        String sql = "SELECT u.utility_ref,u.payload, u.encrypted_key, u.flavor, u.key_version, u.payload_cipher " +
+        String sql = "SELECT u.utility_ref,u.payload, u.encrypted_key, u.flavor, u.key_version, u.payload_cipher, u.machine_id " +
                      "FROM permissions p " +
                      "JOIN vault_utilities u ON p.resource_id = u.label " +
                      "WHERE p.api_key = ? AND u.label = ? " +
@@ -251,13 +251,21 @@ public class Vault implements Action {
             rs = ps.executeQuery();
 
             if (rs.next()) {
+                utilityRef = (UUID) rs.getObject("utility_ref");
+
+                // Hardware anchor validation, the same rule as the admin checkout
+                if (!ForensicEngine.getMachineIdentifier().equals(rs.getString("machine_id"))) {
+                    logVaultEvent(conn, apiKey, "RESOLVE", utilityId, ip, ua, "DENIED", null, utilityRef);
+                    OutputProcessor.sendError(res, 403, "Hardware anchor mismatch.");
+                    return;
+                }
+
                 String encryptedPayload = rs.getString("payload");
                 String encryptedKey = rs.getString("encrypted_key");
                 int keyVersion = rs.getInt("key_version");
                 String payloadCipher = rs.getString("payload_cipher");
 
                 String resolvedValue = decryptUtilityPayload(encryptedKey, encryptedPayload, keyVersion, payloadCipher);
-                utilityRef = (UUID) rs.getObject("utility_ref");
 
                 JSONObject output = new JSONObject();
                 output.put("success", true);

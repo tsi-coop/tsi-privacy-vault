@@ -46,14 +46,14 @@ TSI_PRIVACY_VAULT_KMS_PROVIDER=LOCAL
 #AWS_SECRET_ACCESS_KEY=
 
 # --- File Storage (docs/design/architecture.md, Storage backends) ---
-# Where new FILE records are stored: DATABASE (default) | AWS_S3 | S3_COMPATIBLE
+# Where new FILE records are stored: DATABASE (default) | AWS_S3
 # Only ciphertext is ever written to the object store. Existing records stay where they are.
 # Apply db/02_file_storage.sql to existing databases before enabling an object store.
 TSI_PRIVACY_VAULT_FILE_STORE=DATABASE
 #TSI_PRIVACY_VAULT_S3_BUCKET=my-vault-files
 #TSI_PRIVACY_VAULT_S3_REGION=ap-south-1
-# S3_COMPATIBLE only (MinIO, Ceph RGW). HTTPS required.
-#TSI_PRIVACY_VAULT_S3_ENDPOINT=https://minio.internal:9000
+# Optional custom endpoint (advanced, e.g. AWS VPC endpoint). HTTPS required.
+#TSI_PRIVACY_VAULT_S3_ENDPOINT=
 # Optional key prefix so one bucket can serve several vaults
 #TSI_PRIVACY_VAULT_S3_PREFIX=vault-prod/
 # Credentials resolve via the AWS default chain (IAM role preferred).

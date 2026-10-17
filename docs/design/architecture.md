@@ -5,9 +5,12 @@ without being decrypted, how the root key anchor is managed, and where the key
 management design is heading. It is the single reference for design and
 roadmap. Operational runbooks live alongside it:
 
+- [README.md](../guides/README.md): where to start, the terms, and the reading order of the guides.
+- [entity-management.md](../guides/entity-management.md): defining entities, creating API keys and granting permissions.
 - [api-integration.md](../guides/api-integration.md): integrating applications with store, fetch and search.
 - [aws-kms-configuration.md](../guides/aws-kms-configuration.md): step-by-step AWS KMS setup.
-- [aws-s3-configuration.md](../guides/aws-s3-configuration.md): step-by-step S3 and S3-compatible file storage setup.
+- [aws-s3-configuration.md](../guides/aws-s3-configuration.md): step-by-step AWS S3 file storage setup.
+- [utilities-management.md](../guides/utilities-management.md): keeping credentials and certificates in the vault, and resolving them from an application.
 - [erasure-management.md](../guides/erasure-management.md): operating erasure by principal, from the policy hold to the certificate.
 - [tests/test-cases.md](../../tests/test-cases.md): functional test cases for the key management flows.
 - [tests/README.md](../../tests/README.md): JMeter load test for the data plane.

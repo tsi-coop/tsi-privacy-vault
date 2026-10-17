@@ -1,5 +1,7 @@
 # Erasure Management Guide
 
+> Before this: [Entities, API Keys and Permissions](entity-management.md) and [API Integration](api-integration.md), because erasure works on records you stored with a `principal_id`. Next: [Audit and Access Control](audit-and-access-control.md). All guides: [where to start](README.md).
+
 How to run erasure by principal: set a policy hold, link records to a person,
 handle an erasure request, and prove what was destroyed and what was kept. The design
 and its limits are in
@@ -66,7 +68,7 @@ Once a principal has any register entry, **new records for it are rejected** wit
 
 ## 3. Set a policy hold
 
-Open **Entities** in the admin console, create or edit an entity, and fill **Policy hold
+Open **Entities** in the admin console (see [Entities, API Keys and Permissions](entity-management.md#3-create-an-entity)), create or edit an entity, and fill **Policy hold
 in days**. Leave it empty for no hold.
 
 | Choice | Stored as | Effect |

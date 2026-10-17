@@ -104,7 +104,8 @@ public class Utility implements Action {
             ps.setString(8, payloadCipher);
             ps.executeUpdate();
 
-           
+            audit(who, "UTILITY_ENROLL:" + label, ip, ua, "SUCCESS", null, utilityId);
+
             JSONObject out = new JSONObject();
             out.put("utility_id", utilityId.toString());
             OutputProcessor.send(res, HttpServletResponse.SC_OK, out);
@@ -123,8 +124,9 @@ public class Utility implements Action {
         PoolDB pool = new PoolDB();
         try {
             conn = pool.getConnection();
-            ps = conn.prepareStatement("SELECT payload, encrypted_key, machine_id, key_version, payload_cipher FROM vault_utilities WHERE utility_ref = ? AND active = TRUE");
-            ps.setObject(1, UUID.fromString(utilityId));
+            ps = conn.prepareStatement("SELECT label, payload, encrypted_key, machine_id, key_version, payload_cipher FROM vault_utilities WHERE utility_ref = ? AND active = TRUE");
+            UUID utilityRef = UUID.fromString(utilityId);
+            ps.setObject(1, utilityRef);
             rs = ps.executeQuery();
 
             if (rs.next()) {
@@ -132,9 +134,11 @@ public class Utility implements Action {
                 String encryptedKey = rs.getString("encrypted_key");
                 String storedMachineId = rs.getString("machine_id");
                 String currentMachineId = ForensicEngine.getMachineIdentifier();
+                String label = rs.getString("label");
 
                 // Hardware Anchor Validation
                 if (!storedMachineId.equals(currentMachineId)) {
+                    audit(who, "UTILITY_CHECKOUT:" + label, ip, ua, "DENIED", "hardware anchor mismatch", utilityRef);
                     OutputProcessor.sendError(res, HttpServletResponse.SC_FORBIDDEN, "Hardware anchor mismatch.");
                     return;
                 }
@@ -150,10 +154,13 @@ public class Utility implements Action {
                 byte[] encryptedBlob = Base64.getDecoder().decode(encryptedPayload);
                 byte[] cleartextBytes = kms.aesDecrypt(encryptedBlob, plaintextKey, payloadCipher);
                 String cleartext = new String(cleartextBytes, "UTF-8");
-      
+
+                // Logged before the secret leaves the process
+                audit(who, "UTILITY_CHECKOUT:" + label, ip, ua, "SUCCESS", null, utilityRef);
                 res.setContentType("text/plain");
                 res.getWriter().write(cleartext);
             } else {
+                audit(who, "UTILITY_CHECKOUT:" + utilityId, ip, ua, "ERROR", "utility not found", null);
                 OutputProcessor.sendError(res, HttpServletResponse.SC_NOT_FOUND, "Utility not found.");
             }
         } finally {
@@ -187,6 +194,7 @@ public class Utility implements Action {
     private void handleRotate(JSONObject input, String who, String ip, String ua, HttpServletResponse res) throws Exception {
         String utilityId = (String) input.get("utility_id");
         String newPayload = (String) input.get("payload");
+        if (utilityId == null || newPayload == null) throw new Exception("utility_id and payload are required.");
         String machineId = ForensicEngine.getMachineIdentifier();
 
         // 1. Generate New Data Key via the active key anchor
@@ -206,18 +214,60 @@ public class Utility implements Action {
         PoolDB pool = new PoolDB();
         try {
             conn = pool.getConnection();
-            ps = conn.prepareStatement("UPDATE vault_utilities SET payload = ?, encrypted_key = ?, machine_id = ?, key_version = ?, payload_cipher = ? WHERE utility_ref = ?");
+            ps = conn.prepareStatement("UPDATE vault_utilities SET payload = ?, encrypted_key = ?, machine_id = ?, key_version = ?, payload_cipher = ? WHERE utility_ref = ? RETURNING label");
             ps.setString(1, encryptedPayload);
             ps.setString(2, encryptedKey);
             ps.setString(3, machineId);
             ps.setInt(4, keyVersion);
             ps.setString(5, payloadCipher);
-            ps.setObject(6, UUID.fromString(utilityId));
-            ps.executeUpdate();
+            UUID utilityRef = UUID.fromString(utilityId);
+            ps.setObject(6, utilityRef);
+            ResultSet rs = ps.executeQuery();
+            try {
+                if (!rs.next()) {
+                    audit(who, "UTILITY_ROTATE:" + utilityId, ip, ua, "ERROR", "utility not found", null);
+                    OutputProcessor.sendError(res, HttpServletResponse.SC_NOT_FOUND, "Utility not found.");
+                    return;
+                }
+                audit(who, "UTILITY_ROTATE:" + rs.getString("label"), ip, ua, "SUCCESS", null, utilityRef);
+            } finally {
+                rs.close();
+            }
 
             OutputProcessor.send(res, HttpServletResponse.SC_OK, new JSONObject());
         } finally {
             pool.cleanup(null, ps, conn);
+        }
+    }
+
+    /**
+     * Writes an admin utility event to event_log, in the same chained log as the client RESOLVE events.
+     * Never throws: an audit failure is reported on stderr and does not change the response.
+     */
+    private void audit(String who, String operation, String ip, String ua, String outcome, String reason, UUID utilityRef) {
+        Connection conn = null;
+        PreparedStatement ps = null;
+        PoolDB pool = null;
+        try {
+            pool = new PoolDB();
+            conn = pool.getConnection();
+            ps = conn.prepareStatement("INSERT INTO event_log (who, operation_type, client_ip, user_agent, machine_id, outcome, failure_reason, utility_ref, log_datetime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            ps.setString(1, "ADMIN:" + (who == null ? "UNKNOWN" : who));
+            ps.setString(2, operation);
+            ps.setString(3, ip == null ? "127.0.0.1" : ip);
+            ps.setString(4, ua);
+            ps.setString(5, ForensicEngine.getMachineIdentifier());
+            ps.setString(6, outcome);
+            ps.setString(7, reason);
+            ps.setObject(8, utilityRef);
+            ps.setTimestamp(9, Timestamp.valueOf(LocalDateTime.now()));
+            ps.executeUpdate();
+        } catch (Exception e) {
+            System.err.println("CRITICAL: Utility audit logging failed: " + e.getMessage());
+        } finally {
+            if (pool != null) {
+                try { pool.cleanup(null, ps, conn); } catch (Exception ignored) { }
+            }
         }
     }
   

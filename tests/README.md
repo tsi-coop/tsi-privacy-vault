@@ -13,7 +13,6 @@ containers.
 |---|---|
 | [`test-cases.md`](test-cases.md) | Functional test cases for key management: LOCAL and AWS KMS anchors, activation, re-wrap, fail-closed behavior. Run by hand against a throwaway instance. |
 | [`load-testing-plan.md`](load-testing-plan.md) | Methodology, endpoint mapping, sizing and thresholds for load testing. Read this before a real run. |
-| `runners/run-minio-contract.sh` | JUnit contract test for the `FileStore` interface, run against a throwaway MinIO container over TLS. Needs docker, openssl, keytool, curl and mvn. Source in `java/`. |
 | `java/.../CustodyServicePostgresTest` | Custody lifecycle and certificate data (grouping by record and kind, reference-key fallback, erased records, chain verification and refusal when broken). Run with `TEST_CLASS=CustodyServicePostgresTest tests/runners/run-erasure-tests.sh`. |
 | `runners/run-audit-chain-tests.sh` | JUnit tests of the audit hash chain (edited, deleted and forged rows, append-only guard, concurrent writers). Same setup as the erasure runner. |
 | `runners/run-erasure-tests.sh` | JUnit tests of the erasure service (shred, policy hold, legal holds, resumability, external object cleanup) against a throwaway PostgreSQL with `db/*.sql` applied. Needs docker and mvn. |

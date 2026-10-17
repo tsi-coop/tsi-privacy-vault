@@ -1,7 +1,8 @@
 # AWS S3 Configuration Guide
 
-How to store `FILE` records in AWS S3, or in an S3-compatible object store such as
-MinIO or Ceph, instead of PostgreSQL. This is the storage backend described in
+> Before this: you have a working integration, and have defined a `FILE` entity ([Entities](entity-management.md)). This is a production step, and files are kept in PostgreSQL without it. All guides: [where to start](README.md).
+
+How to store `FILE` records in AWS S3 instead of PostgreSQL. This is the storage backend described in
 [Storage backends](../design/architecture.md#storage-backends-next-pluggable-file-storage).
 Payload encryption is unchanged: files are encrypted inside the vault process with
 their own data key, and only the ciphertext is uploaded. A bucket breach, a wrong
@@ -19,8 +20,7 @@ Only the `FILE` flavour moves. `ID` and `DATA` values stay in PostgreSQL.
   psql -U tsi_admin -d tsi_privacy_vault -f db/02_file_storage.sql
   ```
   If you also use erasure by principal, apply `db/03_erasure.sql` as well.
-- An AWS account and permission to create buckets and IAM policies, or an
-  S3-compatible service reachable over HTTPS.
+- An AWS account and permission to create buckets and IAM policies.
 - Decide the region first. A bucket in another region or jurisdiction changes where
   personal data physically sits. It must match your data residency commitments.
 
@@ -29,10 +29,14 @@ Only the `FILE` flavour moves. `ID` and `DATA` values stay in PostgreSQL.
 In the AWS Console, using an account-admin identity:
 
 1. Go to **S3 -> Create bucket**. Pick the region from step 1.
+   Enter a **Bucket name**. Bucket names are globally unique across all of AWS, so
+   `my-vault-files` will usually be taken. Use something specific to you, for
+   example `acme-vault-files-prod`. **Write down the exact bucket name and region.**
+   You will use them in steps 3 and 5.
 2. Leave **Block all public access** on.
 3. Turn on **Bucket Versioning**. The database backup no longer restores external
    files by itself, so versioning (or cross-region replication) is what lets you
-   recover them. See [Backup and recovery](#9-backup-recovery-and-erasure).
+   recover them. See [Backup and recovery](#8-backup-recovery-and-erasure).
 4. Under **Default encryption**, choose SSE-S3 or SSE-KMS. This is defense in depth.
    The vault's own encryption is what protects the data.
 5. Optional: use one bucket for several vaults and separate them with the key
@@ -40,8 +44,26 @@ In the AWS Console, using an account-admin identity:
 
 ## 3. Minimal IAM policy
 
-The vault needs object read, write and delete on the one bucket (or prefix), and
-`s3:ListBucket` on the bucket itself:
+> **Where this goes.** This is an *identity-based* policy. Create it under
+> **IAM -> Policies -> Create policy -> JSON**, then attach it to the role or user the
+> vault runs as (step 4). Do **not** paste it into the bucket's **Permissions ->
+> Bucket policy** editor. That editor requires a `Principal` field and fails with
+> `Missing required field Principal`.
+
+### 3.1 Replace the placeholders
+
+The policy below contains three placeholders in `<ANGLE_BRACKETS>`. Replace all of
+them, including the brackets, before saving.
+
+| Placeholder | Replace with | Example |
+|---|---|---|
+| `<YOUR_BUCKET_NAME>` | The exact bucket name from step 2 | `acme-vault-files-prod` |
+| `<YOUR_PREFIX>` | The key prefix, or remove the `/<YOUR_PREFIX>` part if you use none | `vault-prod` |
+
+The prefix must match `TSI_PRIVACY_VAULT_S3_PREFIX` in step 5. If you set no prefix,
+use `arn:aws:s3:::<YOUR_BUCKET_NAME>/*` for the first resource.
+
+### 3.2 The policy
 
 ```json
 {
@@ -55,17 +77,28 @@ The vault needs object read, write and delete on the one bucket (or prefix), and
         "s3:GetObject",
         "s3:DeleteObject"
       ],
-      "Resource": "arn:aws:s3:::my-vault-files/vault-prod/*"
+      "Resource": "arn:aws:s3:::<YOUR_BUCKET_NAME>/<YOUR_PREFIX>/*"
     },
     {
       "Sid": "TsiPrivacyVaultBucket",
       "Effect": "Allow",
       "Action": "s3:ListBucket",
-      "Resource": "arn:aws:s3:::my-vault-files"
+      "Resource": "arn:aws:s3:::<YOUR_BUCKET_NAME>"
     }
   ]
 }
 ```
+
+With the example values above, the two `Resource` lines become:
+
+```
+"Resource": "arn:aws:s3:::acme-vault-files-prod/vault-prod/*"
+"Resource": "arn:aws:s3:::acme-vault-files-prod"
+```
+
+Name the policy `tsi-privacy-vault-s3` and create it.
+
+### 3.3 What each permission does
 
 - `PutObject` stores a file on every upload.
 - `GetObject` reads a file on fetch.
@@ -78,8 +111,10 @@ The vault needs object read, write and delete on the one bucket (or prefix), and
   `s3:prefix` condition to it, because `HeadBucket` carries no prefix and would be
   refused.
 
-Replace `my-vault-files` and `vault-prod/` with your bucket and prefix. Leave the
-prefix out of the resource if you do not set one.
+### 3.4 Attach it
+
+Attach the policy to the identity from step 4 (instance role, task role, IRSA role
+or dedicated IAM user).
 
 ## 4. Credentials
 
@@ -101,15 +136,18 @@ same identity can hold both policies. See the
 
 ## 5. Configure the vault
 
-Edit `.env` (template in `.example`):
+Edit `.env` (template in `.example`). Use the same bucket name, region and prefix as
+in steps 2 and 3, and do not leave the `<...>` placeholders or the `# e.g.` comments on
+the value lines:
 
 ```bash
 TSI_PRIVACY_VAULT_FILE_STORE=AWS_S3
-TSI_PRIVACY_VAULT_S3_BUCKET=my-vault-files
-TSI_PRIVACY_VAULT_S3_REGION=ap-south-1
+TSI_PRIVACY_VAULT_S3_BUCKET=<YOUR_BUCKET_NAME>     # e.g. acme-vault-files-prod
+TSI_PRIVACY_VAULT_S3_REGION=<YOUR_BUCKET_REGION>   # e.g. ap-south-1
 
 # Optional: lets one bucket serve several vaults. A trailing slash is added if missing.
-#TSI_PRIVACY_VAULT_S3_PREFIX=vault-prod/
+# Must match <YOUR_PREFIX> in the IAM policy (step 3).
+#TSI_PRIVACY_VAULT_S3_PREFIX=<YOUR_PREFIX>/        # e.g. vault-prod/
 
 # Static credentials only if no IAM role is available (see step 4)
 #AWS_ACCESS_KEY_ID=...
@@ -118,11 +156,11 @@ TSI_PRIVACY_VAULT_S3_REGION=ap-south-1
 
 | Variable | Meaning |
 |---|---|
-| `TSI_PRIVACY_VAULT_FILE_STORE` | `DATABASE` (default), `AWS_S3` or `S3_COMPATIBLE` |
-| `TSI_PRIVACY_VAULT_S3_BUCKET` | Target bucket. Required for both S3 backends |
-| `TSI_PRIVACY_VAULT_S3_REGION` | Bucket region. Required for both S3 backends |
+| `TSI_PRIVACY_VAULT_FILE_STORE` | `DATABASE` (default) or `AWS_S3` |
+| `TSI_PRIVACY_VAULT_S3_BUCKET` | Target bucket. Required |
+| `TSI_PRIVACY_VAULT_S3_REGION` | Bucket region. Required |
 | `TSI_PRIVACY_VAULT_S3_PREFIX` | Optional key prefix |
-| `TSI_PRIVACY_VAULT_S3_ENDPOINT` | Custom endpoint. Required for `S3_COMPATIBLE`. HTTPS only |
+| `TSI_PRIVACY_VAULT_S3_ENDPOINT` | Optional custom endpoint, for example an AWS VPC endpoint. HTTPS only. Leave unset normally |
 
 Apply the configuration:
 
@@ -163,35 +201,7 @@ sudo docker compose up -d --force-recreate jetty_app
   every 30 seconds, so it recovers on its own once the bucket is back. A bucket
   outage mid run fails only the records stored there.
 
-## 8. S3-compatible stores (MinIO, Ceph, on-prem)
-
-For an on-prem object store, set the selector to `S3_COMPATIBLE` and give it an
-endpoint:
-
-```bash
-TSI_PRIVACY_VAULT_FILE_STORE=S3_COMPATIBLE
-TSI_PRIVACY_VAULT_S3_ENDPOINT=https://minio.internal:9000
-TSI_PRIVACY_VAULT_S3_BUCKET=vault-files
-TSI_PRIVACY_VAULT_S3_REGION=us-east-1
-AWS_ACCESS_KEY_ID=...
-AWS_SECRET_ACCESS_KEY=...
-```
-
-- The endpoint **must be HTTPS**. An `http://` endpoint, even on a private network,
-  fails the file store health check, so the data plane returns 503.
-- With an endpoint set, the vault uses path-style addressing
-  (`https://host/bucket/key`), which most on-prem stores expect.
-- Create the bucket and an access key yourself. The vault never creates buckets.
-- Use `us-east-1` as the region if your store does not care about it. The value must
-  still be set.
-- A private CA or a self-signed certificate must be trusted by the vault's JVM. Add
-  it to the Java truststore of the container, or mount a truststore and start the
-  JVM with `-Djavax.net.ssl.trustStore=<path>`.
-
-`AWS_S3` also accepts `TSI_PRIVACY_VAULT_S3_ENDPOINT`, for example for a VPC endpoint
-or LocalStack.
-
-## 9. Backup, recovery and erasure
+## 8. Backup, recovery and erasure
 
 - **Two systems now.** A database backup alone no longer restores external files. Pair
   it with bucket versioning or replication, and keep them on a comparable schedule.
@@ -206,7 +216,7 @@ or LocalStack.
 - **Residency.** Replication or a bucket in another region moves personal data across
   that boundary. Check it against your commitments before turning either on.
 
-## 10. Switching back to the database
+## 9. Switching back to the database
 
 Set `TSI_PRIVACY_VAULT_FILE_STORE=DATABASE` and restart. New files go to PostgreSQL.
 Files already in S3 keep reading from the bucket, so **keep the S3 settings in
@@ -214,22 +224,15 @@ Files already in S3 keep reading from the bucket, so **keep the S3 settings in
 **Files By Backend** count shows when that is true. Moving existing files between
 backends is not built yet.
 
-## 11. Troubleshooting
+## 10. Troubleshooting
 
 | Symptom | Likely cause |
 |---|---|
 | `503 Vault file store unavailable: ... is not set` | `TSI_PRIVACY_VAULT_S3_BUCKET` or `_S3_REGION` is missing |
 | `503 ...: TSI_PRIVACY_VAULT_S3_ENDPOINT must use https` | Endpoint starts with `http://`. Use HTTPS |
-| `503 ...: TSI_PRIVACY_VAULT_S3_ENDPOINT is required for S3_COMPATIBLE` | Selector is `S3_COMPATIBLE` with no endpoint |
 | Health check fails with `NoSuchBucket` (404) | Wrong bucket name, or the bucket is in another account |
 | Health check fails with `403` | The identity lacks `s3:ListBucket` on the bucket, or the bucket policy denies it |
 | Health check fails with a redirect or region error | `TSI_PRIVACY_VAULT_S3_REGION` does not match the bucket's region |
 | Store returns `503 File storage backend unavailable` | `PutObject` was refused or the bucket is unreachable. Check the IAM policy and the application log |
 | Fetch returns `500 ... failed its integrity check` | The object is missing or was modified. Check bucket versioning, lifecycle rules and whether the database was restored without the bucket |
-| `PKIX path building failed` in the log | The store's certificate is not trusted by the JVM. See step 8 |
 | Files still read from the database after the change | Expected. Only files stored after the change go to S3 |
-
-## 12. Testing
-
-`tests/runners/run-minio-contract.sh` runs the backend contract tests against a
-throwaway MinIO container over TLS. See [tests/README.md](../../tests/README.md).

@@ -15,7 +15,7 @@ If you have ever had to answer "where does this person's data live?", "who has r
 - **Three kinds of data.** IDs (PAN, Aadhaar, Voter ID), personal data (names, addresses, records) and sensitive files (contracts, X-rays).
 - **Search without decrypting.** Find a record by a name, a word or an identifier through a blind index. The vault never opens the data to look.
 - **Erasure on request.** Erase everything about one person in a single request, while the records you are legally required to keep stay readable.
-- **Your choice of storage.** Keep encrypted files in the database, or in AWS S3 or an S3-compatible store such as MinIO.
+- **Your choice of storage.** Keep encrypted files in the database, or in AWS S3.
 - **Your choice of key custody.** Keep the root key in your own environment, or in a managed AWS KMS key.
 - **Court-ready evidence.** Every request is anchored to a user and a device, giving you an audit trail you can stand behind under BSA Section 63.
 - **A utilities repository** for API keys, service credentials and certificates.
@@ -63,17 +63,20 @@ The tour is a hands-on walk through the vault, with no code to write.
 
 ## Developer Guides
 
-Pick what you want to do next.
+New here? Start with [Guides: where to start](docs/guides/README.md). It explains the
+terms and gives the reading order. In short:
 
-| I want to... | Go to |
-|---|---|
-| Call the vault from my application | [API integration guide](docs/guides/api-integration.md) |
-| Run scripts that exercise store, fetch, search and erasure | [Examples](examples/README.md) |
-| Restrict admin roles, and verify the audit log is untampered | [Audit and access control guide](docs/guides/audit-and-access-control.md) |
-| Handle a data erasure request, and set retention | [Erasure management guide](docs/guides/erasure-management.md) |
-| Keep files in S3 or MinIO | [AWS S3 configuration guide](docs/guides/aws-s3-configuration.md) |
-| Hold the root key in AWS KMS | [AWS KMS configuration guide](docs/guides/aws-kms-configuration.md) |
-| Understand how it works and where it is going | [Architecture and roadmap](docs/design/architecture.md) |
+| Step | I want to... | Go to |
+|---|---|---|
+| 1. Configure | Define what the vault holds and who may use it | [Entities, API keys and permissions](docs/guides/entity-management.md) |
+| 1. Configure | Keep credentials and certificates in the vault | [Utilities guide](docs/guides/utilities-management.md) |
+| 2. Integrate | Call the vault from my application | [API integration guide](docs/guides/api-integration.md) |
+| 2. Integrate | Run scripts that exercise store, fetch, search and erasure | [Examples](examples/README.md) |
+| 3. Operate | Handle a data erasure request, and set retention | [Erasure management guide](docs/guides/erasure-management.md) |
+| 3. Operate | Restrict admin roles, and verify the audit log is untampered | [Audit and access control guide](docs/guides/audit-and-access-control.md) |
+| 4. Production | Hold the root key in AWS KMS | [AWS KMS configuration guide](docs/guides/aws-kms-configuration.md) |
+| 4. Production | Keep files in AWS S3 | [AWS S3 configuration guide](docs/guides/aws-s3-configuration.md) |
+| Reference | Understand how it works and where it is going | [Architecture and roadmap](docs/design/architecture.md) |
 
 The architecture document has the two diagrams that explain most of it:
 [envelope encryption](docs/design/images/envelope-encryption-diagram.png) and

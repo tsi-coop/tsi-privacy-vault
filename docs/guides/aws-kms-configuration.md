@@ -1,5 +1,7 @@
 # AWS KMS Configuration Guide
 
+> Before this: you have a working integration (see [where to start](README.md)). This is a production step, and the vault works without it on the `LOCAL` anchor. Next: [AWS S3 Configuration](aws-s3-configuration.md).
+
 How to anchor the TSI Privacy Vault to an AWS KMS Customer Managed Key (CMK),
 per Phase 1 of [the key management roadmap](../design/architecture.md#7-roadmap). After this setup, every
 record's data key is wrapped by AWS KMS instead of the local Master Key, while

@@ -1,5 +1,7 @@
 # Audit and Access Control Guide
 
+> Before this: [Erasure Management](erasure-management.md). Next: [AWS KMS Configuration](aws-kms-configuration.md) when you move to production. All guides: [where to start](README.md).
+
 How admin roles limit what a console user can change, and how to prove the audit log
 has not been altered. The design is described in
 [Forensic evidence](../design/architecture.md#6-forensic-evidence) and
