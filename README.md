@@ -47,20 +47,6 @@ You need Docker and a terminal.
 4. Open <http://localhost:8081/init.html>, enter the setup token and create your administrator account.
 5. Open the interactive tour at <http://localhost:8081/tour> and follow the guided journey.
 
-Prefer to watch first? The [installation walkthrough](https://youtu.be/8zBjy5XQH-I) covers these steps.
-
-## Video Tour
-
-The tour is a hands-on walk through the vault, with no code to write.
-
-| Step | You will | Video |
-|---|---|---|
-| Environment setup | Create the administrator, then define entities and utilities | [Watch](https://youtu.be/Pbkf7gzgNas) |
-| Data client | Store, retrieve and search IDs, data and files | [Watch](https://youtu.be/jvI_LD-pSfQ) |
-| Utility client | Fetch authorized keys and certificates | [Watch](https://youtu.be/HBa32fdSJ60) |
-| API tour | See every request and response | |
-| Court-ready evidence | Review the audit trail and evidence | [Watch](https://youtu.be/oRfr3wVTWnw) |
-
 ## Developer Guides
 
 New here? Start with [Guides: where to start](docs/guides/README.md). It explains the
